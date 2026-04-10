@@ -3,12 +3,15 @@ import type { Db } from "../db/client.js";
 import type { Config } from "../config.js";
 import { createApiKeyAuth } from "../middleware/auth.js";
 import { createTxService } from "../services/tx.service.js";
-import { payRequestSchema } from "@lobsterpay/shared";
+import { createSwapService } from "../services/swap.service.js";
+import { createX402Service } from "../services/x402.service.js";
+import { payRequestSchema, swapRequestSchema, x402RequestSchema } from "@lobsterpay/shared";
 import { PublicKey } from "@solana/web3.js";
 
 export function agentRoutes(app: FastifyInstance, db: Db, config: Config) {
   const auth = createApiKeyAuth(db);
   const txService = createTxService(db, config);
+  const swapService = createSwapService(db, config);
 
   // GET /v1/agent/vault
   app.get("/v1/agent/vault", { preHandler: auth }, async (request) => {
@@ -138,17 +141,123 @@ export function agentRoutes(app: FastifyInstance, db: Db, config: Config) {
   });
 
   // POST /v1/agent/quotes/swap
-  app.post("/v1/agent/quotes/swap", { preHandler: auth }, async (_request, reply) => {
-    return reply.status(501).send({ message: "Swap quotes not implemented yet (Phase 3)" });
+  app.post("/v1/agent/quotes/swap", { preHandler: auth }, async (request, reply) => {
+    const vaultId = (request as any).vaultId;
+    const apiKey = (request as any).apiKeyRecord;
+    const body = request.body as Record<string, unknown>;
+
+    const fromMint = body.fromMint as string;
+    const toMint = body.toMint as string;
+    const amountAtomic = body.amountAtomic as string;
+    const maxSlippageBps = (body.maxSlippageBps as number) || 100;
+
+    if (!fromMint || !toMint || !amountAtomic) {
+      return reply.status(400).send({ code: "invalid_request", message: "fromMint, toMint, and amountAtomic are required" });
+    }
+
+    try {
+      const quote = await swapService.getQuote({
+        fromMint,
+        toMint,
+        amountAtomic,
+        maxSlippageBps,
+        vaultId,
+        apiKeyId: apiKey.id,
+      });
+
+      return {
+        fromMint: quote.fromMint,
+        toMint: quote.toMint,
+        amountIn: quote.amountIn,
+        expectedOut: quote.expectedOut,
+        minOut: quote.minOut,
+        priceImpactPct: quote.priceImpactPct,
+        maxSlippageBps: quote.maxSlippageBps,
+        expiresAt: quote.expiresAt,
+        routeSummary: quote.routeSummary,
+      };
+    } catch (err: any) {
+      return reply.status(502).send({ code: "swap_quote_error", message: err.message });
+    }
   });
 
   // POST /v1/agent/actions/swap
-  app.post("/v1/agent/actions/swap", { preHandler: auth }, async (_request, reply) => {
-    return reply.status(501).send({ message: "Swap action not implemented yet (Phase 3)" });
+  app.post("/v1/agent/actions/swap", { preHandler: auth }, async (request, reply) => {
+    const vaultId = (request as any).vaultId;
+    const apiKey = (request as any).apiKeyRecord;
+    const parsed = swapRequestSchema.safeParse(request.body);
+
+    if (!parsed.success) {
+      return reply.status(400).send({ code: "invalid_request", message: parsed.error.message });
+    }
+
+    const { fromMint, toMint, amountAtomic, maxSlippageBps, idempotencyKey } = parsed.data;
+
+    // Load vault PDA
+    const [vault] = await db`SELECT vault_pda FROM vaults WHERE id = ${vaultId}`;
+    if (!vault) {
+      return reply.status(500).send({ code: "internal_error", message: "Vault not found" });
+    }
+
+    try {
+      const result = await swapService.executeSwap({
+        fromMint,
+        toMint,
+        amountAtomic,
+        maxSlippageBps,
+        idempotencyKey,
+        vaultId,
+        apiKeyId: apiKey.id,
+        vaultPda: vault.vault_pda,
+      });
+
+      if (result.status === "failed" && result.error) {
+        const isRejection = [
+          "Vault is paused",
+          "Swap action not allowed",
+          "Amount exceeds per-tx limit",
+          "Amount exceeds daily limit",
+        ].includes(result.error);
+
+        if (isRejection) {
+          return reply.status(403).send(result);
+        }
+      }
+
+      return result;
+    } catch (err: any) {
+      return reply.status(500).send({ code: "swap_error", message: err.message });
+    }
   });
 
   // POST /v1/agent/actions/x402
-  app.post("/v1/agent/actions/x402", { preHandler: auth }, async (_request, reply) => {
-    return reply.status(501).send({ message: "x402 action not implemented yet (Phase 4)" });
+  app.post("/v1/agent/actions/x402", { preHandler: auth }, async (request, reply) => {
+    const vaultId = (request as any).vaultId;
+    const apiKey = (request as any).apiKeyRecord;
+    const parsed = x402RequestSchema.safeParse(request.body);
+
+    if (!parsed.success) {
+      return reply.status(400).send({ code: "invalid_request", message: parsed.error.message });
+    }
+
+    const { paymentRequirements, originalRequestUrl, idempotencyKey } = parsed.data;
+
+    const [vault] = await db`SELECT vault_pda FROM vaults WHERE id = ${vaultId}`;
+
+    const x402Service = createX402Service(db, config);
+    const result = await x402Service.processX402Payment({
+      paymentRequirements,
+      originalRequestUrl,
+      idempotencyKey,
+      vaultId,
+      apiKeyId: apiKey.id,
+      vaultPda: vault.vault_pda,
+    });
+
+    if (result.error) {
+      return reply.status(result.status === "duplicate" ? 409 : 403).send(result);
+    }
+
+    return result;
   });
 }
