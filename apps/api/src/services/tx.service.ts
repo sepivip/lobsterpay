@@ -98,7 +98,7 @@ export function createTxService(db: Db, config: Config) {
           ${params.idempotencyKey}, ${JSON.stringify(params.requestJson)},
           ${params.decision}, ${params.rejectionReason || null},
           ${params.txSignature || null}, ${params.txStatus || 'created'},
-          ${params.amountAtomic ? BigInt(params.amountAtomic) : null},
+          ${params.amountAtomic ? params.amountAtomic : null},
           ${params.mint || null}
         )
         ON CONFLICT (vault_id, idempotency_key) DO NOTHING
@@ -130,12 +130,13 @@ export function createTxService(db: Db, config: Config) {
       windowStart.setUTCHours(0, 0, 0, 0);
 
       // Upsert usage window
+      const amountStr = amountAtomic.toString();
       await db`
         INSERT INTO usage_windows (vault_id, api_key_id, window_start, amount_spent_atomic, request_count)
-        VALUES (${vaultId}, ${apiKeyId}, ${windowStart}, ${amountAtomic}, 1)
+        VALUES (${vaultId}, ${apiKeyId}, ${windowStart}, ${amountStr}, 1)
         ON CONFLICT (vault_id, api_key_id, window_start)
         DO UPDATE SET
-          amount_spent_atomic = usage_windows.amount_spent_atomic + ${amountAtomic},
+          amount_spent_atomic = usage_windows.amount_spent_atomic + ${amountStr},
           request_count = usage_windows.request_count + 1,
           updated_at = NOW()
       `;
@@ -145,14 +146,16 @@ export function createTxService(db: Db, config: Config) {
       const windowStart = new Date();
       windowStart.setUTCHours(0, 0, 0, 0);
 
+      const amountStr = amountAtomic.toString();
+
       // Atomic: upsert the window and check limit in one statement
       const rows = await db`
         WITH upserted AS (
           INSERT INTO usage_windows (vault_id, api_key_id, window_start, amount_spent_atomic, request_count)
-          VALUES (${vaultId}, ${apiKeyId}, ${windowStart}, ${amountAtomic}, 1)
+          VALUES (${vaultId}, ${apiKeyId}, ${windowStart}, ${amountStr}, 1)
           ON CONFLICT (vault_id, api_key_id, window_start)
           DO UPDATE SET
-            amount_spent_atomic = usage_windows.amount_spent_atomic + ${amountAtomic},
+            amount_spent_atomic = usage_windows.amount_spent_atomic + ${amountStr},
             request_count = usage_windows.request_count + 1,
             updated_at = NOW()
           RETURNING amount_spent_atomic
@@ -166,7 +169,7 @@ export function createTxService(db: Db, config: Config) {
       if (dailyLimit > 0n && newTotal > dailyLimit) {
         await db`
           UPDATE usage_windows
-          SET amount_spent_atomic = amount_spent_atomic - ${amountAtomic},
+          SET amount_spent_atomic = amount_spent_atomic - ${amountStr},
               request_count = request_count - 1,
               updated_at = NOW()
           WHERE vault_id = ${vaultId} AND api_key_id = ${apiKeyId} AND window_start = ${windowStart}
@@ -181,9 +184,10 @@ export function createTxService(db: Db, config: Config) {
       const windowStart = new Date();
       windowStart.setUTCHours(0, 0, 0, 0);
 
+      const amountStr = amountAtomic.toString();
       await db`
         UPDATE usage_windows
-        SET amount_spent_atomic = GREATEST(amount_spent_atomic - ${amountAtomic}, 0),
+        SET amount_spent_atomic = GREATEST(amount_spent_atomic - ${amountStr}, 0),
             request_count = GREATEST(request_count - 1, 0),
             updated_at = NOW()
         WHERE vault_id = ${vaultId} AND api_key_id = ${apiKeyId} AND window_start = ${windowStart}

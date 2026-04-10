@@ -84,7 +84,8 @@ export const envSchema = z.object({
   API_PORT: z.coerce.number().default(3001),
   API_HOST: z.string().default("0.0.0.0"),
   LOG_LEVEL: z.string().default("info"),
-  FEE_PAYER_SECRET_KEY: z.string(),
+  FEE_PAYER_SECRET_KEY: z.string().optional(),
+  ALLOWED_ORIGIN: z.string().optional(),
 });
 
 // Inferred types

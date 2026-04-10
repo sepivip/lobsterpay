@@ -31,8 +31,8 @@ export function createApiKeyService(db: Db) {
           'active',
           ${params.expiresAt || null},
           ${params.allowedActionsOverride ?? null},
-          ${params.perTxOverride ? BigInt(params.perTxOverride) : null},
-          ${params.dailyLimitOverride ? BigInt(params.dailyLimitOverride) : null}
+          ${params.perTxOverride ?? null},
+          ${params.dailyLimitOverride ?? null}
         )
         RETURNING id, vault_id, label, prefix, status, expires_at, allowed_actions_override, per_tx_override, daily_limit_override, created_at
       `;

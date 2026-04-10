@@ -221,7 +221,7 @@ export function agentRoutes(app: FastifyInstance, db: Db, config: Config) {
       app.log.error({ err, requestId: req.id, vaultId }, "Pay transaction failed");
       await txService.logActivity(vaultId, "payment", {
         requestId: req.id, mint, amountAtomic, error: err.message,
-      }, null, req.id);
+      }, undefined, req.id);
 
       return reply.status(500).send({
         requestId: req.id,

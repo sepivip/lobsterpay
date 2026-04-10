@@ -16,7 +16,9 @@ async function main() {
     },
   });
 
-  await app.register(cors, { origin: true });
+  await app.register(cors, {
+    origin: config.ALLOWED_ORIGIN ? config.ALLOWED_ORIGIN.split(",") : true,
+  });
 
   // Health check
   app.get("/health", async () => ({ status: "ok" }));
