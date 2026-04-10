@@ -21,8 +21,8 @@ async function main() {
   app.get("/health", async () => ({ status: "ok" }));
 
   // Register routes
-  vaultRoutes(app, db);
-  agentRoutes(app, db);
+  vaultRoutes(app, db, config);
+  agentRoutes(app, db, config);
 
   await app.listen({ port: config.API_PORT, host: config.API_HOST });
   console.log(`LobsterPay API running on ${config.API_HOST}:${config.API_PORT}`);

@@ -3,7 +3,10 @@
 import { Nav } from "@/components/nav";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useState, useCallback } from "react";
+import { useVault } from "@/hooks/useVault";
+import { api } from "@/lib/api";
+import toast from "react-hot-toast";
 
 function StatCard({
 	label,
@@ -93,14 +96,54 @@ function ProgressBar({ spent, limit }: { spent: number; limit: number }) {
 export default function DashboardPage() {
 	const { connected, publicKey } = useWallet();
 	const router = useRouter();
+	const { vault, loading, error, refresh, createVault } = useVault();
+	const [recentActivity, setRecentActivity] = useState<any[]>([]);
 
 	useEffect(() => {
 		if (!connected) router.push("/");
 	}, [connected, router]);
 
+	// Fetch recent activity when vault is available
+	useEffect(() => {
+		if (vault?.id) {
+			api.listActivity(vault.id).then((res) => {
+				setRecentActivity(res.items.slice(0, 5));
+			}).catch(() => {});
+		}
+	}, [vault?.id]);
+
 	if (!connected || !publicKey) return null;
 
 	const truncatedKey = `${publicKey.toString().slice(0, 4)}...${publicKey.toString().slice(-4)}`;
+
+	const handleCreateVault = async () => {
+		try {
+			await createVault();
+			toast.success("Vault created successfully");
+		} catch {
+			toast.error(error || "Failed to create vault");
+		}
+	};
+
+	const vaultStatus = vault
+		? vault.paused
+			? "paused"
+			: "active"
+		: "none";
+
+	const vaultStatusLabel = vault
+		? vault.paused
+			? "Paused"
+			: "Active"
+		: "No vault";
+
+	const vaultPda = vault?.vaultPda
+		? `${vault.vaultPda.slice(0, 4)}...${vault.vaultPda.slice(-4)}`
+		: null;
+
+	const dailySpent = vault?.policy?.dailySpent ?? 0;
+	const dailyLimit = vault?.policy?.dailyLimitUsdc ?? 0;
+	const activeKeys = vault?.activeKeyCount ?? 0;
 
 	return (
 		<div style={{ minHeight: "100vh", background: "var(--bg-deep)" }}>
@@ -120,97 +163,154 @@ export default function DashboardPage() {
 						<h2 className="text-heading" style={{ marginBottom: 4 }}>
 							Dashboard
 						</h2>
-						<span className="label-mono">{truncatedKey}</span>
-					</div>
-					<button className="btn btn-primary">Create Vault</button>
-				</div>
-
-				{/* Stats grid */}
-				<div
-					style={{
-						display: "grid",
-						gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
-						gap: 12,
-						marginBottom: 24,
-					}}
-				>
-					<StatCard
-						label="Vault Status"
-						value="No vault"
-						status="none"
-						delay={1}
-					/>
-					<StatCard
-						label="USDC Balance"
-						value="—"
-						suffix="USDC"
-						delay={2}
-					/>
-					<StatCard
-						label="Active API Keys"
-						value="0"
-						suffix="keys"
-						delay={3}
-					/>
-				</div>
-
-				{/* Daily spend */}
-				<div
-					className="card animate-in animate-delay-4"
-					style={{ padding: "20px 24px", marginBottom: 24 }}
-				>
-					<div
-						style={{
-							display: "flex",
-							alignItems: "center",
-							justifyContent: "space-between",
-							marginBottom: 12,
-						}}
-					>
-						<span className="label-mono">Daily Spend</span>
-						<span
-							style={{
-								fontSize: "0.8125rem",
-								color: "var(--text-tertiary)",
-								fontFamily: "var(--font-mono)",
-							}}
-						>
-							0 / 0 USDC
+						<span className="label-mono">
+							{vaultPda ? `Vault ${vaultPda}` : truncatedKey}
 						</span>
 					</div>
-					<ProgressBar spent={0} limit={0} />
+					{!vault && !loading && (
+						<button className="btn btn-primary" onClick={handleCreateVault}>
+							Create Vault
+						</button>
+					)}
 				</div>
 
-				{/* Recent activity */}
-				<div className="card animate-in animate-delay-5" style={{ overflow: "hidden" }}>
-					<div
-						style={{
-							padding: "16px 24px",
-							borderBottom: "1px solid var(--border-subtle)",
-							display: "flex",
-							alignItems: "center",
-							justifyContent: "space-between",
-						}}
-					>
-						<span className="label-mono">Recent Activity</span>
-						<button
-							className="btn btn-ghost btn-sm"
-							onClick={() => router.push("/activity")}
-						>
-							View All
-						</button>
-					</div>
-					<div
-						style={{
-							padding: "48px 24px",
-							textAlign: "center",
-						}}
-					>
+				{loading && (
+					<div style={{ textAlign: "center", padding: "48px 0" }}>
 						<p style={{ color: "var(--text-ghost)", fontSize: "0.875rem" }}>
-							No activity yet. Payments and swaps will appear here.
+							Loading...
 						</p>
 					</div>
-				</div>
+				)}
+
+				{error && !loading && (
+					<div className="card" style={{ padding: 24, marginBottom: 24 }}>
+						<p style={{ color: "var(--danger)", fontSize: "0.875rem" }}>{error}</p>
+					</div>
+				)}
+
+				{!loading && (
+					<>
+						{/* Stats grid */}
+						<div
+							style={{
+								display: "grid",
+								gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
+								gap: 12,
+								marginBottom: 24,
+							}}
+						>
+							<StatCard
+								label="Vault Status"
+								value={vaultStatusLabel}
+								status={vaultStatus}
+								delay={1}
+							/>
+							<StatCard
+								label="USDC Balance"
+								value={vault ? (vault.balanceUsdc ?? "0") : "\u2014"}
+								suffix="USDC"
+								delay={2}
+							/>
+							<StatCard
+								label="Active API Keys"
+								value={String(activeKeys)}
+								suffix="keys"
+								delay={3}
+							/>
+						</div>
+
+						{/* Daily spend */}
+						<div
+							className="card animate-in animate-delay-4"
+							style={{ padding: "20px 24px", marginBottom: 24 }}
+						>
+							<div
+								style={{
+									display: "flex",
+									alignItems: "center",
+									justifyContent: "space-between",
+									marginBottom: 12,
+								}}
+							>
+								<span className="label-mono">Daily Spend</span>
+								<span
+									style={{
+										fontSize: "0.8125rem",
+										color: "var(--text-tertiary)",
+										fontFamily: "var(--font-mono)",
+									}}
+								>
+									{dailySpent} / {dailyLimit} USDC
+								</span>
+							</div>
+							<ProgressBar spent={dailySpent} limit={dailyLimit} />
+						</div>
+
+						{/* Recent activity */}
+						<div className="card animate-in animate-delay-5" style={{ overflow: "hidden" }}>
+							<div
+								style={{
+									padding: "16px 24px",
+									borderBottom: "1px solid var(--border-subtle)",
+									display: "flex",
+									alignItems: "center",
+									justifyContent: "space-between",
+								}}
+							>
+								<span className="label-mono">Recent Activity</span>
+								<button
+									className="btn btn-ghost btn-sm"
+									onClick={() => router.push("/activity")}
+								>
+									View All
+								</button>
+							</div>
+							{recentActivity.length > 0 ? (
+								recentActivity.map((item: any, index: number) => (
+									<div
+										key={item.id}
+										style={{
+											padding: "12px 24px",
+											borderBottom:
+												index < recentActivity.length - 1
+													? "1px solid var(--border-subtle)"
+													: "none",
+											display: "flex",
+											alignItems: "center",
+											justifyContent: "space-between",
+										}}
+									>
+										<span style={{ fontSize: "0.875rem", color: "var(--text-primary)" }}>
+											{item.description || item.type}
+										</span>
+										{item.amount && (
+											<span
+												style={{
+													fontSize: "0.875rem",
+													fontFamily: "var(--font-mono)",
+													color: "var(--text-tertiary)",
+												}}
+											>
+												{item.amount} {item.mint || "USDC"}
+											</span>
+										)}
+									</div>
+								))
+							) : (
+								<div
+									style={{
+										padding: "48px 24px",
+										textAlign: "center",
+									}}
+								>
+									<p style={{ color: "var(--text-ghost)", fontSize: "0.875rem" }}>
+										No activity yet. Payments and swaps will appear here.
+									</p>
+								</div>
+							)}
+						</div>
+					</>
+				)}
 			</main>
 		</div>
 	);
