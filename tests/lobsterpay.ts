@@ -1,15 +1,27 @@
 import * as anchor from "@coral-xyz/anchor";
 import { Program } from "@coral-xyz/anchor";
 import { Lobsterpay } from "../target/types/lobsterpay";
-import { PublicKey, Keypair, SystemProgram } from "@solana/web3.js";
+import { PublicKey, Keypair, SystemProgram, LAMPORTS_PER_SOL } from "@solana/web3.js";
 import {
   TOKEN_PROGRAM_ID,
   createMint,
   createAccount,
   mintTo,
   getAccount,
+  getOrCreateAssociatedTokenAccount,
+  getAssociatedTokenAddressSync,
 } from "@solana/spl-token";
 import { assert } from "chai";
+
+// Must match constants.rs LOBSTERPAY_TREASURY
+const TREASURY_PUBKEY = new PublicKey("DvcQMhZmhZZQ1CX6FhGkyAiPr3YtNbBuLDP3QpuBRTHp");
+const SERVICE_FEE_BPS = 150n;
+const BPS_DENOMINATOR = 10_000n;
+
+function calcFee(gross: bigint): { fee: bigint; net: bigint } {
+  const fee = (gross * SERVICE_FEE_BPS) / BPS_DENOMINATOR;
+  return { fee, net: gross - fee };
+}
 
 describe("lobsterpay", () => {
   const provider = anchor.AnchorProvider.env();
@@ -22,11 +34,13 @@ describe("lobsterpay", () => {
   let vaultBump: number;
   let policyPda: PublicKey;
   let policyBump: number;
+  let feeVaultPda: PublicKey;
 
-  // Token test fixtures
+  // Token fixtures
   let mint: PublicKey;
   let vaultTokenAccount: PublicKey;
   let destinationTokenAccount: PublicKey;
+  let treasuryTokenAccount: PublicKey;
   const destinationOwner = Keypair.generate();
 
   const ACTION_SWAP_EXACT_IN = 1;
@@ -44,6 +58,18 @@ describe("lobsterpay", () => {
       [Buffer.from("policy"), vaultPda.toBuffer()],
       program.programId
     );
+    [feeVaultPda] = PublicKey.findProgramAddressSync(
+      [Buffer.from("fee_vault"), owner.publicKey.toBuffer()],
+      program.programId
+    );
+
+    // Fund the treasury account on localnet so it can own a token account
+    // (otherwise getOrCreateAssociatedTokenAccount for a non-existent owner fails)
+    const airdropSig = await provider.connection.requestAirdrop(
+      TREASURY_PUBKEY,
+      LAMPORTS_PER_SOL
+    );
+    await provider.connection.confirmTransaction(airdropSig);
   });
 
   describe("initialize_vault", () => {
@@ -65,17 +91,17 @@ describe("lobsterpay", () => {
 
       console.log("initialize_vault tx:", tx);
 
-      // Verify vault account
       const vault = await program.account.vault.fetch(vaultPda);
       assert.ok(vault.owner.equals(owner.publicKey));
       assert.ok(vault.policy.equals(policyPda));
       assert.equal(vault.bump, vaultBump);
       assert.equal(vault.version, 1);
 
-      // Verify policy account
       const policy = await program.account.policy.fetch(policyPda);
       assert.ok(policy.vault.equals(vaultPda));
       assert.ok(policy.owner.equals(owner.publicKey));
+      // Default authorized_agent should be owner
+      assert.ok(policy.authorizedAgent.equals(owner.publicKey));
       assert.equal(policy.paused, false);
       assert.ok(policy.allowedActions.eq(new anchor.BN(ACTION_ALL)));
       assert.ok(policy.maxPerTxAmountAtomic.eq(new anchor.BN(1_000_000)));
@@ -104,8 +130,80 @@ describe("lobsterpay", () => {
           .rpc();
         assert.fail("should have failed");
       } catch (err) {
-        // Expected: account already initialized
         assert.ok(err);
+      }
+    });
+  });
+
+  describe("initialize_fee_vault + deposit/withdraw", () => {
+    it("initializes the fee vault PDA", async () => {
+      await program.methods
+        .initializeFeeVault()
+        .accounts({
+          owner: owner.publicKey,
+          vault: vaultPda,
+          feeVault: feeVaultPda,
+          systemProgram: SystemProgram.programId,
+        })
+        .rpc();
+
+      const feeVault = await program.account.feeVault.fetch(feeVaultPda);
+      assert.ok(feeVault.owner.equals(owner.publicKey));
+      assert.ok(feeVault.vault.equals(vaultPda));
+    });
+
+    it("deposits SOL into the fee vault", async () => {
+      const depositAmount = new anchor.BN(10_000_000); // 0.01 SOL
+
+      const balanceBefore = await provider.connection.getBalance(feeVaultPda);
+
+      await program.methods
+        .depositFees({ amount: depositAmount })
+        .accounts({
+          owner: owner.publicKey,
+          feeVault: feeVaultPda,
+          systemProgram: SystemProgram.programId,
+        })
+        .rpc();
+
+      const balanceAfter = await provider.connection.getBalance(feeVaultPda);
+      assert.equal(balanceAfter - balanceBefore, depositAmount.toNumber());
+    });
+
+    it("withdraws SOL from the fee vault", async () => {
+      const withdrawAmount = new anchor.BN(1_000_000); // 0.001 SOL
+
+      const vaultBefore = await provider.connection.getBalance(feeVaultPda);
+
+      await program.methods
+        .withdrawFees({ amount: withdrawAmount })
+        .accounts({
+          owner: owner.publicKey,
+          feeVault: feeVaultPda,
+        })
+        .rpc();
+
+      const vaultAfter = await provider.connection.getBalance(feeVaultPda);
+      assert.equal(vaultBefore - vaultAfter, withdrawAmount.toNumber());
+    });
+
+    it("rejects withdraw that would break rent exemption", async () => {
+      // Try to withdraw everything
+      const allLamports = await provider.connection.getBalance(feeVaultPda);
+      try {
+        await program.methods
+          .withdrawFees({ amount: new anchor.BN(allLamports) })
+          .accounts({
+            owner: owner.publicKey,
+            feeVault: feeVaultPda,
+          })
+          .rpc();
+        assert.fail("should have failed");
+      } catch (err: any) {
+        assert.ok(
+          err.toString().includes("InsufficientFeeBalance") ||
+          err.toString().includes("6120")
+        );
       }
     });
   });
@@ -134,7 +232,6 @@ describe("lobsterpay", () => {
       assert.ok(policy.maxPerTxAmountAtomic.eq(new anchor.BN(2_000_000)));
       assert.ok(policy.dailyLimitAmountAtomic.eq(new anchor.BN(20_000_000)));
       assert.equal(policy.maxSlippageBps, 200);
-      // Unchanged fields
       assert.ok(policy.allowedActions.eq(new anchor.BN(ACTION_ALL)));
       assert.equal(policy.paused, false);
     });
@@ -168,7 +265,6 @@ describe("lobsterpay", () => {
     });
 
     it("updates allowed destinations list", async () => {
-      // Add destination owner to allowlist
       await program.methods
         .updatePolicy({
           paused: null,
@@ -194,7 +290,6 @@ describe("lobsterpay", () => {
 
     it("fails when non-owner tries to update", async () => {
       const nonOwner = Keypair.generate();
-      // Airdrop SOL to non-owner for signing
       const airdropSig = await provider.connection.requestAirdrop(
         nonOwner.publicKey,
         1_000_000_000
@@ -222,8 +317,11 @@ describe("lobsterpay", () => {
           .rpc();
         assert.fail("should have failed");
       } catch (err: any) {
-        // has_one constraint should fail
-        assert.ok(err.toString().includes("ConstraintHasOne") || err.toString().includes("2001") || err.toString().includes("A has one constraint"));
+        assert.ok(
+          err.toString().includes("ConstraintHasOne") ||
+          err.toString().includes("2001") ||
+          err.toString().includes("A has one constraint")
+        );
       }
     });
 
@@ -250,7 +348,10 @@ describe("lobsterpay", () => {
           .rpc();
         assert.fail("should have failed");
       } catch (err: any) {
-        assert.ok(err.toString().includes("MintAllowlistFull") || err.toString().includes("6115"));
+        assert.ok(
+          err.toString().includes("MintAllowlistFull") ||
+          err.toString().includes("6115")
+        );
       }
     });
   });
@@ -296,17 +397,14 @@ describe("lobsterpay", () => {
 
   describe("ensure_vault_token_account", () => {
     it("creates a token account for the vault", async () => {
-      // Create a mint
       mint = await createMint(
         provider.connection,
         (owner as any).payer,
         owner.publicKey,
         null,
-        6 // USDC-like decimals
+        6
       );
 
-      // Derive the ATA for the vault
-      const { PublicKey: PK } = await import("@solana/web3.js");
       const [ata] = PublicKey.findProgramAddressSync(
         [
           vaultPda.toBuffer(),
@@ -330,7 +428,6 @@ describe("lobsterpay", () => {
         })
         .rpc();
 
-      // Verify ATA exists
       const ataInfo = await getAccount(provider.connection, vaultTokenAccount);
       assert.ok(ataInfo.mint.equals(mint));
       assert.ok(ataInfo.owner.equals(vaultPda));
@@ -357,7 +454,15 @@ describe("lobsterpay", () => {
         destinationOwner.publicKey
       );
 
-      // Clear mint allowlist to allow all mints
+      // Create treasury ATA for this mint — treasury is a keypair owner
+      treasuryTokenAccount = await createAccount(
+        provider.connection,
+        (owner as any).payer,
+        mint,
+        TREASURY_PUBKEY
+      );
+
+      // Clear mint allowlist, set destination allowlist
       await program.methods
         .updatePolicy({
           paused: null,
@@ -377,37 +482,47 @@ describe("lobsterpay", () => {
         .rpc();
     });
 
-    it("executes a payment within limits", async () => {
+    it("executes a payment with 1.5% service fee", async () => {
       const requestHash = Buffer.alloc(32);
       requestHash.write("test-payment-001");
 
+      const gross = 500_000n; // 0.5 USDC
+      const { fee, net } = calcFee(gross);
+
+      const treasuryBefore = (await getAccount(provider.connection, treasuryTokenAccount)).amount;
+
       await program.methods
         .executePayExact({
-          amount: new anchor.BN(500_000), // 0.5 USDC
+          amount: new anchor.BN(gross.toString()),
           requestHash: Array.from(requestHash) as any,
         })
         .accounts({
           authority: owner.publicKey,
           vault: vaultPda,
           policy: policyPda,
+          feeVault: feeVaultPda,
           mint: mint,
           vaultTokenAccount: vaultTokenAccount,
           destinationTokenAccount: destinationTokenAccount,
+          treasuryTokenAccount: treasuryTokenAccount,
           tokenProgram: TOKEN_PROGRAM_ID,
         })
         .rpc();
 
-      // Verify destination received funds
+      // Verify destination received NET amount (not gross)
       const destInfo = await getAccount(provider.connection, destinationTokenAccount);
-      assert.equal(Number(destInfo.amount), 500_000);
+      assert.equal(destInfo.amount.toString(), net.toString(), "destination got net");
 
-      // Verify daily spend tracked
+      // Verify treasury received the fee
+      const treasuryAfter = (await getAccount(provider.connection, treasuryTokenAccount)).amount;
+      assert.equal((treasuryAfter - treasuryBefore).toString(), fee.toString(), "treasury got fee");
+
+      // Daily spend tracks GROSS
       const policy = await program.account.policy.fetch(policyPda);
-      assert.ok(policy.dailySpentAmountAtomic.eq(new anchor.BN(500_000)));
+      assert.ok(policy.dailySpentAmountAtomic.eq(new anchor.BN(gross.toString())));
     });
 
     it("fails when paused", async () => {
-      // Pause
       await program.methods
         .emergencyPause()
         .accounts({
@@ -430,18 +545,23 @@ describe("lobsterpay", () => {
             authority: owner.publicKey,
             vault: vaultPda,
             policy: policyPda,
+            feeVault: feeVaultPda,
             mint: mint,
             vaultTokenAccount: vaultTokenAccount,
             destinationTokenAccount: destinationTokenAccount,
+            treasuryTokenAccount: treasuryTokenAccount,
             tokenProgram: TOKEN_PROGRAM_ID,
           })
           .rpc();
         assert.fail("should have failed");
       } catch (err: any) {
-        assert.ok(err.toString().includes("VaultPaused") || err.toString().includes("6101"));
+        assert.ok(
+          err.toString().includes("VaultPaused") ||
+          err.toString().includes("6101")
+        );
       }
 
-      // Unpause for subsequent tests
+      // Unpause
       await program.methods
         .updatePolicy({
           paused: false,
@@ -468,22 +588,27 @@ describe("lobsterpay", () => {
       try {
         await program.methods
           .executePayExact({
-            amount: new anchor.BN(5_000_000), // 5 USDC > 2 USDC limit
+            amount: new anchor.BN(5_000_000), // > 2 USDC limit
             requestHash: Array.from(requestHash) as any,
           })
           .accounts({
             authority: owner.publicKey,
             vault: vaultPda,
             policy: policyPda,
+            feeVault: feeVaultPda,
             mint: mint,
             vaultTokenAccount: vaultTokenAccount,
             destinationTokenAccount: destinationTokenAccount,
+            treasuryTokenAccount: treasuryTokenAccount,
             tokenProgram: TOKEN_PROGRAM_ID,
           })
           .rpc();
         assert.fail("should have failed");
       } catch (err: any) {
-        assert.ok(err.toString().includes("AmountExceedsPerTxLimit") || err.toString().includes("6106"));
+        assert.ok(
+          err.toString().includes("AmountExceedsPerTxLimit") ||
+          err.toString().includes("6106")
+        );
       }
     });
 
@@ -509,20 +634,24 @@ describe("lobsterpay", () => {
             authority: owner.publicKey,
             vault: vaultPda,
             policy: policyPda,
+            feeVault: feeVaultPda,
             mint: mint,
             vaultTokenAccount: vaultTokenAccount,
             destinationTokenAccount: unauthorizedTokenAccount,
+            treasuryTokenAccount: treasuryTokenAccount,
             tokenProgram: TOKEN_PROGRAM_ID,
           })
           .rpc();
         assert.fail("should have failed");
       } catch (err: any) {
-        assert.ok(err.toString().includes("DestinationNotAllowed") || err.toString().includes("6104"));
+        assert.ok(
+          err.toString().includes("DestinationNotAllowed") ||
+          err.toString().includes("6104")
+        );
       }
     });
 
     it("fails when mint not in allowlist", async () => {
-      // Set specific mint allowlist that doesn't include our test mint
       const fakeMint = Keypair.generate().publicKey;
       await program.methods
         .updatePolicy({
@@ -555,18 +684,23 @@ describe("lobsterpay", () => {
             authority: owner.publicKey,
             vault: vaultPda,
             policy: policyPda,
+            feeVault: feeVaultPda,
             mint: mint,
             vaultTokenAccount: vaultTokenAccount,
             destinationTokenAccount: destinationTokenAccount,
+            treasuryTokenAccount: treasuryTokenAccount,
             tokenProgram: TOKEN_PROGRAM_ID,
           })
           .rpc();
         assert.fail("should have failed");
       } catch (err: any) {
-        assert.ok(err.toString().includes("MintNotAllowed") || err.toString().includes("6103"));
+        assert.ok(
+          err.toString().includes("MintNotAllowed") ||
+          err.toString().includes("6103")
+        );
       }
 
-      // Reset mint allowlist to allow all
+      // Reset mint allowlist
       await program.methods
         .updatePolicy({
           paused: null,
@@ -587,11 +721,10 @@ describe("lobsterpay", () => {
     });
 
     it("fails when action not allowed", async () => {
-      // Disable pay action
       await program.methods
         .updatePolicy({
           paused: null,
-          allowedActions: new anchor.BN(ACTION_SWAP_EXACT_IN), // only swap
+          allowedActions: new anchor.BN(ACTION_SWAP_EXACT_IN),
           maxPerTxAmountAtomic: null,
           dailyLimitAmountAtomic: null,
           maxSlippageBps: null,
@@ -619,15 +752,20 @@ describe("lobsterpay", () => {
             authority: owner.publicKey,
             vault: vaultPda,
             policy: policyPda,
+            feeVault: feeVaultPda,
             mint: mint,
             vaultTokenAccount: vaultTokenAccount,
             destinationTokenAccount: destinationTokenAccount,
+            treasuryTokenAccount: treasuryTokenAccount,
             tokenProgram: TOKEN_PROGRAM_ID,
           })
           .rpc();
         assert.fail("should have failed");
       } catch (err: any) {
-        assert.ok(err.toString().includes("ActionNotAllowed") || err.toString().includes("6102"));
+        assert.ok(
+          err.toString().includes("ActionNotAllowed") ||
+          err.toString().includes("6102")
+        );
       }
 
       // Re-enable all actions
@@ -649,6 +787,114 @@ describe("lobsterpay", () => {
         })
         .rpc();
     });
+
+    it("unauthorized signer rejected even though they're a valid signer", async () => {
+      const stranger = Keypair.generate();
+      const airdropSig = await provider.connection.requestAirdrop(
+        stranger.publicKey,
+        LAMPORTS_PER_SOL
+      );
+      await provider.connection.confirmTransaction(airdropSig);
+
+      const requestHash = Buffer.alloc(32);
+      requestHash.write("test-stranger");
+
+      try {
+        await program.methods
+          .executePayExact({
+            amount: new anchor.BN(100_000),
+            requestHash: Array.from(requestHash) as any,
+          })
+          .accounts({
+            authority: stranger.publicKey,
+            vault: vaultPda,
+            policy: policyPda,
+            feeVault: feeVaultPda,
+            mint: mint,
+            vaultTokenAccount: vaultTokenAccount,
+            destinationTokenAccount: destinationTokenAccount,
+            treasuryTokenAccount: treasuryTokenAccount,
+            tokenProgram: TOKEN_PROGRAM_ID,
+          })
+          .signers([stranger])
+          .rpc();
+        assert.fail("should have failed");
+      } catch (err: any) {
+        assert.ok(
+          err.toString().includes("Unauthorized") ||
+          err.toString().includes("6100")
+        );
+      }
+    });
+  });
+
+  describe("update_authorized_agent", () => {
+    it("owner sets an authorized agent and that agent can execute payments", async () => {
+      const agent = Keypair.generate();
+      const airdropSig = await provider.connection.requestAirdrop(
+        agent.publicKey,
+        LAMPORTS_PER_SOL
+      );
+      await provider.connection.confirmTransaction(airdropSig);
+
+      // Owner delegates to agent
+      await program.methods
+        .updateAuthorizedAgent({ newAgent: agent.publicKey })
+        .accounts({
+          owner: owner.publicKey,
+          vault: vaultPda,
+          policy: policyPda,
+        })
+        .rpc();
+
+      const policy = await program.account.policy.fetch(policyPda);
+      assert.ok(policy.authorizedAgent.equals(agent.publicKey));
+
+      // Agent now executes a payment
+      const requestHash = Buffer.alloc(32);
+      requestHash.write("test-agent-pay");
+
+      const gross = 200_000n;
+      const { fee, net } = calcFee(gross);
+
+      const destBefore = (await getAccount(provider.connection, destinationTokenAccount)).amount;
+      const treasuryBefore = (await getAccount(provider.connection, treasuryTokenAccount)).amount;
+
+      await program.methods
+        .executePayExact({
+          amount: new anchor.BN(gross.toString()),
+          requestHash: Array.from(requestHash) as any,
+        })
+        .accounts({
+          authority: agent.publicKey,
+          vault: vaultPda,
+          policy: policyPda,
+          feeVault: feeVaultPda,
+          mint: mint,
+          vaultTokenAccount: vaultTokenAccount,
+          destinationTokenAccount: destinationTokenAccount,
+          treasuryTokenAccount: treasuryTokenAccount,
+          tokenProgram: TOKEN_PROGRAM_ID,
+        })
+        .signers([agent])
+        .rpc();
+
+      const destAfter = (await getAccount(provider.connection, destinationTokenAccount)).amount;
+      const treasuryAfter = (await getAccount(provider.connection, treasuryTokenAccount)).amount;
+
+      assert.equal((destAfter - destBefore).toString(), net.toString());
+      assert.equal((treasuryAfter - treasuryBefore).toString(), fee.toString());
+
+      // Restore authorized_agent to owner
+      await program.methods
+        .updateAuthorizedAgent({ newAgent: owner.publicKey })
+        .accounts({
+          owner: owner.publicKey,
+          vault: vaultPda,
+          policy: policyPda,
+        })
+        .rpc();
+    });
   });
 
   describe("withdraw_owner", () => {
@@ -662,7 +908,7 @@ describe("lobsterpay", () => {
 
       await program.methods
         .withdrawOwner({
-          amount: new anchor.BN(1_000_000), // 1 USDC
+          amount: new anchor.BN(1_000_000),
         })
         .accounts({
           owner: owner.publicKey,
@@ -695,19 +941,13 @@ describe("lobsterpay", () => {
       );
 
       try {
-        // Non-owner can't derive the correct vault PDA
-        const [fakeVault] = PublicKey.findProgramAddressSync(
-          [Buffer.from("vault"), nonOwner.publicKey.toBuffer()],
-          program.programId
-        );
-
         await program.methods
           .withdrawOwner({
             amount: new anchor.BN(100_000),
           })
           .accounts({
             owner: nonOwner.publicKey,
-            vault: vaultPda, // real vault owned by different person
+            vault: vaultPda,
             policy: policyPda,
             mint: mint,
             vaultTokenAccount: vaultTokenAccount,
@@ -718,7 +958,12 @@ describe("lobsterpay", () => {
           .rpc();
         assert.fail("should have failed");
       } catch (err: any) {
-        assert.ok(err.toString().includes("ConstraintHasOne") || err.toString().includes("2001") || err.toString().includes("A has one constraint") || err.toString().includes("seeds"));
+        assert.ok(
+          err.toString().includes("ConstraintHasOne") ||
+          err.toString().includes("2001") ||
+          err.toString().includes("A has one constraint") ||
+          err.toString().includes("seeds")
+        );
       }
     });
   });
@@ -744,7 +989,10 @@ describe("lobsterpay", () => {
           .rpc();
         assert.fail("should have failed");
       } catch (err: any) {
-        assert.ok(err.toString().includes("UnsupportedFeature") || err.toString().includes("6114"));
+        assert.ok(
+          err.toString().includes("UnsupportedFeature") ||
+          err.toString().includes("6114")
+        );
       }
     });
   });

@@ -53,6 +53,20 @@ export function createTxService(db: Db, config: Config) {
       }
     },
 
+    /**
+     * Returns the native SOL balance (in lamports) of the given fee vault PDA.
+     * Returns 0n if the account does not exist or the query fails.
+     */
+    async getFeeVaultBalance(feeVaultPda: string): Promise<bigint> {
+      try {
+        const pubkey = new PublicKey(feeVaultPda);
+        const lamports = await connection.getBalance(pubkey, "confirmed");
+        return BigInt(lamports);
+      } catch {
+        return 0n;
+      }
+    },
+
     async simulateTransaction(tx: Transaction): Promise<{ success: boolean; unitsConsumed?: number; error?: string }> {
       try {
         const result = await connection.simulateTransaction(tx);

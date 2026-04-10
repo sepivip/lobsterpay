@@ -15,7 +15,11 @@ import {
   buildTransaction,
   deriveVaultPda,
   derivePolicyPda,
+  deriveFeeVaultPda,
   getVaultTokenAccount,
+  getTreasuryTokenAccount,
+  SERVICE_FEE_BPS,
+  FEE_VAULT_MIN_BALANCE,
 } from "../solana/instructions.js";
 
 export function agentRoutes(app: FastifyInstance, db: Db, config: Config) {
@@ -127,10 +131,17 @@ export function agentRoutes(app: FastifyInstance, db: Db, config: Config) {
       }
     }
 
+    // Compute the 1.5% service fee offchain (mirrors the on-chain calc).
+    // Gross = amount. Net = gross - fee. Fee = gross * 150 / 10000.
+    const grossAmount = amount;
+    const serviceFee = (grossAmount * SERVICE_FEE_BPS) / 10000n;
+    const netAmount = grossAmount - serviceFee;
+
     // 7. Persist as approved
     const req = await txService.persistRequest({
       vaultId, apiKeyId: apiKey.id, actionType: "pay_exact", idempotencyKey,
-      requestJson: parsed.data, decision: "approved",
+      requestJson: { ...parsed.data, grossAmount: grossAmount.toString(), netAmount: netAmount.toString(), serviceFee: serviceFee.toString() },
+      decision: "approved",
       amountAtomic: amountAtomic, mint, txStatus: "created",
     });
 
@@ -141,15 +152,54 @@ export function agentRoutes(app: FastifyInstance, db: Db, config: Config) {
 
     try {
       // Derive accounts
-      const [vault] = await db`SELECT vault_pda, policy_pda FROM vaults WHERE id = ${vaultId}`;
+      const [vault] = await db`SELECT vault_pda, policy_pda, fee_vault_pda FROM vaults WHERE id = ${vaultId}`;
       const vaultPubkey = new PublicKey(vault.vault_pda);
       const policyPubkey = new PublicKey(vault.policy_pda);
       const mintPubkey = new PublicKey(mint);
       const vaultTokenAcct = getVaultTokenAccount(vaultPubkey, mintPubkey, TOKEN_PROGRAM_ID);
 
+      // Resolve the fee vault PDA. Prefer the cached value; derive it from
+      // the owner wallet if missing (pre-migration vaults).
+      let feeVaultPubkey: PublicKey;
+      if (vault.fee_vault_pda) {
+        feeVaultPubkey = new PublicKey(vault.fee_vault_pda);
+      } else {
+        const [ownerRow] = await db`
+          SELECT o.wallet_address FROM vaults v
+          JOIN owners o ON o.id = v.owner_id
+          WHERE v.id = ${vaultId}
+        `;
+        if (!ownerRow) {
+          throw new Error("Vault owner not found");
+        }
+        const ownerPubkey = new PublicKey(ownerRow.wallet_address);
+        [feeVaultPubkey] = deriveFeeVaultPda(ownerPubkey, txService.programId);
+        await db`UPDATE vaults SET fee_vault_pda = ${feeVaultPubkey.toString()} WHERE id = ${vaultId}`;
+      }
+
+      // Pre-flight: fee vault must have enough SOL to fund agent-signed txs.
+      const feeVaultBalance = await txService.getFeeVaultBalance(feeVaultPubkey.toString());
+      if (feeVaultBalance < FEE_VAULT_MIN_BALANCE) {
+        if (effectiveDaily > 0n) {
+          await txService.releaseUsage(vaultId, apiKey.id, amount);
+        }
+        const feeReq = await txService.persistRequest({
+          vaultId, apiKeyId: apiKey.id, actionType: "pay_exact", idempotencyKey,
+          requestJson: parsed.data, decision: "rejected",
+          rejectionReason: "insufficient_fee_vault_balance",
+          amountAtomic, mint,
+        });
+        return reply.status(403).send({
+          requestId: feeReq.id,
+          txSignature: null,
+          status: "failed",
+          error: `Fee vault below minimum balance (${feeVaultBalance.toString()} < ${FEE_VAULT_MIN_BALANCE.toString()} lamports). Owner must deposit more SOL.`,
+        });
+      }
+
       // Fee payer drain protection: check vault balance before submitting
       const vaultBalance = await txService.getTokenBalance(vaultTokenAcct);
-      if (BigInt(vaultBalance) < BigInt(amountAtomic)) {
+      if (BigInt(vaultBalance) < grossAmount) {
         // Release the daily limit reservation if we made one
         if (effectiveDaily > 0n) {
           await txService.releaseUsage(vaultId, apiKey.id, amount);
@@ -172,6 +222,9 @@ export function agentRoutes(app: FastifyInstance, db: Db, config: Config) {
         return reply.status(400).send({ code: "invalid_request", message: "destinationOwner or destinationTokenAccount required" });
       }
 
+      // Treasury ATA for the service fee.
+      const treasuryTokenAcct = getTreasuryTokenAccount(mintPubkey, TOKEN_PROGRAM_ID);
+
       // Build request hash from idempotency key
       const requestHash = createHash("sha256").update(idempotencyKey).digest();
 
@@ -180,12 +233,14 @@ export function agentRoutes(app: FastifyInstance, db: Db, config: Config) {
         authority: txService.feePayer.publicKey,
         vault: vaultPubkey,
         policy: policyPubkey,
+        feeVault: feeVaultPubkey,
         mint: mintPubkey,
         vaultTokenAccount: vaultTokenAcct,
         destinationTokenAccount: destTokenAcct,
+        treasuryTokenAccount: treasuryTokenAcct,
         tokenProgramId: TOKEN_PROGRAM_ID,
         params: {
-          amount: BigInt(amountAtomic),
+          amount: grossAmount,
           requestHash,
         },
       });
@@ -197,7 +252,11 @@ export function agentRoutes(app: FastifyInstance, db: Db, config: Config) {
       // Update request with signature — usage was already reserved atomically
       await txService.updateRequestTx(req.id, signature, "confirmed");
       await txService.logActivity(vaultId, "payment", {
-        requestId: req.id, mint, amountAtomic,
+        requestId: req.id, mint,
+        amountAtomic,
+        grossAmount: grossAmount.toString(),
+        netAmount: netAmount.toString(),
+        serviceFee: serviceFee.toString(),
         destination: destinationOwner || destinationTokenAccount, memo,
       }, signature, req.id);
 
@@ -205,6 +264,9 @@ export function agentRoutes(app: FastifyInstance, db: Db, config: Config) {
         requestId: req.id,
         txSignature: signature,
         status: "confirmed",
+        grossAmount: grossAmount.toString(),
+        netAmount: netAmount.toString(),
+        serviceFee: serviceFee.toString(),
         error: null,
       };
     } catch (err: any) {

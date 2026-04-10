@@ -59,6 +59,16 @@ export const api = {
       method: "POST",
     }),
 
+  // Fee vault
+  getFeeVault: (vaultId: string) =>
+    apiFetch<any>(`/v1/vaults/${vaultId}/fee-vault`).catch(() => null),
+
+  depositFees: (vaultId: string, amount: string) =>
+    apiFetch<any>(`/v1/vaults/${vaultId}/fee-vault/deposit`, {
+      method: "POST",
+      body: JSON.stringify({ amount }),
+    }),
+
   // Activity
   listActivity: (vaultId: string, cursor?: string) =>
     apiFetch<{ items: any[]; nextCursor: string | null }>(

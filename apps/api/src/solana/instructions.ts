@@ -14,16 +14,37 @@ import {
 } from "@solana/web3.js";
 import {
   ASSOCIATED_TOKEN_PROGRAM_ID,
+  TOKEN_PROGRAM_ID,
   getAssociatedTokenAddressSync,
 } from "@solana/spl-token";
 
 // ---------------------------------------------------------------------------
-// Program ID
+// Program ID + Treasury
 // ---------------------------------------------------------------------------
 
 export const LOBSTERPAY_PROGRAM_ID = new PublicKey(
   "5mrHEGGwCUkjUgnEUvJz52sf7sxCQG9yfYiP8Qyjec4o",
 );
+
+/**
+ * LobsterPay treasury pubkey — hardcoded in the Anchor program.
+ * The 1.5% service fee is sent to the ATA owned by this pubkey for the
+ * payment mint.
+ */
+export const TREASURY_PUBKEY = new PublicKey(
+  "DvcQMhZmhZZQ1CX6FhGkyAiPr3YtNbBuLDP3QpuBRTHp",
+);
+
+/**
+ * Service fee in basis points (1.5%) — matches the on-chain constant.
+ */
+export const SERVICE_FEE_BPS = 150n;
+
+/**
+ * Minimum SOL balance (lamports) that the fee vault must hold before the
+ * backend will submit a fee-payer-signed agent transaction.
+ */
+export const FEE_VAULT_MIN_BALANCE = 1_500_000n;
 
 // ---------------------------------------------------------------------------
 // PDA helpers
@@ -50,6 +71,20 @@ export function derivePolicyPda(
 }
 
 /**
+ * Derives the FeeVault PDA for an owner.
+ * Seeds: ["fee_vault", owner]
+ */
+export function deriveFeeVaultPda(
+  owner: PublicKey,
+  programId: PublicKey = LOBSTERPAY_PROGRAM_ID,
+): [PublicKey, number] {
+  return PublicKey.findProgramAddressSync(
+    [Buffer.from("fee_vault"), owner.toBuffer()],
+    programId,
+  );
+}
+
+/**
  * Derives the Associated Token Account for a vault + mint.
  */
 export function getVaultTokenAccount(
@@ -58,6 +93,20 @@ export function getVaultTokenAccount(
   tokenProgramId: PublicKey,
 ): PublicKey {
   return getAssociatedTokenAddressSync(mint, vault, true, tokenProgramId);
+}
+
+/**
+ * Returns the Associated Token Account owned by the LobsterPay treasury
+ * for a given mint. This is where the 1.5% service fee lands.
+ */
+export function getTreasuryTokenAccount(
+  mint: PublicKey,
+  tokenProgramId: PublicKey = TOKEN_PROGRAM_ID,
+): PublicKey {
+  // Treasury is a regular wallet pubkey (not a PDA), but we pass
+  // allowOwnerOffCurve=true for safety so this always succeeds regardless
+  // of whether the pubkey is on-curve.
+  return getAssociatedTokenAddressSync(mint, TREASURY_PUBKEY, true, tokenProgramId);
 }
 
 // ---------------------------------------------------------------------------
@@ -70,6 +119,10 @@ const DISC_ENSURE_VAULT_TOKEN_ACCOUNT = Buffer.from([168, 77, 151, 115, 244, 83,
 const DISC_EXECUTE_PAY_EXACT = Buffer.from([199, 113, 233, 162, 70, 70, 83, 156]);
 const DISC_EMERGENCY_PAUSE = Buffer.from([21, 143, 27, 142, 200, 181, 210, 255]);
 const DISC_WITHDRAW_OWNER = Buffer.from([229, 130, 29, 107, 229, 152, 167, 190]);
+const DISC_INITIALIZE_FEE_VAULT = Buffer.from([185, 140, 228, 234, 79, 203, 252, 50]);
+const DISC_DEPOSIT_FEES = Buffer.from([13, 215, 175, 72, 53, 21, 89, 5]);
+const DISC_WITHDRAW_FEES = Buffer.from([198, 212, 171, 109, 144, 215, 174, 89]);
+const DISC_UPDATE_AUTHORIZED_AGENT = Buffer.from([99, 196, 103, 74, 106, 51, 2, 81]);
 
 // ---------------------------------------------------------------------------
 // Param types
@@ -293,17 +346,20 @@ export function buildEnsureVaultTokenAccountIx(args: {
 /**
  * Build the `execute_pay_exact` instruction.
  *
- * Accounts: authority (signer), vault, policy (writable), mint,
- *           vault_token_account (writable), destination_token_account (writable),
- *           token_program
+ * Accounts (per updated IDL):
+ *   authority (signer), vault, policy (writable), fee_vault, mint,
+ *   vault_token_account (writable), destination_token_account (writable),
+ *   treasury_token_account (writable), token_program
  */
 export function buildExecutePayExactIx(args: {
   authority: PublicKey;
   vault: PublicKey;
   policy: PublicKey;
+  feeVault: PublicKey;
   mint: PublicKey;
   vaultTokenAccount: PublicKey;
   destinationTokenAccount: PublicKey;
+  treasuryTokenAccount: PublicKey;
   tokenProgramId: PublicKey;
   params: ExecutePayExactParams;
   programId?: PublicKey;
@@ -322,10 +378,129 @@ export function buildExecutePayExactIx(args: {
       { pubkey: args.authority, isSigner: true, isWritable: false },
       { pubkey: args.vault, isSigner: false, isWritable: false },
       { pubkey: args.policy, isSigner: false, isWritable: true },
+      { pubkey: args.feeVault, isSigner: false, isWritable: false },
       { pubkey: args.mint, isSigner: false, isWritable: false },
       { pubkey: args.vaultTokenAccount, isSigner: false, isWritable: true },
       { pubkey: args.destinationTokenAccount, isSigner: false, isWritable: true },
+      { pubkey: args.treasuryTokenAccount, isSigner: false, isWritable: true },
       { pubkey: args.tokenProgramId, isSigner: false, isWritable: false },
+    ],
+    programId,
+    data,
+  });
+}
+
+/**
+ * Build the `initialize_fee_vault` instruction.
+ *
+ * Accounts: owner (signer, writable), vault, fee_vault (writable, init),
+ *           system_program
+ */
+export function buildInitializeFeeVaultIx(args: {
+  owner: PublicKey;
+  vault: PublicKey;
+  feeVault: PublicKey;
+  programId?: PublicKey;
+}): TransactionInstruction {
+  const programId = args.programId ?? LOBSTERPAY_PROGRAM_ID;
+
+  // No args — discriminator only
+  const data = Buffer.alloc(8);
+  DISC_INITIALIZE_FEE_VAULT.copy(data, 0);
+
+  return new TransactionInstruction({
+    keys: [
+      { pubkey: args.owner, isSigner: true, isWritable: true },
+      { pubkey: args.vault, isSigner: false, isWritable: false },
+      { pubkey: args.feeVault, isSigner: false, isWritable: true },
+      { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+    ],
+    programId,
+    data,
+  });
+}
+
+/**
+ * Build the `deposit_fees` instruction.
+ *
+ * Accounts: owner (signer, writable), fee_vault (writable), system_program
+ */
+export function buildDepositFeesIx(args: {
+  owner: PublicKey;
+  feeVault: PublicKey;
+  amount: bigint;
+  programId?: PublicKey;
+}): TransactionInstruction {
+  const programId = args.programId ?? LOBSTERPAY_PROGRAM_ID;
+
+  // Serialize params: u64 = 8 bytes
+  const data = Buffer.alloc(8 + 8);
+  DISC_DEPOSIT_FEES.copy(data, 0);
+  writeU64(data, args.amount, 8);
+
+  return new TransactionInstruction({
+    keys: [
+      { pubkey: args.owner, isSigner: true, isWritable: true },
+      { pubkey: args.feeVault, isSigner: false, isWritable: true },
+      { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+    ],
+    programId,
+    data,
+  });
+}
+
+/**
+ * Build the `withdraw_fees` instruction.
+ *
+ * Accounts: owner (signer, writable), fee_vault (writable)
+ */
+export function buildWithdrawFeesIx(args: {
+  owner: PublicKey;
+  feeVault: PublicKey;
+  amount: bigint;
+  programId?: PublicKey;
+}): TransactionInstruction {
+  const programId = args.programId ?? LOBSTERPAY_PROGRAM_ID;
+
+  // Serialize params: u64 = 8 bytes
+  const data = Buffer.alloc(8 + 8);
+  DISC_WITHDRAW_FEES.copy(data, 0);
+  writeU64(data, args.amount, 8);
+
+  return new TransactionInstruction({
+    keys: [
+      { pubkey: args.owner, isSigner: true, isWritable: true },
+      { pubkey: args.feeVault, isSigner: false, isWritable: true },
+    ],
+    programId,
+    data,
+  });
+}
+
+/**
+ * Build the `update_authorized_agent` instruction.
+ *
+ * Accounts: owner (signer), vault, policy (writable)
+ */
+export function buildUpdateAuthorizedAgentIx(args: {
+  owner: PublicKey;
+  vault: PublicKey;
+  policy: PublicKey;
+  newAgent: PublicKey;
+  programId?: PublicKey;
+}): TransactionInstruction {
+  const programId = args.programId ?? LOBSTERPAY_PROGRAM_ID;
+
+  // Serialize params: Pubkey (32 bytes)
+  const data = Buffer.alloc(8 + 32);
+  DISC_UPDATE_AUTHORIZED_AGENT.copy(data, 0);
+  args.newAgent.toBuffer().copy(data, 8);
+
+  return new TransactionInstruction({
+    keys: [
+      { pubkey: args.owner, isSigner: true, isWritable: false },
+      { pubkey: args.vault, isSigner: false, isWritable: false },
+      { pubkey: args.policy, isSigner: false, isWritable: true },
     ],
     programId,
     data,

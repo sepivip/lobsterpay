@@ -4,6 +4,7 @@ import type { Config } from "../config.js";
 
 const VAULT_SEED = Buffer.from("vault");
 const POLICY_SEED = Buffer.from("policy");
+const FEE_VAULT_SEED = Buffer.from("fee_vault");
 
 export function deriveVaultPda(ownerPubkey: PublicKey, programId: PublicKey): [PublicKey, number] {
   return PublicKey.findProgramAddressSync(
@@ -19,10 +20,26 @@ export function derivePolicyPda(vaultPubkey: PublicKey, programId: PublicKey): [
   );
 }
 
+export function deriveFeeVaultPda(ownerPubkey: PublicKey, programId: PublicKey): [PublicKey, number] {
+  return PublicKey.findProgramAddressSync(
+    [FEE_VAULT_SEED, ownerPubkey.toBuffer()],
+    programId
+  );
+}
+
 export function createVaultService(db: Db, config: Config) {
   const programId = new PublicKey(config.LOBSTERPAY_PROGRAM_ID);
 
   return {
+    /**
+     * Derives the FeeVault PDA address as a base58 string for a wallet.
+     */
+    deriveFeeVaultPda(walletAddress: string): string {
+      const ownerPubkey = new PublicKey(walletAddress);
+      const [pda] = deriveFeeVaultPda(ownerPubkey, programId);
+      return pda.toString();
+    },
+
     async getOrCreateOwner(walletAddress: string) {
       const existing = await db`SELECT * FROM owners WHERE wallet_address = ${walletAddress}`;
       if (existing.length > 0) return existing[0];
@@ -36,17 +53,23 @@ export function createVaultService(db: Db, config: Config) {
 
       const [vaultPda] = deriveVaultPda(ownerPubkey, programId);
       const [policyPda] = derivePolicyPda(vaultPda, programId);
+      const [feeVaultPda] = deriveFeeVaultPda(ownerPubkey, programId);
 
       // Check if vault already exists in DB
       const existingVault = await db`SELECT * FROM vaults WHERE owner_id = ${owner.id} AND cluster = ${config.SOLANA_CLUSTER}`;
       if (existingVault.length > 0) {
+        // Backfill fee_vault_pda if missing (for vaults created before migration 009).
+        if (!existingVault[0].fee_vault_pda) {
+          await db`UPDATE vaults SET fee_vault_pda = ${feeVaultPda.toString()} WHERE id = ${existingVault[0].id}`;
+          existingVault[0].fee_vault_pda = feeVaultPda.toString();
+        }
         return { vault: existingVault[0], isNew: false };
       }
 
       // Create vault record
       const [vault] = await db`
-        INSERT INTO vaults (owner_id, cluster, program_id, vault_pda, policy_pda, status)
-        VALUES (${owner.id}, ${config.SOLANA_CLUSTER}, ${programId.toString()}, ${vaultPda.toString()}, ${policyPda.toString()}, 'active')
+        INSERT INTO vaults (owner_id, cluster, program_id, vault_pda, policy_pda, fee_vault_pda, status)
+        VALUES (${owner.id}, ${config.SOLANA_CLUSTER}, ${programId.toString()}, ${vaultPda.toString()}, ${policyPda.toString()}, ${feeVaultPda.toString()}, 'active')
         RETURNING *
       `;
 
@@ -59,7 +82,7 @@ export function createVaultService(db: Db, config: Config) {
       // Log activity
       await db`
         INSERT INTO activities (vault_id, type, payload_json)
-        VALUES (${vault.id}, 'vault_created', ${JSON.stringify({ vaultPda: vaultPda.toString(), policyPda: policyPda.toString() })})
+        VALUES (${vault.id}, 'vault_created', ${JSON.stringify({ vaultPda: vaultPda.toString(), policyPda: policyPda.toString(), feeVaultPda: feeVaultPda.toString() })})
       `;
 
       return {
@@ -69,6 +92,7 @@ export function createVaultService(db: Db, config: Config) {
           programId: programId.toString(),
           vaultPda: vaultPda.toString(),
           policyPda: policyPda.toString(),
+          feeVaultPda: feeVaultPda.toString(),
         },
       };
     },
@@ -107,6 +131,7 @@ export function createVaultService(db: Db, config: Config) {
       if (updates.maxPerTxAmountAtomic !== undefined) setClauses.max_per_tx_amount_atomic = updates.maxPerTxAmountAtomic;
       if (updates.dailyLimitAmountAtomic !== undefined) setClauses.daily_limit_amount_atomic = updates.dailyLimitAmountAtomic;
       if (updates.maxSlippageBps !== undefined) setClauses.max_slippage_bps = updates.maxSlippageBps;
+      if (updates.authorizedAgent !== undefined) setClauses.authorized_agent = updates.authorizedAgent;
       if (updates.configJson !== undefined) setClauses.config_json = JSON.stringify(updates.configJson);
 
       await db`UPDATE vault_policies SET ${db(setClauses)} WHERE vault_id = ${vaultId}`;

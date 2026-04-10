@@ -64,7 +64,19 @@ export const updatePolicySchema = z.object({
     .array(z.string())
     .max(MAX_ALLOWED_EXTERNAL_PROGRAMS)
     .optional(),
+  authorizedAgent: z.string().optional(),
 });
+
+// --- Fee vault schemas ---
+
+export const depositFeesSchema = z.object({
+  amount: z
+    .string()
+    .regex(/^\d+$/, "Must be numeric")
+    .refine((v) => v !== "0", { message: "Must be > 0" }),
+});
+
+export const withdrawFeesSchema = depositFeesSchema;
 
 // --- Pagination ---
 
@@ -94,5 +106,7 @@ export type SwapRequestInput = z.infer<typeof swapRequestSchema>;
 export type X402RequestInput = z.infer<typeof x402RequestSchema>;
 export type CreateApiKeyInput = z.infer<typeof createApiKeySchema>;
 export type UpdatePolicyInput = z.infer<typeof updatePolicySchema>;
+export type DepositFeesInput = z.infer<typeof depositFeesSchema>;
+export type WithdrawFeesInput = z.infer<typeof withdrawFeesSchema>;
 export type PaginationInput = z.infer<typeof paginationSchema>;
 export type EnvConfig = z.infer<typeof envSchema>;

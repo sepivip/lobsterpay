@@ -1,11 +1,14 @@
 "use client";
 
 import { Nav } from "@/components/nav";
+import { DepositFeesModal } from "@/components/deposit-fees-modal";
 import { useWallet } from "@solana/wallet-adapter-react";
+import { useConnection } from "@solana/wallet-adapter-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState } from "react";
 import { useVault } from "@/hooks/useVault";
 import { api } from "@/lib/api";
+import { buildInitializeFeeVaultTx } from "@/lib/solana";
 import toast from "react-hot-toast";
 
 function StatCard({
@@ -14,12 +17,14 @@ function StatCard({
 	suffix,
 	status,
 	delay,
+	warning,
 }: {
 	label: string;
 	value: string;
 	suffix?: string;
 	status?: "active" | "paused" | "none";
 	delay: number;
+	warning?: boolean;
 }) {
 	return (
 		<div className={`card stat-card animate-in animate-delay-${delay}`}>
@@ -37,7 +42,12 @@ function StatCard({
 						style={{ alignSelf: "center" }}
 					/>
 				)}
-				<span className="stat-value">{value}</span>
+				<span
+					className="stat-value"
+					style={warning ? { color: "var(--warning)" } : undefined}
+				>
+					{value}
+				</span>
 				{suffix && <span className="stat-suffix">{suffix}</span>}
 			</div>
 		</div>
@@ -59,12 +69,35 @@ function ProgressBar({ spent, limit }: { spent: number; limit: number }) {
 	);
 }
 
+function formatSol(lamports: bigint | null): string {
+	if (lamports === null) return "\u2014";
+	// Display up to 4 decimal places
+	const sol = Number(lamports) / 1e9;
+	return sol.toLocaleString(undefined, {
+		minimumFractionDigits: 0,
+		maximumFractionDigits: 4,
+	});
+}
+
 export default function DashboardPage() {
-	const { connected, publicKey } = useWallet();
+	const { connected, publicKey, sendTransaction } = useWallet();
+	const { connection } = useConnection();
 	const router = useRouter();
-	const { vault, loading, error, refresh, createVault } = useVault();
+	const {
+		vault,
+		loading,
+		error,
+		feeBalance,
+		feeBalanceLow,
+		feeVaultInitialized,
+		refresh,
+		refreshFeeBalance,
+		createVault,
+	} = useVault();
 	const [recentActivity, setRecentActivity] = useState<any[]>([]);
 	const [creating, setCreating] = useState(false);
+	const [initializingFeeVault, setInitializingFeeVault] = useState(false);
+	const [depositOpen, setDepositOpen] = useState(false);
 
 	useEffect(() => {
 		if (!connected) router.push("/");
@@ -101,6 +134,41 @@ export default function DashboardPage() {
 		}
 	};
 
+	const handleInitializeFeeVault = async () => {
+		if (!publicKey || !sendTransaction) return;
+		setInitializingFeeVault(true);
+		const toastId = toast.loading(
+			"Initializing fee vault — please approve the transaction..."
+		);
+		try {
+			const { transaction } = await buildInitializeFeeVaultTx(
+				publicKey,
+				connection
+			);
+			const signature = await sendTransaction(transaction, connection);
+			await connection.confirmTransaction(signature, "confirmed");
+			await refreshFeeBalance();
+			toast.success(
+				`Fee vault initialized! Tx: ${signature.slice(0, 8)}...`,
+				{ id: toastId, duration: 5000 }
+			);
+		} catch (err: any) {
+			const rejected =
+				err?.message?.includes("User rejected") ||
+				err?.message?.includes("rejected the request");
+			if (rejected) {
+				toast.dismiss(toastId);
+				toast("Transaction rejected");
+			} else {
+				toast.error(err?.message || "Failed to initialize fee vault", {
+					id: toastId,
+				});
+			}
+		} finally {
+			setInitializingFeeVault(false);
+		}
+	};
+
 	const vaultStatus = vault
 		? vault.paused
 			? "paused"
@@ -119,7 +187,10 @@ export default function DashboardPage() {
 
 	const dailySpent = vault?.policy?.dailySpent ?? 0;
 	const dailyLimit = vault?.policy?.dailyLimitUsdc ?? 0;
-	const activeKeys = vault?.activeKeyCount ?? 0;
+
+	const feeBalanceValue = feeVaultInitialized
+		? formatSol(feeBalance)
+		: "\u2014";
 
 	return (
 		<div className="page">
@@ -158,6 +229,75 @@ export default function DashboardPage() {
 
 				{!loading && (
 					<>
+						{/* Fee vault init prompt */}
+						{vault && !feeVaultInitialized && (
+							<div
+								className="card p-5 mb-5 animate-in"
+								style={{
+									borderColor: "var(--warning)",
+									background:
+										"color-mix(in srgb, var(--warning) 8%, var(--bg-raised))",
+								}}
+							>
+								<div className="flex items-center justify-between gap-4 flex-wrap">
+									<div>
+										<div
+											className="text-md text-primary"
+											style={{ fontWeight: 500, marginBottom: 4 }}
+										>
+											Initialize Fee Vault
+										</div>
+										<div className="text-sm text-tertiary">
+											One-time setup. Your agent uses the fee vault to pay
+											Solana network fees for on-chain actions.
+										</div>
+									</div>
+									<button
+										className="btn btn-primary btn-sm"
+										onClick={handleInitializeFeeVault}
+										disabled={initializingFeeVault}
+									>
+										{initializingFeeVault
+											? "Signing..."
+											: "Initialize Fee Vault"}
+									</button>
+								</div>
+							</div>
+						)}
+
+						{/* Low fee balance warning */}
+						{vault && feeVaultInitialized && feeBalanceLow && (
+							<div
+								className="card p-5 mb-5 animate-in"
+								style={{
+									borderColor: "var(--warning)",
+									background:
+										"color-mix(in srgb, var(--warning) 8%, var(--bg-raised))",
+								}}
+							>
+								<div className="flex items-center justify-between gap-4 flex-wrap">
+									<div>
+										<div
+											className="text-md text-primary"
+											style={{ fontWeight: 500, marginBottom: 4 }}
+										>
+											Fee balance low
+										</div>
+										<div className="text-sm text-tertiary">
+											Your fee vault has less than 0.01 SOL. Agent transactions
+											may fail.
+										</div>
+									</div>
+									<button
+										className="btn btn-primary btn-sm"
+										onClick={() => setDepositOpen(true)}
+									>
+										Top Up
+									</button>
+								</div>
+							</div>
+						)}
+
 						{/* Stats grid */}
 						<div className="grid-stats mb-5">
 							<StatCard
@@ -173,12 +313,25 @@ export default function DashboardPage() {
 								delay={2}
 							/>
 							<StatCard
-								label="Active API Keys"
-								value={String(activeKeys)}
-								suffix="keys"
+								label="Fee Balance"
+								value={feeBalanceValue}
+								suffix="SOL"
 								delay={3}
+								warning={feeVaultInitialized && feeBalanceLow}
 							/>
 						</div>
+
+						{/* Fee vault actions */}
+						{vault && feeVaultInitialized && (
+							<div className="flex justify-end mb-5 animate-in animate-delay-3">
+								<button
+									className="btn btn-secondary btn-sm"
+									onClick={() => setDepositOpen(true)}
+								>
+									Deposit Fees
+								</button>
+							</div>
+						)}
 
 						{/* Daily spend */}
 						<div className="card stat-card animate-in animate-delay-4 mb-5">
@@ -203,7 +356,7 @@ export default function DashboardPage() {
 								</button>
 							</div>
 							{recentActivity.length > 0 ? (
-								recentActivity.map((item: any, index: number) => (
+								recentActivity.map((item: any) => (
 									<div
 										key={item.id}
 										className="card-row px-5"
@@ -229,6 +382,15 @@ export default function DashboardPage() {
 					</>
 				)}
 			</main>
+
+			<DepositFeesModal
+				open={depositOpen}
+				onClose={() => setDepositOpen(false)}
+				onSuccess={async () => {
+					await refreshFeeBalance();
+					await refresh();
+				}}
+			/>
 		</div>
 	);
 }

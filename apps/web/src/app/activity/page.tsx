@@ -152,11 +152,26 @@ export default function ActivityPage() {
 
 									{/* Amount */}
 									{item.amount && (
-										<div className="text-base font-mono text-primary whitespace-nowrap text-right" style={{ fontWeight: 500, letterSpacing: "-0.02em" }}>
-											{item.amount}{" "}
-											<span className="text-tertiary" style={{ fontWeight: 400 }}>
-												{item.mint}
-											</span>
+										<div className="text-right whitespace-nowrap">
+											<div
+												className="text-base font-mono text-primary"
+												style={{ fontWeight: 500, letterSpacing: "-0.02em" }}
+											>
+												{item.amount}{" "}
+												<span className="text-tertiary" style={{ fontWeight: 400 }}>
+													{item.mint}
+												</span>
+											</div>
+											{item.payload?.service_fee != null && (
+												<div
+													className="font-mono text-ghost"
+													style={{ fontSize: "0.7rem", marginTop: 2 }}
+												>
+													net {item.payload.net_amount ?? "—"}
+													{item.payload.net_amount != null ? " " : ""}
+													· fee {item.payload.service_fee} {item.mint}
+												</div>
+											)}
 										</div>
 									)}
 

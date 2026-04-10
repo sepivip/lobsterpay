@@ -5,6 +5,10 @@ pub mod execute_pay_exact;
 pub mod withdraw_owner;
 pub mod emergency_pause;
 pub mod execute_swap_exact_in;
+pub mod initialize_fee_vault;
+pub mod deposit_fees;
+pub mod withdraw_fees;
+pub mod update_authorized_agent;
 
 pub use initialize_vault::*;
 pub use update_policy::*;
@@ -13,3 +17,7 @@ pub use execute_pay_exact::*;
 pub use withdraw_owner::*;
 pub use emergency_pause::*;
 pub use execute_swap_exact_in::*;
+pub use initialize_fee_vault::*;
+pub use deposit_fees::*;
+pub use withdraw_fees::*;
+pub use update_authorized_agent::*;

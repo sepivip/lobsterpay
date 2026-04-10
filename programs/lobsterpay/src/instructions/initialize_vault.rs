@@ -50,6 +50,9 @@ pub fn handler(ctx: Context<InitializeVault>, params: InitializeVaultParams) -> 
     let policy = &mut ctx.accounts.policy;
     policy.vault = vault.key();
     policy.owner = ctx.accounts.owner.key();
+    // Default authorized_agent to the owner — effectively disables agent
+    // delegation until the owner explicitly sets a backend agent key.
+    policy.authorized_agent = ctx.accounts.owner.key();
     policy.paused = false;
     policy.allowed_actions = params.allowed_actions;
     policy.max_per_tx_amount_atomic = params.max_per_tx_amount_atomic;

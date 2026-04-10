@@ -11,6 +11,7 @@ import { useVault } from "@/hooks/useVault";
 import { api } from "@/lib/api";
 import {
 	buildUpdatePolicyTx,
+	buildUpdateAuthorizedAgentTx,
 	buildEmergencyPauseTx,
 	deriveVaultPda,
 	derivePolicyPda,
@@ -96,6 +97,8 @@ export default function PolicyPage() {
 	const [maxSlippage, setMaxSlippage] = useState("");
 	const [allowedMints, setAllowedMints] = useState("");
 	const [allowedDestinations, setAllowedDestinations] = useState("");
+	const [authorizedAgent, setAuthorizedAgent] = useState("");
+	const [showAdvanced, setShowAdvanced] = useState(false);
 
 	// Populate from vault policy
 	useEffect(() => {
@@ -109,6 +112,7 @@ export default function PolicyPage() {
 			setMaxSlippage(p.maxSlippageBps != null ? String(p.maxSlippageBps) : "");
 			setAllowedMints(Array.isArray(p.allowedMints) ? p.allowedMints.join("\n") : "");
 			setAllowedDestinations(Array.isArray(p.allowedDestinations) ? p.allowedDestinations.join("\n") : "");
+			setAuthorizedAgent(p.authorizedAgent ?? "");
 		}
 	}, [vault?.policy]);
 
@@ -153,6 +157,30 @@ export default function PolicyPage() {
 			const signature = await sendTransaction(transaction, connection);
 			await connection.confirmTransaction(signature, "confirmed");
 
+			// If authorized_agent changed, submit a separate update_authorized_agent tx.
+			const currentAgent = vault.policy?.authorizedAgent ?? "";
+			const trimmedAgent = authorizedAgent.trim();
+			let agentUpdated = false;
+			if (trimmedAgent && trimmedAgent !== currentAgent) {
+				toast.loading("Updating authorized agent — please approve...", {
+					id: toastId,
+				});
+				let agentPubkey: PublicKey;
+				try {
+					agentPubkey = new PublicKey(trimmedAgent);
+				} catch {
+					throw new Error("Invalid authorized agent pubkey");
+				}
+				const { transaction: agentTx } = await buildUpdateAuthorizedAgentTx(
+					publicKey,
+					agentPubkey,
+					connection
+				);
+				const agentSig = await sendTransaction(agentTx, connection);
+				await connection.confirmTransaction(agentSig, "confirmed");
+				agentUpdated = true;
+			}
+
 			// Sync to backend DB
 			await api.updatePolicy(vault.id, {
 				allowPay,
@@ -163,6 +191,7 @@ export default function PolicyPage() {
 				maxSlippageBps: maxSlippage ? Number(maxSlippage) : undefined,
 				allowedMints: mintsArr.length > 0 ? mintsArr : undefined,
 				allowedDestinations: destsArr.length > 0 ? destsArr : undefined,
+				authorizedAgent: agentUpdated ? trimmedAgent : undefined,
 			});
 
 			toast.success(
@@ -193,6 +222,7 @@ export default function PolicyPage() {
 			setMaxSlippage(p.maxSlippageBps != null ? String(p.maxSlippageBps) : "");
 			setAllowedMints(Array.isArray(p.allowedMints) ? p.allowedMints.join("\n") : "");
 			setAllowedDestinations(Array.isArray(p.allowedDestinations) ? p.allowedDestinations.join("\n") : "");
+			setAuthorizedAgent(p.authorizedAgent ?? "");
 		}
 		toast("Reset to saved values");
 	};
@@ -394,6 +424,55 @@ export default function PolicyPage() {
 											/>
 										</div>
 									</div>
+								</div>
+
+								{/* Advanced */}
+								<div className="card p-5 animate-in animate-delay-5">
+									<button
+										type="button"
+										className="flex items-center justify-between w-full"
+										onClick={() => setShowAdvanced((v) => !v)}
+										style={{
+											background: "transparent",
+											border: "none",
+											padding: 0,
+											cursor: "pointer",
+											color: "inherit",
+										}}
+									>
+										<span className="label-mono">Advanced</span>
+										<span className="text-tertiary text-sm">
+											{showAdvanced ? "Hide" : "Show"}
+										</span>
+									</button>
+									{showAdvanced && (
+										<div className="flex flex-col gap-4" style={{ marginTop: 20 }}>
+											<div>
+												<label className="form-label">
+													Authorized Agent Pubkey
+												</label>
+												<input
+													className="input"
+													style={{
+														fontFamily: "var(--font-mono)",
+														fontSize: "0.8125rem",
+													}}
+													placeholder={publicKey?.toString() ?? "Owner pubkey (disables delegation)"}
+													value={authorizedAgent}
+													onChange={(e) => setAuthorizedAgent(e.target.value)}
+												/>
+												<div
+													className="text-sm text-tertiary"
+													style={{ marginTop: 6 }}
+												>
+													Delegated signer allowed to submit payments and swaps
+													on behalf of the owner. Defaults to the owner&rsquo;s
+													own pubkey, which disables delegation. Updating this
+													requires a separate transaction.
+												</div>
+											</div>
+										</div>
+									)}
 								</div>
 							</div>
 						</div>

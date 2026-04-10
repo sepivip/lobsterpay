@@ -3,7 +3,14 @@ import type { Db } from "../db/client.js";
 import type { Config } from "../config.js";
 import { createVaultService } from "../services/vault.service.js";
 import { createApiKeyService } from "../services/apiKey.service.js";
-import { createApiKeySchema, updatePolicySchema } from "@lobsterpay/shared";
+import { createTxService } from "../services/tx.service.js";
+import {
+  createApiKeySchema,
+  updatePolicySchema,
+  depositFeesSchema,
+  withdrawFeesSchema,
+} from "@lobsterpay/shared";
+import { FEE_VAULT_MIN_BALANCE } from "../solana/instructions.js";
 
 // TODO: Replace with proper wallet signature verification (e.g. verify ed25519 signed message)
 function ownerAuth(db: Db) {
@@ -25,7 +32,13 @@ async function verifyVaultOwnership(db: Db, vaultId: string, walletAddress: stri
 export function vaultRoutes(app: FastifyInstance, db: Db, config: Config) {
   const vaultService = createVaultService(db, config);
   const apiKeyService = createApiKeyService(db);
+  const txService = createTxService(db, config);
   const ownerMiddleware = ownerAuth(db);
+
+  async function loadVaultForOwner(vaultId: string) {
+    const rows = await db`SELECT * FROM vaults WHERE id = ${vaultId}`;
+    return rows[0] || null;
+  }
 
   // POST /v1/vaults
   app.post("/v1/vaults", async (request, reply) => {
@@ -80,6 +93,143 @@ export function vaultRoutes(app: FastifyInstance, db: Db, config: Config) {
     }
     await vaultService.updatePolicy(vaultId, parsed.data);
     return { success: true };
+  });
+
+  // POST /v1/vaults/:vaultId/fee-vault/initialize
+  app.post("/v1/vaults/:vaultId/fee-vault/initialize", { preHandler: ownerMiddleware }, async (request, reply) => {
+    const { vaultId } = request.params as { vaultId: string };
+    const ownerWallet = (request as any).ownerWallet;
+
+    if (!(await verifyVaultOwnership(db, vaultId, ownerWallet))) {
+      return reply.status(403).send({ code: "forbidden", message: "Wallet does not own this vault" });
+    }
+
+    const vault = await loadVaultForOwner(vaultId);
+    if (!vault) {
+      return reply.status(404).send({ code: "not_found", message: "Vault not found" });
+    }
+
+    // Compute the fee vault PDA deterministically from the owner wallet.
+    const feeVaultPda = vaultService.deriveFeeVaultPda(ownerWallet);
+
+    // Ensure the DB has it cached.
+    if (!vault.fee_vault_pda) {
+      await db`UPDATE vaults SET fee_vault_pda = ${feeVaultPda} WHERE id = ${vaultId}`;
+    }
+
+    await db`
+      INSERT INTO activities (vault_id, type, payload_json)
+      VALUES (${vaultId}, 'fee_vault_initialize_intent', ${JSON.stringify({ feeVaultPda })})
+    `;
+
+    return {
+      programId: config.LOBSTERPAY_PROGRAM_ID,
+      vaultPda: vault.vault_pda,
+      feeVaultPda,
+      owner: ownerWallet,
+    };
+  });
+
+  // POST /v1/vaults/:vaultId/fee-vault/deposit
+  app.post("/v1/vaults/:vaultId/fee-vault/deposit", { preHandler: ownerMiddleware }, async (request, reply) => {
+    const { vaultId } = request.params as { vaultId: string };
+    const ownerWallet = (request as any).ownerWallet;
+
+    if (!(await verifyVaultOwnership(db, vaultId, ownerWallet))) {
+      return reply.status(403).send({ code: "forbidden", message: "Wallet does not own this vault" });
+    }
+
+    const parsed = depositFeesSchema.safeParse(request.body);
+    if (!parsed.success) {
+      return reply.status(400).send({ code: "invalid_request", message: parsed.error.message });
+    }
+
+    const vault = await loadVaultForOwner(vaultId);
+    if (!vault) {
+      return reply.status(404).send({ code: "not_found", message: "Vault not found" });
+    }
+
+    const feeVaultPda = vault.fee_vault_pda || vaultService.deriveFeeVaultPda(ownerWallet);
+
+    await db`
+      INSERT INTO activities (vault_id, type, payload_json)
+      VALUES (${vaultId}, 'fee_vault_deposit_intent', ${JSON.stringify({ feeVaultPda, amount: parsed.data.amount })})
+    `;
+
+    return {
+      programId: config.LOBSTERPAY_PROGRAM_ID,
+      feeVaultPda,
+      owner: ownerWallet,
+      amount: parsed.data.amount,
+    };
+  });
+
+  // POST /v1/vaults/:vaultId/fee-vault/withdraw
+  app.post("/v1/vaults/:vaultId/fee-vault/withdraw", { preHandler: ownerMiddleware }, async (request, reply) => {
+    const { vaultId } = request.params as { vaultId: string };
+    const ownerWallet = (request as any).ownerWallet;
+
+    if (!(await verifyVaultOwnership(db, vaultId, ownerWallet))) {
+      return reply.status(403).send({ code: "forbidden", message: "Wallet does not own this vault" });
+    }
+
+    const parsed = withdrawFeesSchema.safeParse(request.body);
+    if (!parsed.success) {
+      return reply.status(400).send({ code: "invalid_request", message: parsed.error.message });
+    }
+
+    const vault = await loadVaultForOwner(vaultId);
+    if (!vault) {
+      return reply.status(404).send({ code: "not_found", message: "Vault not found" });
+    }
+
+    const feeVaultPda = vault.fee_vault_pda || vaultService.deriveFeeVaultPda(ownerWallet);
+
+    await db`
+      INSERT INTO activities (vault_id, type, payload_json)
+      VALUES (${vaultId}, 'fee_vault_withdraw_intent', ${JSON.stringify({ feeVaultPda, amount: parsed.data.amount })})
+    `;
+
+    return {
+      programId: config.LOBSTERPAY_PROGRAM_ID,
+      feeVaultPda,
+      owner: ownerWallet,
+      amount: parsed.data.amount,
+    };
+  });
+
+  // GET /v1/vaults/:vaultId/fee-vault
+  app.get("/v1/vaults/:vaultId/fee-vault", { preHandler: ownerMiddleware }, async (request, reply) => {
+    const { vaultId } = request.params as { vaultId: string };
+    const ownerWallet = (request as any).ownerWallet;
+
+    if (!(await verifyVaultOwnership(db, vaultId, ownerWallet))) {
+      return reply.status(403).send({ code: "forbidden", message: "Wallet does not own this vault" });
+    }
+
+    const vault = await loadVaultForOwner(vaultId);
+    if (!vault) {
+      return reply.status(404).send({ code: "not_found", message: "Vault not found" });
+    }
+
+    const feeVaultPda = vault.fee_vault_pda || vaultService.deriveFeeVaultPda(ownerWallet);
+    const balanceLamports = await txService.getFeeVaultBalance(feeVaultPda);
+    const belowThreshold = balanceLamports < FEE_VAULT_MIN_BALANCE;
+
+    // Keep the cached fee balance in sync so dashboards can read it without
+    // hitting the RPC.
+    await db`
+      UPDATE vault_policies
+      SET fee_balance_lamports = ${balanceLamports.toString()}, updated_at = NOW()
+      WHERE vault_id = ${vaultId}
+    `;
+
+    return {
+      feeVaultPda,
+      balanceLamports: balanceLamports.toString(),
+      minBalanceLamports: FEE_VAULT_MIN_BALANCE.toString(),
+      belowThreshold,
+    };
   });
 
   // POST /v1/vaults/:vaultId/api-keys

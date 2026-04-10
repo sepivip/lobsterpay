@@ -26,6 +26,15 @@ export function derivePolicyPda(vault: PublicKey): [PublicKey, number] {
   );
 }
 
+export const FEE_VAULT_SEED = Buffer.from("fee_vault");
+
+export function deriveFeeVaultPda(owner: PublicKey): [PublicKey, number] {
+  return PublicKey.findProgramAddressSync(
+    [FEE_VAULT_SEED, owner.toBuffer()],
+    PROGRAM_ID
+  );
+}
+
 // ── Helpers ─────────────────────────────────────────────────────────────
 
 /** Write a u64 (bigint-safe) as 8-byte little-endian buffer */
@@ -192,6 +201,170 @@ export async function buildUpdatePolicyTx(
   tx.add(ix);
 
   return { transaction: tx };
+}
+
+// ── initialize_fee_vault ────────────────────────────────────────────────
+
+export async function buildInitializeFeeVaultTx(
+  owner: PublicKey,
+  connection: Connection
+): Promise<{
+  transaction: Transaction;
+  vaultPda: PublicKey;
+  feeVaultPda: PublicKey;
+}> {
+  const [vaultPda] = deriveVaultPda(owner);
+  const [feeVaultPda] = deriveFeeVaultPda(owner);
+
+  // Discriminator: sha256("global:initialize_fee_vault")[0..8]
+  const discriminator = Buffer.from([185, 140, 228, 234, 79, 203, 252, 50]);
+
+  const ix = new TransactionInstruction({
+    programId: PROGRAM_ID,
+    keys: [
+      { pubkey: owner, isSigner: true, isWritable: true },
+      { pubkey: vaultPda, isSigner: false, isWritable: false },
+      { pubkey: feeVaultPda, isSigner: false, isWritable: true },
+      { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+    ],
+    data: discriminator,
+  });
+
+  const { blockhash, lastValidBlockHeight } =
+    await connection.getLatestBlockhash();
+
+  const tx = new Transaction({
+    blockhash,
+    lastValidBlockHeight,
+    feePayer: owner,
+  });
+  tx.add(ix);
+
+  return { transaction: tx, vaultPda, feeVaultPda };
+}
+
+// ── deposit_fees ────────────────────────────────────────────────────────
+
+export async function buildDepositFeesTx(
+  owner: PublicKey,
+  amountLamports: bigint,
+  connection: Connection
+): Promise<{
+  transaction: Transaction;
+  feeVaultPda: PublicKey;
+}> {
+  const [feeVaultPda] = deriveFeeVaultPda(owner);
+
+  // Discriminator: sha256("global:deposit_fees")[0..8]
+  const discriminator = Buffer.from([13, 215, 175, 72, 53, 21, 89, 5]);
+
+  const args = u64LE(amountLamports);
+  const data = Buffer.concat([discriminator, args]);
+
+  const ix = new TransactionInstruction({
+    programId: PROGRAM_ID,
+    keys: [
+      { pubkey: owner, isSigner: true, isWritable: true },
+      { pubkey: feeVaultPda, isSigner: false, isWritable: true },
+      { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+    ],
+    data,
+  });
+
+  const { blockhash, lastValidBlockHeight } =
+    await connection.getLatestBlockhash();
+
+  const tx = new Transaction({
+    blockhash,
+    lastValidBlockHeight,
+    feePayer: owner,
+  });
+  tx.add(ix);
+
+  return { transaction: tx, feeVaultPda };
+}
+
+// ── withdraw_fees ───────────────────────────────────────────────────────
+
+export async function buildWithdrawFeesTx(
+  owner: PublicKey,
+  amountLamports: bigint,
+  connection: Connection
+): Promise<{
+  transaction: Transaction;
+  feeVaultPda: PublicKey;
+}> {
+  const [feeVaultPda] = deriveFeeVaultPda(owner);
+
+  // Discriminator: sha256("global:withdraw_fees")[0..8]
+  const discriminator = Buffer.from([198, 212, 171, 109, 144, 215, 174, 89]);
+
+  const args = u64LE(amountLamports);
+  const data = Buffer.concat([discriminator, args]);
+
+  const ix = new TransactionInstruction({
+    programId: PROGRAM_ID,
+    keys: [
+      { pubkey: owner, isSigner: true, isWritable: true },
+      { pubkey: feeVaultPda, isSigner: false, isWritable: true },
+    ],
+    data,
+  });
+
+  const { blockhash, lastValidBlockHeight } =
+    await connection.getLatestBlockhash();
+
+  const tx = new Transaction({
+    blockhash,
+    lastValidBlockHeight,
+    feePayer: owner,
+  });
+  tx.add(ix);
+
+  return { transaction: tx, feeVaultPda };
+}
+
+// ── update_authorized_agent ─────────────────────────────────────────────
+
+export async function buildUpdateAuthorizedAgentTx(
+  owner: PublicKey,
+  newAgent: PublicKey,
+  connection: Connection
+): Promise<{
+  transaction: Transaction;
+  vaultPda: PublicKey;
+  policyPda: PublicKey;
+}> {
+  const [vaultPda] = deriveVaultPda(owner);
+  const [policyPda] = derivePolicyPda(vaultPda);
+
+  // Discriminator: sha256("global:update_authorized_agent")[0..8]
+  const discriminator = Buffer.from([99, 196, 103, 74, 106, 51, 2, 81]);
+
+  // Args: new_agent (pubkey = 32 bytes)
+  const data = Buffer.concat([discriminator, newAgent.toBuffer()]);
+
+  const ix = new TransactionInstruction({
+    programId: PROGRAM_ID,
+    keys: [
+      { pubkey: owner, isSigner: true, isWritable: false },
+      { pubkey: vaultPda, isSigner: false, isWritable: false },
+      { pubkey: policyPda, isSigner: false, isWritable: true },
+    ],
+    data,
+  });
+
+  const { blockhash, lastValidBlockHeight } =
+    await connection.getLatestBlockhash();
+
+  const tx = new Transaction({
+    blockhash,
+    lastValidBlockHeight,
+    feePayer: owner,
+  });
+  tx.add(ix);
+
+  return { transaction: tx, vaultPda, policyPda };
 }
 
 // ── emergency_pause ─────────────────────────────────────────────────────

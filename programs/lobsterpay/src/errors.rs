@@ -40,4 +40,10 @@ pub enum LobsterPayError {
     ExternalProgramAllowlistFull,
     #[msg("Duplicate entry in allowlist")]
     DuplicateAllowlistEntry,
+    #[msg("Fee vault has insufficient SOL balance — owner must deposit more")]
+    InsufficientFeeBalance,
+    #[msg("Invalid treasury account — does not match program constant")]
+    InvalidTreasury,
+    #[msg("Fee treasury token account mint mismatch")]
+    InvalidFeeTreasuryMint,
 }

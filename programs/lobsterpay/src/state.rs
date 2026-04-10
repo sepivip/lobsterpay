@@ -18,6 +18,10 @@ impl Vault {
 pub struct Policy {
     pub vault: Pubkey,
     pub owner: Pubkey,
+    /// Additional signer allowed to call execute_pay_exact / execute_swap_exact_in
+    /// on behalf of the owner. Typically the LobsterPay backend fee payer.
+    /// Default (at init) is the owner itself, which disables agent delegation.
+    pub authorized_agent: Pubkey,
     pub paused: bool,
     pub allowed_actions: u64,
     pub max_per_tx_amount_atomic: u64,
@@ -36,11 +40,17 @@ pub struct Policy {
 }
 
 impl Policy {
-    pub const MAX_SIZE: usize = 32 + 32 + 1 + 8 + 8 + 8 + 8 + 8 + 2
+    pub const MAX_SIZE: usize = 32 + 32 + 32 + 1 + 8 + 8 + 8 + 8 + 8 + 2
         + (32 * MAX_ALLOWED_MINTS) + 1
         + (32 * MAX_ALLOWED_DESTINATIONS) + 1
         + (32 * MAX_ALLOWED_EXTERNAL_PROGRAMS) + 1
-        + 1 + 1; // = 752
+        + 1 + 1; // = 784 (was 752, +32 for authorized_agent)
+
+    /// Check if a given signer is authorized to act on this vault.
+    /// Either the owner OR the authorized_agent.
+    pub fn is_authorized(&self, signer: &Pubkey) -> bool {
+        *signer == self.owner || *signer == self.authorized_agent
+    }
 
     pub fn is_mint_allowed(&self, mint: &Pubkey) -> bool {
         if self.allowed_mint_count == 0 {
@@ -101,4 +111,18 @@ impl Policy {
         self.daily_spent_amount_atomic = new_spent;
         Ok(())
     }
+}
+
+/// FeeVault — a program-controlled PDA holding native SOL to fund
+/// network fees for agent actions. Funded by the owner via deposit_fees.
+#[account]
+pub struct FeeVault {
+    pub owner: Pubkey,
+    pub vault: Pubkey,
+    pub bump: u8,
+    pub version: u8,
+}
+
+impl FeeVault {
+    pub const MAX_SIZE: usize = 32 + 32 + 1 + 1; // 66
 }
