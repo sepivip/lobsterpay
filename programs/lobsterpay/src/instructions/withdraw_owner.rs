@@ -22,6 +22,9 @@ pub struct WithdrawOwner<'info> {
     )]
     pub vault: Account<'info, Vault>,
 
+    // Security: owner is already validated via vault.has_one = owner + seeds.
+    // Policy is linked to vault via has_one = vault. Adding has_one = owner
+    // here causes BPF stack overflow due to Policy's large account size.
     #[account(
         has_one = vault,
     )]
@@ -48,6 +51,11 @@ pub struct WithdrawOwner<'info> {
 }
 
 pub fn handler(ctx: Context<WithdrawOwner>, params: WithdrawOwnerParams) -> Result<()> {
+    use crate::errors::LobsterPayError;
+
+    // Guard: amount must be positive
+    require!(params.amount > 0, LobsterPayError::InvalidAmount);
+
     let vault = &ctx.accounts.vault;
     let owner_key = vault.owner.key();
     let seeds: &[&[u8]] = &[VAULT_SEED, owner_key.as_ref(), &[vault.bump]];

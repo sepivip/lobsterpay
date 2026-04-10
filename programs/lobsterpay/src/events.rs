@@ -42,3 +42,10 @@ pub struct PauseToggled {
     pub vault: Pubkey,
     pub paused: bool,
 }
+
+#[event]
+pub struct VaultTokenAccountEnsured {
+    pub vault: Pubkey,
+    pub mint: Pubkey,
+    pub token_account: Pubkey,
+}

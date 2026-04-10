@@ -188,8 +188,8 @@ export default function PolicyPage() {
 				connection,
 				{
 					allowedActions,
-					maxPerTxAmountAtomic: maxPerTx ? Number(maxPerTx) : undefined,
-					dailyLimitAmountAtomic: dailyLimit ? Number(dailyLimit) : undefined,
+					maxPerTxAmountAtomic: maxPerTx ? BigInt(maxPerTx) : undefined,
+					dailyLimitAmountAtomic: dailyLimit ? BigInt(dailyLimit) : undefined,
 					maxSlippageBps: maxSlippage ? Number(maxSlippage) : undefined,
 					allowedMints: mintsArr.length > 0
 						? mintsArr.map((m) => new PublicKey(m))
@@ -201,12 +201,7 @@ export default function PolicyPage() {
 			);
 
 			const signature = await sendTransaction(transaction, connection);
-			const { blockhash, lastValidBlockHeight } =
-				await connection.getLatestBlockhash();
-			await connection.confirmTransaction(
-				{ signature, blockhash, lastValidBlockHeight },
-				"confirmed"
-			);
+			await connection.confirmTransaction(signature, "confirmed");
 
 			// Sync to backend DB
 			await api.updatePolicy(vault.id, {
@@ -282,12 +277,7 @@ export default function PolicyPage() {
 			}
 
 			const signature = await sendTransaction(transaction, connection);
-			const { blockhash, lastValidBlockHeight } =
-				await connection.getLatestBlockhash();
-			await connection.confirmTransaction(
-				{ signature, blockhash, lastValidBlockHeight },
-				"confirmed"
-			);
+			await connection.confirmTransaction(signature, "confirmed");
 
 			// Sync to backend DB
 			await api.updatePolicy(vault.id, { paused: !vault.paused });

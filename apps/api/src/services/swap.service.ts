@@ -47,6 +47,7 @@ export function createSwapService(db: Db, config: Config) {
       vaultId: string;
       apiKeyId: string;
       vaultPda: string;
+      apiKeyRecord?: any;
     }) {
       // 1. Idempotency check
       const existing = await txService.checkIdempotency(params.vaultId, params.idempotencyKey);
@@ -63,6 +64,12 @@ export function createSwapService(db: Db, config: Config) {
       const [policy] = await db`SELECT * FROM vault_policies WHERE vault_id = ${params.vaultId}`;
       if (!policy) throw new Error("Policy not found");
 
+      // Apply API key overrides where available
+      const keyRecord = params.apiKeyRecord;
+      const effectiveActions = keyRecord?.allowed_actions_override ?? policy.allowed_actions;
+      const effectivePerTx = BigInt(keyRecord?.per_tx_override ?? policy.max_per_tx_amount_atomic);
+      const effectiveDaily = BigInt(keyRecord?.daily_limit_override ?? policy.daily_limit_amount_atomic);
+
       // 3. Check paused
       if (policy.paused) {
         const req = await txService.persistRequest({
@@ -78,7 +85,7 @@ export function createSwapService(db: Db, config: Config) {
       }
 
       // 4. Check action allowed (bit 1 = swap)
-      if ((policy.allowed_actions & 1) === 0) {
+      if ((effectiveActions & 1) === 0) {
         const req = await txService.persistRequest({
           vaultId: params.vaultId,
           apiKeyId: params.apiKeyId,
@@ -93,8 +100,7 @@ export function createSwapService(db: Db, config: Config) {
 
       // 5. Check per-tx limit
       const amount = BigInt(params.amountAtomic);
-      const perTxLimit = BigInt(policy.max_per_tx_amount_atomic);
-      if (perTxLimit > 0n && amount > perTxLimit) {
+      if (effectivePerTx > 0n && amount > effectivePerTx) {
         const req = await txService.persistRequest({
           vaultId: params.vaultId,
           apiKeyId: params.apiKeyId,
@@ -109,11 +115,10 @@ export function createSwapService(db: Db, config: Config) {
         return { requestId: req.id, txSignature: null, status: "failed", error: "Amount exceeds per-tx limit" };
       }
 
-      // 6. Check daily limit
-      const dailyLimit = BigInt(policy.daily_limit_amount_atomic);
-      if (dailyLimit > 0n) {
-        const dailySpent = await txService.getDailyUsage(params.vaultId, params.apiKeyId);
-        if (dailySpent + amount > dailyLimit) {
+      // 6. Atomic daily limit check-and-reserve
+      if (effectiveDaily > 0n) {
+        const reservation = await txService.reserveUsage(params.vaultId, params.apiKeyId, amount, effectiveDaily);
+        if (!reservation.allowed) {
           const req = await txService.persistRequest({
             vaultId: params.vaultId,
             apiKeyId: params.apiKeyId,
@@ -184,8 +189,10 @@ export function createSwapService(db: Db, config: Config) {
         const finalStatus = confirmation.value.err ? "failed" : "confirmed";
         await txService.updateRequestTx(req.id, signature, finalStatus);
 
-        // Track usage
-        await txService.trackUsage(params.vaultId, params.apiKeyId, amount);
+        // Release usage reservation on definitive failure
+        if (finalStatus === "failed" && effectiveDaily > 0n) {
+          await txService.releaseUsage(params.vaultId, params.apiKeyId, amount);
+        }
 
         // Log activity
         await txService.logActivity(
@@ -209,7 +216,15 @@ export function createSwapService(db: Db, config: Config) {
           error: confirmation.value.err ? JSON.stringify(confirmation.value.err) : null,
         };
       } catch (err: any) {
-        await txService.updateRequestTx(req.id, "", "failed");
+        const isTimeout = err.message?.includes('timeout') || err.message?.includes('expired');
+        const status = isTimeout ? 'pending_confirmation' : 'failed';
+        await txService.updateRequestTx(req.id, "", status);
+
+        // Release usage reservation on definitive failure
+        if (!isTimeout && effectiveDaily > 0n) {
+          await txService.releaseUsage(params.vaultId, params.apiKeyId, amount);
+        }
+
         await txService.logActivity(
           params.vaultId,
           "swap",
@@ -222,7 +237,12 @@ export function createSwapService(db: Db, config: Config) {
           undefined,
           req.id,
         );
-        return { requestId: req.id, txSignature: null, status: "failed", error: err.message };
+        return {
+          requestId: req.id,
+          txSignature: null,
+          status,
+          error: isTimeout ? "Transaction confirmation timed out, status uncertain" : "Swap transaction failed",
+        };
       }
     },
   };

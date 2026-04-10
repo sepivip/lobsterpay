@@ -103,13 +103,14 @@ export async function buildInitializeVaultTx(
 // ── update_policy ───────────────────────────────────────────────────────
 
 export interface UpdatePolicyParams {
-  allowedActions?: number;
-  maxPerTxAmountAtomic?: number | bigint;
-  dailyLimitAmountAtomic?: number | bigint;
-  maxSlippageBps?: number;
   paused?: boolean;
+  allowedActions?: number;
+  maxPerTxAmountAtomic?: bigint;
+  dailyLimitAmountAtomic?: bigint;
+  maxSlippageBps?: number;
   allowedMints?: PublicKey[];
   allowedDestinations?: PublicKey[];
+  allowedExternalPrograms?: string[];
 }
 
 /**
@@ -156,13 +157,16 @@ export async function buildUpdatePolicyTx(
   const discriminator = Buffer.from([212, 245, 246, 7, 163, 151, 18, 57]);
 
   const args = Buffer.concat([
+    optionBool(params.paused),
     optionU64(params.allowedActions),
     optionU64(params.maxPerTxAmountAtomic),
     optionU64(params.dailyLimitAmountAtomic),
     optionU16(params.maxSlippageBps),
-    optionBool(params.paused),
     optionPubkeyVec(params.allowedMints),
     optionPubkeyVec(params.allowedDestinations),
+    optionPubkeyVec(
+      params.allowedExternalPrograms?.map((p) => new PublicKey(p))
+    ),
   ]);
 
   const data = Buffer.concat([discriminator, args]);
@@ -170,7 +174,7 @@ export async function buildUpdatePolicyTx(
   const ix = new TransactionInstruction({
     programId: PROGRAM_ID,
     keys: [
-      { pubkey: owner, isSigner: true, isWritable: true },
+      { pubkey: owner, isSigner: true, isWritable: false },
       { pubkey: vaultPda, isSigner: false, isWritable: false },
       { pubkey: policyPda, isSigner: false, isWritable: true },
     ],
@@ -204,7 +208,7 @@ export async function buildEmergencyPauseTx(
   const ix = new TransactionInstruction({
     programId: PROGRAM_ID,
     keys: [
-      { pubkey: owner, isSigner: true, isWritable: true },
+      { pubkey: owner, isSigner: true, isWritable: false },
       { pubkey: vaultPda, isSigner: false, isWritable: false },
       { pubkey: policyPda, isSigner: false, isWritable: true },
     ],

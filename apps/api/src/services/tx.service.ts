@@ -90,7 +90,8 @@ export function createTxService(db: Db, config: Config) {
       amountAtomic?: string;
       mint?: string;
     }) {
-      const [request] = await db`
+      // Try insert, handle conflict gracefully (idempotency race)
+      const rows = await db`
         INSERT INTO requests (vault_id, api_key_id, action_type, idempotency_key, request_json, decision, rejection_reason, tx_signature, tx_status, amount_atomic, mint)
         VALUES (
           ${params.vaultId}, ${params.apiKeyId}, ${params.actionType},
@@ -100,9 +101,14 @@ export function createTxService(db: Db, config: Config) {
           ${params.amountAtomic ? BigInt(params.amountAtomic) : null},
           ${params.mint || null}
         )
+        ON CONFLICT (vault_id, idempotency_key) DO NOTHING
         RETURNING *
       `;
-      return request;
+      if (rows.length > 0) return rows[0];
+
+      // Conflict — return existing row
+      const [existing] = await db`SELECT * FROM requests WHERE vault_id = ${params.vaultId} AND idempotency_key = ${params.idempotencyKey}`;
+      return existing;
     },
 
     async updateRequestTx(requestId: string, txSignature: string, txStatus: string) {
@@ -132,6 +138,55 @@ export function createTxService(db: Db, config: Config) {
           amount_spent_atomic = usage_windows.amount_spent_atomic + ${amountAtomic},
           request_count = usage_windows.request_count + 1,
           updated_at = NOW()
+      `;
+    },
+
+    async reserveUsage(vaultId: string, apiKeyId: string, amountAtomic: bigint, dailyLimit: bigint): Promise<{ allowed: boolean; newTotal: bigint }> {
+      const windowStart = new Date();
+      windowStart.setUTCHours(0, 0, 0, 0);
+
+      // Atomic: upsert the window and check limit in one statement
+      const rows = await db`
+        WITH upserted AS (
+          INSERT INTO usage_windows (vault_id, api_key_id, window_start, amount_spent_atomic, request_count)
+          VALUES (${vaultId}, ${apiKeyId}, ${windowStart}, ${amountAtomic}, 1)
+          ON CONFLICT (vault_id, api_key_id, window_start)
+          DO UPDATE SET
+            amount_spent_atomic = usage_windows.amount_spent_atomic + ${amountAtomic},
+            request_count = usage_windows.request_count + 1,
+            updated_at = NOW()
+          RETURNING amount_spent_atomic
+        )
+        SELECT amount_spent_atomic FROM upserted
+      `;
+
+      const newTotal = BigInt(rows[0].amount_spent_atomic);
+
+      // If over limit, roll back by subtracting
+      if (dailyLimit > 0n && newTotal > dailyLimit) {
+        await db`
+          UPDATE usage_windows
+          SET amount_spent_atomic = amount_spent_atomic - ${amountAtomic},
+              request_count = request_count - 1,
+              updated_at = NOW()
+          WHERE vault_id = ${vaultId} AND api_key_id = ${apiKeyId} AND window_start = ${windowStart}
+        `;
+        return { allowed: false, newTotal };
+      }
+
+      return { allowed: true, newTotal };
+    },
+
+    async releaseUsage(vaultId: string, apiKeyId: string, amountAtomic: bigint) {
+      const windowStart = new Date();
+      windowStart.setUTCHours(0, 0, 0, 0);
+
+      await db`
+        UPDATE usage_windows
+        SET amount_spent_atomic = GREATEST(amount_spent_atomic - ${amountAtomic}, 0),
+            request_count = GREATEST(request_count - 1, 0),
+            updated_at = NOW()
+        WHERE vault_id = ${vaultId} AND api_key_id = ${apiKeyId} AND window_start = ${windowStart}
       `;
     },
 

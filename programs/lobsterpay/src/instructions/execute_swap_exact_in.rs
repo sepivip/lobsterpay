@@ -14,6 +14,10 @@ pub struct ExecuteSwapExactInParams {
 pub struct ExecuteSwapExactIn<'info> {
     pub authority: Signer<'info>,
 
+    #[account(
+        seeds = [crate::constants::VAULT_SEED, vault.owner.as_ref()],
+        bump = vault.bump,
+    )]
     pub vault: Account<'info, Vault>,
 
     #[account(

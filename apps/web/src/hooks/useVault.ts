@@ -63,12 +63,7 @@ export function useVault(): VaultState {
       const signature = await sendTransaction(transaction, connection);
 
       // 4. Confirm the transaction
-      const { blockhash, lastValidBlockHeight } =
-        await connection.getLatestBlockhash();
-      await connection.confirmTransaction(
-        { signature, blockhash, lastValidBlockHeight },
-        "confirmed"
-      );
+      await connection.confirmTransaction(signature, "confirmed");
 
       // 5. Refresh vault state from backend
       await refresh();

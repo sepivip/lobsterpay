@@ -38,4 +38,6 @@ pub enum LobsterPayError {
     DestinationAllowlistFull,
     #[msg("External program allowlist is full")]
     ExternalProgramAllowlistFull,
+    #[msg("Duplicate entry in allowlist")]
+    DuplicateAllowlistEntry,
 }

@@ -61,6 +61,10 @@ pub fn handler(ctx: Context<UpdatePolicy>, params: UpdatePolicyParams) -> Result
             mints.len() <= MAX_ALLOWED_MINTS,
             LobsterPayError::MintAllowlistFull
         );
+        require!(
+            !has_duplicates(&mints),
+            LobsterPayError::DuplicateAllowlistEntry
+        );
         let mut arr = [Pubkey::default(); MAX_ALLOWED_MINTS];
         for (i, m) in mints.iter().enumerate() {
             arr[i] = *m;
@@ -73,6 +77,10 @@ pub fn handler(ctx: Context<UpdatePolicy>, params: UpdatePolicyParams) -> Result
         require!(
             destinations.len() <= MAX_ALLOWED_DESTINATIONS,
             LobsterPayError::DestinationAllowlistFull
+        );
+        require!(
+            !has_duplicates(&destinations),
+            LobsterPayError::DuplicateAllowlistEntry
         );
         let mut arr = [Pubkey::default(); MAX_ALLOWED_DESTINATIONS];
         for (i, d) in destinations.iter().enumerate() {
@@ -87,6 +95,10 @@ pub fn handler(ctx: Context<UpdatePolicy>, params: UpdatePolicyParams) -> Result
             programs.len() <= MAX_ALLOWED_EXTERNAL_PROGRAMS,
             LobsterPayError::ExternalProgramAllowlistFull
         );
+        require!(
+            !has_duplicates(&programs),
+            LobsterPayError::DuplicateAllowlistEntry
+        );
         let mut arr = [Pubkey::default(); MAX_ALLOWED_EXTERNAL_PROGRAMS];
         for (i, p) in programs.iter().enumerate() {
             arr[i] = *p;
@@ -100,4 +112,16 @@ pub fn handler(ctx: Context<UpdatePolicy>, params: UpdatePolicyParams) -> Result
     });
 
     Ok(())
+}
+
+/// O(n^2) duplicate check — acceptable for small allowlists (max 8 entries).
+fn has_duplicates(list: &[Pubkey]) -> bool {
+    for i in 0..list.len() {
+        for j in (i + 1)..list.len() {
+            if list[i] == list[j] {
+                return true;
+            }
+        }
+    }
+    false
 }

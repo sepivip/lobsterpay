@@ -75,13 +75,17 @@ impl Policy {
     ) -> Result<()> {
         use crate::errors::LobsterPayError;
 
+        // 0 = no limit enforced. Owner must set a non-zero
+        // daily_limit_amount_atomic to enable daily-limit enforcement.
         if self.daily_limit_amount_atomic == 0 {
-            return Ok(()); // 0 = no limit
+            return Ok(());
         }
 
-        // Reset window if needed
-        if current_ts >= self.daily_window_start_ts + SECONDS_PER_DAY {
-            self.daily_window_start_ts = current_ts;
+        // Reset window using aligned day boundaries to prevent double-spend
+        // at window edges. Each window is [aligned_start, aligned_start + 86400).
+        let aligned_start = current_ts - (current_ts % SECONDS_PER_DAY);
+        if aligned_start > self.daily_window_start_ts {
+            self.daily_window_start_ts = aligned_start;
             self.daily_spent_amount_atomic = 0;
         }
 

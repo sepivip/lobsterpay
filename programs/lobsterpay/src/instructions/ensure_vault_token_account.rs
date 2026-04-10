@@ -4,6 +4,7 @@ use anchor_spl::{
     token_interface::{Mint, TokenAccount, TokenInterface},
 };
 use crate::constants::*;
+use crate::events::VaultTokenAccountEnsured;
 use crate::state::Vault;
 
 #[derive(Accounts)]
@@ -33,8 +34,12 @@ pub struct EnsureVaultTokenAccount<'info> {
     pub system_program: Program<'info, System>,
 }
 
-pub fn handler(_ctx: Context<EnsureVaultTokenAccount>) -> Result<()> {
+pub fn handler(ctx: Context<EnsureVaultTokenAccount>) -> Result<()> {
     // The account is created by init_if_needed if it doesn't exist.
-    // Nothing else to do.
+    emit!(VaultTokenAccountEnsured {
+        vault: ctx.accounts.vault.key(),
+        mint: ctx.accounts.mint.key(),
+        token_account: ctx.accounts.vault_token_account.key(),
+    });
     Ok(())
 }

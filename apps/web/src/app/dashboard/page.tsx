@@ -98,6 +98,7 @@ export default function DashboardPage() {
 	const router = useRouter();
 	const { vault, loading, error, refresh, createVault } = useVault();
 	const [recentActivity, setRecentActivity] = useState<any[]>([]);
+	const [creating, setCreating] = useState(false);
 
 	useEffect(() => {
 		if (!connected) router.push("/");
@@ -115,8 +116,6 @@ export default function DashboardPage() {
 	if (!connected || !publicKey) return null;
 
 	const truncatedKey = `${publicKey.toString().slice(0, 4)}...${publicKey.toString().slice(-4)}`;
-
-	const [creating, setCreating] = useState(false);
 
 	const handleCreateVault = async () => {
 		setCreating(true);

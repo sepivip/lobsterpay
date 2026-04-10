@@ -14,6 +14,7 @@ pub struct EmergencyPause<'info> {
     #[account(
         mut,
         has_one = vault,
+        has_one = owner,
     )]
     pub policy: Account<'info, Policy>,
 }

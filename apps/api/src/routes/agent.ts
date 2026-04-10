@@ -22,6 +22,7 @@ export function agentRoutes(app: FastifyInstance, db: Db, config: Config) {
   const auth = createApiKeyAuth(db);
   const txService = createTxService(db, config);
   const swapService = createSwapService(db, config);
+  const x402Service = createX402Service(db, config);
 
   // GET /v1/agent/vault
   app.get("/v1/agent/vault", { preHandler: auth }, async (request) => {
@@ -112,11 +113,11 @@ export function agentRoutes(app: FastifyInstance, db: Db, config: Config) {
       return reply.status(403).send({ requestId: req.id, txSignature: null, status: "failed", error: "Amount exceeds per-tx limit" });
     }
 
-    // 6. Check daily limit
+    // 6. Atomic daily limit check-and-reserve
     const effectiveDaily = BigInt(apiKey.daily_limit_override ?? policy.daily_limit_amount_atomic);
     if (effectiveDaily > 0n) {
-      const dailySpent = await txService.getDailyUsage(vaultId, apiKey.id);
-      if (dailySpent + amount > effectiveDaily) {
+      const reservation = await txService.reserveUsage(vaultId, apiKey.id, amount, effectiveDaily);
+      if (!reservation.allowed) {
         const req = await txService.persistRequest({
           vaultId, apiKeyId: apiKey.id, actionType: "pay_exact", idempotencyKey,
           requestJson: parsed.data, decision: "rejected", rejectionReason: "exceeds_daily_limit",
@@ -145,6 +146,21 @@ export function agentRoutes(app: FastifyInstance, db: Db, config: Config) {
       const policyPubkey = new PublicKey(vault.policy_pda);
       const mintPubkey = new PublicKey(mint);
       const vaultTokenAcct = getVaultTokenAccount(vaultPubkey, mintPubkey, TOKEN_PROGRAM_ID);
+
+      // Fee payer drain protection: check vault balance before submitting
+      const vaultBalance = await txService.getTokenBalance(vaultTokenAcct);
+      if (BigInt(vaultBalance) < BigInt(amountAtomic)) {
+        // Release the daily limit reservation if we made one
+        if (effectiveDaily > 0n) {
+          await txService.releaseUsage(vaultId, apiKey.id, amount);
+        }
+        const balReq = await txService.persistRequest({
+          vaultId, apiKeyId: apiKey.id, actionType: "pay_exact", idempotencyKey,
+          requestJson: parsed.data, decision: "rejected", rejectionReason: "insufficient_vault_balance",
+          amountAtomic, mint,
+        });
+        return reply.status(403).send({ requestId: balReq.id, txSignature: null, status: "failed", error: "Insufficient vault balance" });
+      }
 
       // Resolve destination token account
       let destTokenAcct: PublicKey;
@@ -178,9 +194,8 @@ export function agentRoutes(app: FastifyInstance, db: Db, config: Config) {
       const tx = await buildTransaction([payIx], txService.feePayer.publicKey, txService.connection);
       const signature = await txService.sendAndConfirm(tx, [txService.feePayer]);
 
-      // Update request with signature
+      // Update request with signature — usage was already reserved atomically
       await txService.updateRequestTx(req.id, signature, "confirmed");
-      await txService.trackUsage(vaultId, apiKey.id, amount);
       await txService.logActivity(vaultId, "payment", {
         requestId: req.id, mint, amountAtomic,
         destination: destinationOwner || destinationTokenAccount, memo,
@@ -193,7 +208,17 @@ export function agentRoutes(app: FastifyInstance, db: Db, config: Config) {
         error: null,
       };
     } catch (err: any) {
-      await txService.updateRequestTx(req.id, "", "failed");
+      // Determine if this is a timeout (uncertain) vs definitive failure
+      const isTimeout = err.message?.includes('timeout') || err.message?.includes('expired');
+      const status = isTimeout ? 'pending_confirmation' : 'failed';
+      await txService.updateRequestTx(req.id, "", status);
+
+      // Release usage reservation on definitive failure
+      if (!isTimeout && effectiveDaily > 0n) {
+        await txService.releaseUsage(vaultId, apiKey.id, amount);
+      }
+
+      app.log.error({ err, requestId: req.id, vaultId }, "Pay transaction failed");
       await txService.logActivity(vaultId, "payment", {
         requestId: req.id, mint, amountAtomic, error: err.message,
       }, null, req.id);
@@ -201,8 +226,8 @@ export function agentRoutes(app: FastifyInstance, db: Db, config: Config) {
       return reply.status(500).send({
         requestId: req.id,
         txSignature: null,
-        status: "failed",
-        error: err.message,
+        status,
+        error: isTimeout ? "Transaction confirmation timed out, status uncertain" : "Transaction failed",
       });
     }
   });
@@ -244,7 +269,8 @@ export function agentRoutes(app: FastifyInstance, db: Db, config: Config) {
         routeSummary: quote.routeSummary,
       };
     } catch (err: any) {
-      return reply.status(502).send({ code: "swap_quote_error", message: err.message });
+      app.log.error({ err, vaultId }, "Swap quote failed");
+      return reply.status(502).send({ code: "swap_quote_error", message: "Failed to fetch swap quote" });
     }
   });
 
@@ -276,6 +302,7 @@ export function agentRoutes(app: FastifyInstance, db: Db, config: Config) {
         vaultId,
         apiKeyId: apiKey.id,
         vaultPda: vault.vault_pda,
+        apiKeyRecord: apiKey,
       });
 
       if (result.status === "failed" && result.error) {
@@ -293,7 +320,8 @@ export function agentRoutes(app: FastifyInstance, db: Db, config: Config) {
 
       return result;
     } catch (err: any) {
-      return reply.status(500).send({ code: "swap_error", message: err.message });
+      app.log.error({ err, vaultId }, "Swap execution failed");
+      return reply.status(500).send({ code: "swap_error", message: "Swap execution failed" });
     }
   });
 
@@ -311,7 +339,6 @@ export function agentRoutes(app: FastifyInstance, db: Db, config: Config) {
 
     const [vault] = await db`SELECT vault_pda FROM vaults WHERE id = ${vaultId}`;
 
-    const x402Service = createX402Service(db, config);
     const result = await x402Service.processX402Payment({
       paymentRequirements,
       originalRequestUrl,

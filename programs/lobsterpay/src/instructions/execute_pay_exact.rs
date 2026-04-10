@@ -53,6 +53,12 @@ pub fn handler(ctx: Context<ExecutePayExact>, params: ExecutePayExactParams) -> 
     let policy = &mut ctx.accounts.policy;
     let vault = &ctx.accounts.vault;
 
+    // Guard: authority must be the vault owner
+    require!(
+        ctx.accounts.authority.key() == vault.owner,
+        LobsterPayError::Unauthorized
+    );
+
     // Guard: not paused
     require!(!policy.paused, LobsterPayError::VaultPaused);
 
