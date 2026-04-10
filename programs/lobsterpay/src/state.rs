@@ -1,0 +1,100 @@
+use anchor_lang::prelude::*;
+use crate::constants::*;
+
+#[account]
+pub struct Vault {
+    pub owner: Pubkey,
+    pub policy: Pubkey,
+    pub bump: u8,
+    pub created_at: i64,
+    pub version: u8,
+}
+
+impl Vault {
+    pub const MAX_SIZE: usize = 32 + 32 + 1 + 8 + 1; // 74
+}
+
+#[account]
+pub struct Policy {
+    pub vault: Pubkey,
+    pub owner: Pubkey,
+    pub paused: bool,
+    pub allowed_actions: u64,
+    pub max_per_tx_amount_atomic: u64,
+    pub daily_limit_amount_atomic: u64,
+    pub daily_spent_amount_atomic: u64,
+    pub daily_window_start_ts: i64,
+    pub max_slippage_bps: u16,
+    pub allowed_mints: [Pubkey; MAX_ALLOWED_MINTS],
+    pub allowed_mint_count: u8,
+    pub allowed_destinations: [Pubkey; MAX_ALLOWED_DESTINATIONS],
+    pub allowed_destination_count: u8,
+    pub allowed_external_programs: [Pubkey; MAX_ALLOWED_EXTERNAL_PROGRAMS],
+    pub allowed_external_program_count: u8,
+    pub bump: u8,
+    pub version: u8,
+}
+
+impl Policy {
+    pub const MAX_SIZE: usize = 32 + 32 + 1 + 8 + 8 + 8 + 8 + 8 + 2
+        + (32 * MAX_ALLOWED_MINTS) + 1
+        + (32 * MAX_ALLOWED_DESTINATIONS) + 1
+        + (32 * MAX_ALLOWED_EXTERNAL_PROGRAMS) + 1
+        + 1 + 1; // = 752
+
+    pub fn is_mint_allowed(&self, mint: &Pubkey) -> bool {
+        if self.allowed_mint_count == 0 {
+            return true; // empty = allow all
+        }
+        self.allowed_mints[..self.allowed_mint_count as usize].contains(mint)
+    }
+
+    pub fn is_destination_allowed(&self, dest: &Pubkey) -> bool {
+        if self.allowed_destination_count == 0 {
+            return true;
+        }
+        self.allowed_destinations[..self.allowed_destination_count as usize].contains(dest)
+    }
+
+    pub fn is_program_allowed(&self, program: &Pubkey) -> bool {
+        if self.allowed_external_program_count == 0 {
+            return false; // empty = deny all for CPI
+        }
+        self.allowed_external_programs[..self.allowed_external_program_count as usize]
+            .contains(program)
+    }
+
+    pub fn is_action_allowed(&self, action: u64) -> bool {
+        self.allowed_actions & action == action
+    }
+
+    pub fn check_and_update_daily_limit(
+        &mut self,
+        amount: u64,
+        current_ts: i64,
+    ) -> Result<()> {
+        use crate::errors::LobsterPayError;
+
+        if self.daily_limit_amount_atomic == 0 {
+            return Ok(()); // 0 = no limit
+        }
+
+        // Reset window if needed
+        if current_ts >= self.daily_window_start_ts + SECONDS_PER_DAY {
+            self.daily_window_start_ts = current_ts;
+            self.daily_spent_amount_atomic = 0;
+        }
+
+        let new_spent = self
+            .daily_spent_amount_atomic
+            .checked_add(amount)
+            .ok_or(LobsterPayError::ArithmeticOverflow)?;
+
+        if new_spent > self.daily_limit_amount_atomic {
+            return Err(LobsterPayError::AmountExceedsDailyLimit.into());
+        }
+
+        self.daily_spent_amount_atomic = new_spent;
+        Ok(())
+    }
+}

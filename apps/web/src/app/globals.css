@@ -1,0 +1,477 @@
+@import "tailwindcss";
+
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=JetBrains+Mono:wght@400;500&display=swap');
+
+:root {
+  /* Core palette — monochrome chrome, color only for accent & status */
+  --bg-deep: #050507;
+  --bg-base: #0a0a0c;
+  --bg-raised: #111114;
+  --bg-card: #151518;
+  --bg-card-hover: #1a1a1e;
+
+  --border-subtle: #1e1e22;
+  --border-default: #28282e;
+  --border-strong: #3a3a42;
+
+  --text-primary: #f0f0f2;
+  --text-secondary: #a0a0a8;
+  --text-tertiary: #6a6a72;
+  --text-ghost: #44444c;
+
+  /* Lobster Red — the single accent */
+  --accent: #e63946;
+  --accent-hover: #ff4757;
+  --accent-dim: #e6394620;
+  --accent-glow: #e6394640;
+  --accent-subtle: #e6394610;
+
+  /* Status */
+  --success: #2ed573;
+  --success-dim: #2ed57320;
+  --warning: #ffa502;
+  --warning-dim: #ffa50220;
+  --danger: #ff4757;
+  --danger-dim: #ff475720;
+
+  /* Typography — from DESIGN.md: tight tracking, variable weights */
+  --font-sans: 'DM Sans', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', 'SF Mono', 'Menlo', monospace;
+
+  --tracking-tightest: -0.04em;
+  --tracking-tight: -0.02em;
+  --tracking-normal: -0.01em;
+  --tracking-mono: 0.06em;
+
+  /* Radius — pill geometry from DESIGN.md */
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-pill: 50px;
+  --radius-circle: 50%;
+
+  /* Shadows */
+  --shadow-card: 0 1px 2px rgba(0,0,0,0.4), 0 0 0 1px var(--border-subtle);
+  --shadow-elevated: 0 4px 16px rgba(0,0,0,0.5), 0 0 0 1px var(--border-subtle);
+  --shadow-glow: 0 0 40px var(--accent-glow);
+}
+
+/* ── Reset & Base ── */
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: "kern" 1, "liga" 1;
+}
+
+body {
+  background: var(--bg-deep);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  letter-spacing: var(--tracking-normal);
+  line-height: 1.5;
+  margin: 0;
+}
+
+/* ── Focus — dashed, referencing DESIGN.md ── */
+
+*:focus-visible {
+  outline: 2px dashed var(--accent);
+  outline-offset: 2px;
+}
+
+/* ── Selection ── */
+
+::selection {
+  background: var(--accent);
+  color: white;
+}
+
+/* ── Scrollbar ── */
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-tertiary);
+}
+
+/* ── Typography utilities ── */
+
+.font-mono {
+  font-family: var(--font-mono);
+}
+
+.label-mono {
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-mono);
+  color: var(--text-tertiary);
+}
+
+.text-display {
+  font-size: clamp(2.5rem, 6vw, 4.5rem);
+  font-weight: 300;
+  letter-spacing: var(--tracking-tightest);
+  line-height: 1.0;
+}
+
+.text-heading {
+  font-size: clamp(1.5rem, 3vw, 2rem);
+  font-weight: 400;
+  letter-spacing: var(--tracking-tight);
+  line-height: 1.15;
+}
+
+.text-subheading {
+  font-size: 1.125rem;
+  font-weight: 500;
+  letter-spacing: var(--tracking-tight);
+  line-height: 1.35;
+}
+
+.text-body {
+  font-size: 0.9375rem;
+  font-weight: 400;
+  letter-spacing: var(--tracking-normal);
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+/* ── Button primitives — pill geometry ── */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-family: var(--font-sans);
+  font-size: 0.875rem;
+  font-weight: 500;
+  letter-spacing: var(--tracking-tight);
+  padding: 10px 22px;
+  border-radius: var(--radius-pill);
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-decoration: none;
+  white-space: nowrap;
+  line-height: 1;
+}
+
+.btn-primary {
+  background: var(--accent);
+  color: #fff;
+}
+
+.btn-primary:hover {
+  background: var(--accent-hover);
+  box-shadow: var(--shadow-glow);
+}
+
+.btn-secondary {
+  background: var(--bg-card);
+  color: var(--text-primary);
+  box-shadow: inset 0 0 0 1px var(--border-default);
+}
+
+.btn-secondary:hover {
+  background: var(--bg-card-hover);
+  box-shadow: inset 0 0 0 1px var(--border-strong);
+}
+
+.btn-ghost {
+  background: transparent;
+  color: var(--text-secondary);
+}
+
+.btn-ghost:hover {
+  background: var(--bg-raised);
+  color: var(--text-primary);
+}
+
+.btn-danger {
+  background: var(--danger-dim);
+  color: var(--danger);
+}
+
+.btn-danger:hover {
+  background: var(--danger);
+  color: #fff;
+}
+
+.btn-sm {
+  font-size: 0.8125rem;
+  padding: 7px 16px;
+}
+
+.btn-icon {
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border-radius: var(--radius-circle);
+}
+
+/* ── Card ── */
+
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  transition: border-color 0.15s ease;
+}
+
+.card:hover {
+  border-color: var(--border-default);
+}
+
+/* ── Input ── */
+
+.input {
+  width: 100%;
+  background: var(--bg-base);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  padding: 10px 14px;
+  font-family: var(--font-sans);
+  font-size: 0.875rem;
+  letter-spacing: var(--tracking-normal);
+  color: var(--text-primary);
+  transition: border-color 0.15s ease;
+}
+
+.input::placeholder {
+  color: var(--text-ghost);
+}
+
+.input:focus {
+  border-color: var(--accent);
+  outline: none;
+  box-shadow: 0 0 0 3px var(--accent-dim);
+}
+
+/* ── Toggle ── */
+
+.toggle {
+  appearance: none;
+  width: 40px;
+  height: 22px;
+  background: var(--border-strong);
+  border-radius: 11px;
+  position: relative;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.toggle::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  background: var(--text-primary);
+  border-radius: var(--radius-circle);
+  transition: transform 0.15s ease;
+}
+
+.toggle:checked {
+  background: var(--accent);
+}
+
+.toggle:checked::after {
+  transform: translateX(18px);
+}
+
+/* ── Badge / Status ── */
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-mono);
+  padding: 3px 10px;
+  border-radius: var(--radius-pill);
+}
+
+.badge-success {
+  background: var(--success-dim);
+  color: var(--success);
+}
+
+.badge-warning {
+  background: var(--warning-dim);
+  color: var(--warning);
+}
+
+.badge-danger {
+  background: var(--danger-dim);
+  color: var(--danger);
+}
+
+.badge-neutral {
+  background: var(--bg-raised);
+  color: var(--text-tertiary);
+  box-shadow: inset 0 0 0 1px var(--border-subtle);
+}
+
+/* ── Status dot ── */
+
+.status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.status-dot-active {
+  background: var(--success);
+  box-shadow: 0 0 6px var(--success);
+}
+
+.status-dot-paused {
+  background: var(--warning);
+  box-shadow: 0 0 6px var(--warning);
+}
+
+.status-dot-revoked {
+  background: var(--danger);
+}
+
+/* ── Table ── */
+
+.table-header {
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-mono);
+  color: var(--text-ghost);
+  padding: 10px 16px;
+  text-align: left;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.table-cell {
+  padding: 14px 16px;
+  font-size: 0.875rem;
+  border-bottom: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+}
+
+.table-row:hover .table-cell {
+  background: var(--bg-raised);
+}
+
+/* ── Gradient hero ── */
+
+.hero-gradient {
+  background:
+    radial-gradient(ellipse 80% 60% at 20% 80%, var(--accent-glow), transparent),
+    radial-gradient(ellipse 60% 50% at 80% 20%, rgba(230, 57, 70, 0.15), transparent),
+    radial-gradient(ellipse 100% 80% at 50% 100%, rgba(230, 57, 70, 0.08), transparent),
+    var(--bg-deep);
+}
+
+/* ── Grain overlay ── */
+
+.grain::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  opacity: 0.025;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 9999;
+}
+
+/* ── Solana wallet adapter overrides ── */
+
+.wallet-adapter-button {
+  font-family: var(--font-sans) !important;
+  font-size: 0.875rem !important;
+  font-weight: 500 !important;
+  letter-spacing: var(--tracking-tight) !important;
+  border-radius: var(--radius-pill) !important;
+  height: 38px !important;
+  padding: 0 20px !important;
+  background-color: var(--bg-card) !important;
+  border: 1px solid var(--border-default) !important;
+  transition: all 0.15s ease !important;
+}
+
+.wallet-adapter-button:hover {
+  background-color: var(--bg-card-hover) !important;
+  border-color: var(--border-strong) !important;
+}
+
+.wallet-adapter-button-trigger {
+  background-color: var(--accent) !important;
+  border-color: transparent !important;
+}
+
+.wallet-adapter-button-trigger:hover {
+  background-color: var(--accent-hover) !important;
+  box-shadow: var(--shadow-glow) !important;
+}
+
+.wallet-adapter-modal-wrapper {
+  background: var(--bg-card) !important;
+  border: 1px solid var(--border-default) !important;
+  border-radius: var(--radius-lg) !important;
+  font-family: var(--font-sans) !important;
+}
+
+.wallet-adapter-modal-button-close {
+  background: var(--bg-raised) !important;
+}
+
+/* ── Animations ── */
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pulse-glow {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 1; }
+}
+
+.animate-in {
+  animation: fadeInUp 0.4s ease-out both;
+}
+
+.animate-delay-1 { animation-delay: 0.05s; }
+.animate-delay-2 { animation-delay: 0.1s; }
+.animate-delay-3 { animation-delay: 0.15s; }
+.animate-delay-4 { animation-delay: 0.2s; }
+.animate-delay-5 { animation-delay: 0.25s; }

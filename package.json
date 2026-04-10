@@ -1,0 +1,29 @@
+{
+  "name": "lobsterpay",
+  "private": true,
+  "packageManager": "pnpm@9.15.4",
+  "scripts": {
+    "dev:web": "pnpm --filter @lobsterpay/web dev",
+    "dev:api": "pnpm --filter @lobsterpay/api dev",
+    "build": "turbo run build",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
+    "format": "biome format --write .",
+    "db:migrate": "pnpm --filter @lobsterpay/api db:migrate",
+    "test": "turbo run test",
+    "test:anchor": "anchor test"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^1.9.4",
+    "@coral-xyz/anchor": "^0.30.1",
+    "@solana/spl-token": "^0.4.14",
+    "@solana/web3.js": "^1.98.0",
+    "@types/chai": "^5.2.3",
+    "@types/mocha": "^10.0.10",
+    "chai": "^6.2.2",
+    "mocha": "^11.7.5",
+    "ts-mocha": "^11.1.0",
+    "turbo": "^2.3.3",
+    "typescript": "^5.7.2"
+  }
+}
