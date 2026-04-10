@@ -1,6 +1,8 @@
 "use client";
 
 import { Nav } from "@/components/nav";
+import { RequireWallet } from "@/components/require-wallet";
+import { EmptyState } from "@/components/empty-state";
 import { useState, useEffect, useCallback } from "react";
 import { useVault } from "@/hooks/useVault";
 import { api } from "@/lib/api";
@@ -76,6 +78,7 @@ export default function KeysPage() {
 	return (
 		<div style={{ minHeight: "100vh", background: "var(--bg-deep)" }}>
 			<Nav />
+			<RequireWallet>
 			<main style={{ maxWidth: 1120, margin: "0 auto", padding: "32px 24px" }}>
 				{/* Raw key reveal modal */}
 				{newRawKey && (
@@ -246,10 +249,22 @@ export default function KeysPage() {
 							</p>
 						</div>
 					) : keys.length === 0 ? (
-						<div style={{ padding: "48px 24px", textAlign: "center" }}>
-							<p style={{ color: "var(--text-ghost)", fontSize: "0.875rem" }}>
-								{vault ? "No API keys yet. Create one to get started." : "Connect wallet and create a vault first."}
-							</p>
+						<div style={{ padding: "16px" }}>
+							{!vault ? (
+								<EmptyState
+									icon="🔐"
+									title="No vault yet"
+									description="Create a vault first, then issue API keys for your AI agents."
+									action="create-vault"
+								/>
+							) : (
+								<EmptyState
+									icon="🔑"
+									title="No API keys"
+									description="Create an API key to let agents interact with your vault. Keys can be scoped with custom limits."
+									action={{ label: "Create Key", onClick: () => setShowCreate(true) }}
+								/>
+							)}
 						</div>
 					) : (
 						<table style={{ width: "100%", borderCollapse: "collapse" }}>
@@ -326,6 +341,7 @@ export default function KeysPage() {
 					)}
 				</div>
 			</main>
+			</RequireWallet>
 		</div>
 	);
 }

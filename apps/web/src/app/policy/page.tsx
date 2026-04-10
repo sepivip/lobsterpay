@@ -1,6 +1,8 @@
 "use client";
 
 import { Nav } from "@/components/nav";
+import { RequireWallet } from "@/components/require-wallet";
+import { EmptyState } from "@/components/empty-state";
 import { useState, useEffect } from "react";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { useConnection } from "@solana/wallet-adapter-react";
@@ -301,6 +303,7 @@ export default function PolicyPage() {
 	return (
 		<div style={{ minHeight: "100vh", background: "var(--bg-deep)" }}>
 			<Nav />
+			<RequireWallet>
 			<main style={{ maxWidth: 1120, margin: "0 auto", padding: "32px 24px" }}>
 				{/* Header */}
 				<div className="animate-in" style={{ marginBottom: 32 }}>
@@ -313,17 +316,18 @@ export default function PolicyPage() {
 				</div>
 
 				{!vault ? (
-					<div className="card" style={{ padding: "48px 24px", textAlign: "center" }}>
-						<p style={{ color: "var(--text-ghost)", fontSize: "0.875rem" }}>
-							Connect wallet and create a vault first.
-						</p>
-					</div>
+					<EmptyState
+						icon="⚙️"
+						title="No vault yet"
+						description="Create a vault to configure spending policies, limits, and allowlists for your agents."
+						action="create-vault"
+					/>
 				) : (
 					<>
 						<div
 							style={{
 								display: "grid",
-								gridTemplateColumns: "1fr 1fr",
+								gridTemplateColumns: "repeat(auto-fit, minmax(340px, 1fr))",
 								gap: 16,
 								alignItems: "start",
 							}}
@@ -501,6 +505,7 @@ export default function PolicyPage() {
 					</>
 				)}
 			</main>
+			</RequireWallet>
 		</div>
 	);
 }

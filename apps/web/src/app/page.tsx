@@ -116,9 +116,9 @@ export default function Home() {
 								letterSpacing: "0.06em",
 								padding: "6px 14px",
 								borderRadius: "var(--radius-pill)",
-								background: "rgba(255,255,255,0.04)",
-								border: "1px solid var(--border-subtle)",
-								color: "var(--text-tertiary)",
+								background: "rgba(255,255,255,0.08)",
+								border: "1px solid rgba(255,255,255,0.12)",
+								color: "var(--text-secondary)",
 							}}
 						>
 							{feature}

@@ -1,6 +1,8 @@
 "use client";
 
 import { Nav } from "@/components/nav";
+import { RequireWallet } from "@/components/require-wallet";
+import { EmptyState } from "@/components/empty-state";
 import { useState, useEffect, useCallback } from "react";
 import { useVault } from "@/hooks/useVault";
 import { api } from "@/lib/api";
@@ -89,6 +91,7 @@ export default function ActivityPage() {
 	return (
 		<div style={{ minHeight: "100vh", background: "var(--bg-deep)" }}>
 			<Nav />
+			<RequireWallet>
 			<main style={{ maxWidth: 1120, margin: "0 auto", padding: "32px 24px" }}>
 				{/* Header */}
 				<div className="animate-in" style={{ marginBottom: 32 }}>
@@ -130,9 +133,20 @@ export default function ActivityPage() {
 						</div>
 					) : filteredActivity.length === 0 ? (
 						<div style={{ padding: "48px 24px", textAlign: "center" }}>
-							<p style={{ color: "var(--text-ghost)", fontSize: "0.875rem" }}>
-								{vault ? "No activity yet. Payments and swaps will appear here." : "Connect wallet and create a vault first."}
-							</p>
+							{!vault ? (
+								<EmptyState
+									icon="📊"
+									title="No vault yet"
+									description="Create a vault to start tracking payments, swaps, and agent activity."
+									action="create-vault"
+								/>
+							) : (
+								<EmptyState
+									icon="📋"
+									title="No activity yet"
+									description="Payments, swaps, and policy changes will appear here as agents use your vault."
+								/>
+							)}
 						</div>
 					) : (
 						<>
@@ -247,6 +261,7 @@ export default function ActivityPage() {
 					)}
 				</div>
 			</main>
+			</RequireWallet>
 		</div>
 	);
 }
