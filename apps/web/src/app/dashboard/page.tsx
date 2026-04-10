@@ -116,12 +116,23 @@ export default function DashboardPage() {
 
 	const truncatedKey = `${publicKey.toString().slice(0, 4)}...${publicKey.toString().slice(-4)}`;
 
+	const [creating, setCreating] = useState(false);
+
 	const handleCreateVault = async () => {
+		setCreating(true);
+		const toastId = toast.loading("Creating vault — please approve the transaction in your wallet...");
 		try {
-			await createVault();
-			toast.success("Vault created successfully");
-		} catch {
-			toast.error(error || "Failed to create vault");
+			const signature = await createVault();
+			toast.success(
+				`Vault created! Tx: ${signature.slice(0, 8)}...${signature.slice(-8)}`,
+				{ id: toastId, duration: 6000 }
+			);
+		} catch (err: any) {
+			toast.error(err?.message || error || "Failed to create vault", {
+				id: toastId,
+			});
+		} finally {
+			setCreating(false);
 		}
 	};
 
@@ -168,8 +179,12 @@ export default function DashboardPage() {
 						</span>
 					</div>
 					{!vault && !loading && (
-						<button className="btn btn-primary" onClick={handleCreateVault}>
-							Create Vault
+						<button
+							className="btn btn-primary"
+							onClick={handleCreateVault}
+							disabled={creating}
+						>
+							{creating ? "Creating..." : "Create Vault"}
 						</button>
 					)}
 				</div>

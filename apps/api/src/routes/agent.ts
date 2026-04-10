@@ -7,6 +7,16 @@ import { createSwapService } from "../services/swap.service.js";
 import { createX402Service } from "../services/x402.service.js";
 import { payRequestSchema, swapRequestSchema, x402RequestSchema } from "@lobsterpay/shared";
 import { PublicKey } from "@solana/web3.js";
+import { TOKEN_PROGRAM_ID, getAssociatedTokenAddressSync, getOrCreateAssociatedTokenAccount } from "@solana/spl-token";
+import { createHash } from "node:crypto";
+import {
+  buildExecutePayExactIx,
+  buildEnsureVaultTokenAccountIx,
+  buildTransaction,
+  deriveVaultPda,
+  derivePolicyPda,
+  getVaultTokenAccount,
+} from "../solana/instructions.js";
 
 export function agentRoutes(app: FastifyInstance, db: Db, config: Config) {
   const auth = createApiKeyAuth(db);
@@ -123,21 +133,78 @@ export function agentRoutes(app: FastifyInstance, db: Db, config: Config) {
       amountAtomic: amountAtomic, mint, txStatus: "created",
     });
 
-    // 8. Build + submit transaction (placeholder — full anchor CPI in next iteration)
-    // For now, return the request info. Actual tx submission needs the Anchor IDL client.
-    await txService.logActivity(vaultId, "payment", {
-      requestId: req.id, mint, amountAtomic, destination: destinationOwner || destinationTokenAccount, memo,
-    }, null, req.id);
+    // 8. Build + submit onchain transaction
+    if (!txService.feePayer) {
+      return reply.status(500).send({ code: "config_error", message: "Fee payer not configured" });
+    }
 
-    await txService.trackUsage(vaultId, apiKey.id, amount);
+    try {
+      // Derive accounts
+      const [vault] = await db`SELECT vault_pda, policy_pda FROM vaults WHERE id = ${vaultId}`;
+      const vaultPubkey = new PublicKey(vault.vault_pda);
+      const policyPubkey = new PublicKey(vault.policy_pda);
+      const mintPubkey = new PublicKey(mint);
+      const vaultTokenAcct = getVaultTokenAccount(vaultPubkey, mintPubkey, TOKEN_PROGRAM_ID);
 
-    return {
-      requestId: req.id,
-      txSignature: null,
-      status: "created",
-      error: null,
-      message: "Payment validated and recorded. Transaction submission requires Anchor client integration.",
-    };
+      // Resolve destination token account
+      let destTokenAcct: PublicKey;
+      if (destinationTokenAccount) {
+        destTokenAcct = new PublicKey(destinationTokenAccount);
+      } else if (destinationOwner) {
+        destTokenAcct = getAssociatedTokenAddressSync(mintPubkey, new PublicKey(destinationOwner));
+      } else {
+        return reply.status(400).send({ code: "invalid_request", message: "destinationOwner or destinationTokenAccount required" });
+      }
+
+      // Build request hash from idempotency key
+      const requestHash = createHash("sha256").update(idempotencyKey).digest();
+
+      // Build execute_pay_exact instruction
+      const payIx = buildExecutePayExactIx({
+        authority: txService.feePayer.publicKey,
+        vault: vaultPubkey,
+        policy: policyPubkey,
+        mint: mintPubkey,
+        vaultTokenAccount: vaultTokenAcct,
+        destinationTokenAccount: destTokenAcct,
+        tokenProgramId: TOKEN_PROGRAM_ID,
+        params: {
+          amount: BigInt(amountAtomic),
+          requestHash,
+        },
+      });
+
+      // Build and send transaction
+      const tx = await buildTransaction([payIx], txService.feePayer.publicKey, txService.connection);
+      const signature = await txService.sendAndConfirm(tx, [txService.feePayer]);
+
+      // Update request with signature
+      await txService.updateRequestTx(req.id, signature, "confirmed");
+      await txService.trackUsage(vaultId, apiKey.id, amount);
+      await txService.logActivity(vaultId, "payment", {
+        requestId: req.id, mint, amountAtomic,
+        destination: destinationOwner || destinationTokenAccount, memo,
+      }, signature, req.id);
+
+      return {
+        requestId: req.id,
+        txSignature: signature,
+        status: "confirmed",
+        error: null,
+      };
+    } catch (err: any) {
+      await txService.updateRequestTx(req.id, "", "failed");
+      await txService.logActivity(vaultId, "payment", {
+        requestId: req.id, mint, amountAtomic, error: err.message,
+      }, null, req.id);
+
+      return reply.status(500).send({
+        requestId: req.id,
+        txSignature: null,
+        status: "failed",
+        error: err.message,
+      });
+    }
   });
 
   // POST /v1/agent/quotes/swap

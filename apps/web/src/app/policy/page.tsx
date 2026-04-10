@@ -2,8 +2,17 @@
 
 import { Nav } from "@/components/nav";
 import { useState, useEffect } from "react";
+import { useWallet } from "@solana/wallet-adapter-react";
+import { useConnection } from "@solana/wallet-adapter-react";
+import { PublicKey } from "@solana/web3.js";
 import { useVault } from "@/hooks/useVault";
 import { api } from "@/lib/api";
+import {
+	buildUpdatePolicyTx,
+	buildEmergencyPauseTx,
+	deriveVaultPda,
+	derivePolicyPda,
+} from "@/lib/solana";
 import toast from "react-hot-toast";
 
 function ToggleRow({
@@ -123,7 +132,10 @@ function FieldRow({
 
 export default function PolicyPage() {
 	const { vault, refresh } = useVault();
+	const { publicKey, sendTransaction } = useWallet();
+	const { connection } = useConnection();
 	const [saving, setSaving] = useState(false);
+	const [pausing, setPausing] = useState(false);
 
 	// Form state
 	const [allowPay, setAllowPay] = useState(true);
@@ -151,15 +163,52 @@ export default function PolicyPage() {
 	}, [vault?.policy]);
 
 	const handleSave = async () => {
-		if (!vault?.id) {
-			toast.error("No vault found");
+		if (!vault?.id || !publicKey || !sendTransaction) {
+			toast.error("No vault found or wallet not connected");
 			return;
 		}
 		setSaving(true);
+		const toastId = toast.loading("Saving policy — please approve the transaction...");
 		try {
 			const mintsArr = allowedMints.split("\n").map((s) => s.trim()).filter(Boolean);
 			const destsArr = allowedDestinations.split("\n").map((s) => s.trim()).filter(Boolean);
 
+			// Compute allowed_actions bitmask: bit 0 = pay, bit 1 = swap, bit 2 = x402
+			const allowedActions =
+				(allowPay ? 1 : 0) | (allowSwap ? 2 : 0) | (allowX402 ? 4 : 0);
+
+			const [vaultPda] = deriveVaultPda(publicKey);
+			const [policyPda] = derivePolicyPda(vaultPda);
+
+			// Build and sign onchain transaction
+			const { transaction } = await buildUpdatePolicyTx(
+				publicKey,
+				vaultPda,
+				policyPda,
+				connection,
+				{
+					allowedActions,
+					maxPerTxAmountAtomic: maxPerTx ? Number(maxPerTx) : undefined,
+					dailyLimitAmountAtomic: dailyLimit ? Number(dailyLimit) : undefined,
+					maxSlippageBps: maxSlippage ? Number(maxSlippage) : undefined,
+					allowedMints: mintsArr.length > 0
+						? mintsArr.map((m) => new PublicKey(m))
+						: undefined,
+					allowedDestinations: destsArr.length > 0
+						? destsArr.map((d) => new PublicKey(d))
+						: undefined,
+				}
+			);
+
+			const signature = await sendTransaction(transaction, connection);
+			const { blockhash, lastValidBlockHeight } =
+				await connection.getLatestBlockhash();
+			await connection.confirmTransaction(
+				{ signature, blockhash, lastValidBlockHeight },
+				"confirmed"
+			);
+
+			// Sync to backend DB
 			await api.updatePolicy(vault.id, {
 				allowPay,
 				allowSwap,
@@ -170,10 +219,19 @@ export default function PolicyPage() {
 				allowedMints: mintsArr.length > 0 ? mintsArr : undefined,
 				allowedDestinations: destsArr.length > 0 ? destsArr : undefined,
 			});
-			toast.success("Policy saved");
+
+			toast.success(
+				`Policy saved! Tx: ${signature.slice(0, 8)}...`,
+				{ id: toastId, duration: 5000 }
+			);
 			await refresh();
 		} catch (err: any) {
-			toast.error(err.message || "Failed to save policy");
+			const msg =
+				err?.message?.includes("User rejected") ||
+				err?.message?.includes("rejected the request")
+					? "Transaction rejected by user"
+					: err?.message || "Failed to save policy";
+			toast.error(msg, { id: toastId });
 		} finally {
 			setSaving(false);
 		}
@@ -195,13 +253,58 @@ export default function PolicyPage() {
 	};
 
 	const handlePauseToggle = async () => {
-		if (!vault?.id) return;
+		if (!vault?.id || !publicKey || !sendTransaction) return;
+		setPausing(true);
+		const action = vault.paused ? "Unpausing" : "Pausing";
+		const toastId = toast.loading(`${action} vault — please approve the transaction...`);
 		try {
+			const [vaultPda] = deriveVaultPda(publicKey);
+			const [policyPda] = derivePolicyPda(vaultPda);
+
+			let transaction;
+			if (!vault.paused) {
+				// Pause: use emergency_pause instruction
+				({ transaction } = await buildEmergencyPauseTx(
+					publicKey,
+					vaultPda,
+					policyPda,
+					connection
+				));
+			} else {
+				// Unpause: use update_policy with paused=false
+				({ transaction } = await buildUpdatePolicyTx(
+					publicKey,
+					vaultPda,
+					policyPda,
+					connection,
+					{ paused: false }
+				));
+			}
+
+			const signature = await sendTransaction(transaction, connection);
+			const { blockhash, lastValidBlockHeight } =
+				await connection.getLatestBlockhash();
+			await connection.confirmTransaction(
+				{ signature, blockhash, lastValidBlockHeight },
+				"confirmed"
+			);
+
+			// Sync to backend DB
 			await api.updatePolicy(vault.id, { paused: !vault.paused });
-			toast.success(vault.paused ? "Vault unpaused" : "Vault paused");
+
+			toast.success(vault.paused ? "Vault unpaused" : "Vault paused", {
+				id: toastId,
+			});
 			await refresh();
 		} catch (err: any) {
-			toast.error(err.message || "Failed to toggle pause");
+			const msg =
+				err?.message?.includes("User rejected") ||
+				err?.message?.includes("rejected the request")
+					? "Transaction rejected by user"
+					: err?.message || "Failed to toggle pause";
+			toast.error(msg, { id: toastId });
+		} finally {
+			setPausing(false);
 		}
 	};
 
@@ -287,8 +390,13 @@ export default function PolicyPage() {
 										<button
 											className={vault.paused ? "btn btn-primary btn-sm" : "btn btn-danger btn-sm"}
 											onClick={handlePauseToggle}
+											disabled={pausing}
 										>
-											{vault.paused ? "Unpause" : "Pause"}
+											{pausing
+												? "Signing..."
+												: vault.paused
+													? "Unpause"
+													: "Pause"}
 										</button>
 									</div>
 								</div>
