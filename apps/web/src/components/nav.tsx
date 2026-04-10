@@ -9,6 +9,7 @@ const navItems = [
 	{ href: "/keys", label: "Keys" },
 	{ href: "/policy", label: "Policy" },
 	{ href: "/activity", label: "Activity" },
+	{ href: "/integrate", label: "Integrate" },
 ];
 
 export function Nav() {

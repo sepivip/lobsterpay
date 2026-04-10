@@ -4,6 +4,7 @@ import { loadConfig } from "./config.js";
 import { createDb } from "./db/client.js";
 import { vaultRoutes } from "./routes/vaults.js";
 import { agentRoutes } from "./routes/agent.js";
+import { skillRoutes } from "./routes/skills.js";
 
 async function main() {
   const config = loadConfig();
@@ -23,6 +24,7 @@ async function main() {
   // Register routes
   vaultRoutes(app, db, config);
   agentRoutes(app, db, config);
+  skillRoutes(app);
 
   await app.listen({ port: config.API_PORT, host: config.API_HOST });
   console.log(`LobsterPay API running on ${config.API_HOST}:${config.API_PORT}`);

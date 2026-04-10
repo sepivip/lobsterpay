@@ -1,0 +1,205 @@
+{
+  "schema_version": "1.0",
+  "name": "LobsterPay",
+  "description": "Permissioned payment layer for AI agents on Solana. Make payments, swaps, and x402 purchases through a policy-controlled vault — no private keys needed.",
+  "auth": {
+    "type": "bearer",
+    "header": "Authorization",
+    "prefix": "Bearer",
+    "instructions": "Use the API key provided by the vault owner. Format: Bearer lp_live_xxxxx"
+  },
+  "base_url": "{LOBSTERPAY_API_URL}",
+  "tools": [
+    {
+      "name": "check_vault",
+      "description": "Check your vault status, token balances, and effective spending permissions. Call this first to understand what actions are allowed and how much budget remains.",
+      "method": "GET",
+      "path": "/v1/agent/vault",
+      "parameters": [],
+      "response": {
+        "vaultPda": "Solana address of the vault",
+        "balances": "Token balances in the vault",
+        "permissions": {
+          "allowedActions": "Bitmask: 1=swap, 2=pay, 4=x402",
+          "maxPerTxAmountAtomic": "Max amount per single transaction (atomic units)",
+          "dailyLimitAmountAtomic": "Max total spend per day (atomic units)",
+          "dailySpentAmountAtomic": "Amount already spent today",
+          "maxSlippageBps": "Max allowed slippage for swaps (basis points)"
+        }
+      }
+    },
+    {
+      "name": "make_payment",
+      "description": "Send tokens from the vault to an approved destination. The vault owner sets which destinations, mints, and amounts are allowed. All payments are idempotent — safe to retry with the same idempotencyKey.",
+      "method": "POST",
+      "path": "/v1/agent/actions/pay",
+      "parameters": [
+        {
+          "name": "mint",
+          "type": "string",
+          "required": true,
+          "description": "SPL token mint address. Common: USDC = EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
+        },
+        {
+          "name": "amountAtomic",
+          "type": "string",
+          "required": true,
+          "description": "Amount in atomic units. For USDC (6 decimals): 1000000 = 1.00 USDC, 500000 = 0.50 USDC"
+        },
+        {
+          "name": "destinationOwner",
+          "type": "string",
+          "required": true,
+          "description": "Solana wallet address of the payment recipient"
+        },
+        {
+          "name": "idempotencyKey",
+          "type": "string",
+          "required": true,
+          "description": "Unique identifier for this payment. Use a descriptive string like 'invoice-123' or 'service-2026-04-10'. Prevents duplicate payments on retry."
+        },
+        {
+          "name": "memo",
+          "type": "string",
+          "required": false,
+          "description": "Optional memo describing the payment purpose"
+        }
+      ],
+      "response": {
+        "requestId": "Internal request tracking ID",
+        "txSignature": "Solana transaction signature (null if pending)",
+        "status": "confirmed | failed | pending_confirmation",
+        "error": "Error message if failed"
+      }
+    },
+    {
+      "name": "get_swap_quote",
+      "description": "Get a quote for swapping one token for another through a DEX aggregator. Returns expected output, price impact, and route. Does NOT execute — call execute_swap to proceed.",
+      "method": "POST",
+      "path": "/v1/agent/quotes/swap",
+      "parameters": [
+        {
+          "name": "fromMint",
+          "type": "string",
+          "required": true,
+          "description": "Input token mint address"
+        },
+        {
+          "name": "toMint",
+          "type": "string",
+          "required": true,
+          "description": "Output token mint address"
+        },
+        {
+          "name": "amountAtomic",
+          "type": "string",
+          "required": true,
+          "description": "Input amount in atomic units"
+        },
+        {
+          "name": "maxSlippageBps",
+          "type": "number",
+          "required": false,
+          "description": "Max slippage in basis points. Default: 100 (1%)"
+        }
+      ],
+      "response": {
+        "expectedOut": "Expected output amount (atomic)",
+        "minOut": "Minimum output accounting for slippage",
+        "priceImpactPct": "Price impact percentage",
+        "routeSummary": "DEX route description",
+        "expiresAt": "Quote expiry timestamp"
+      }
+    },
+    {
+      "name": "execute_swap",
+      "description": "Execute a token swap through the DEX aggregator. Subject to vault policy limits. Get a quote first to preview.",
+      "method": "POST",
+      "path": "/v1/agent/actions/swap",
+      "parameters": [
+        {
+          "name": "fromMint",
+          "type": "string",
+          "required": true,
+          "description": "Input token mint address"
+        },
+        {
+          "name": "toMint",
+          "type": "string",
+          "required": true,
+          "description": "Output token mint address"
+        },
+        {
+          "name": "amountAtomic",
+          "type": "string",
+          "required": true,
+          "description": "Input amount in atomic units"
+        },
+        {
+          "name": "maxSlippageBps",
+          "type": "number",
+          "required": false,
+          "description": "Max slippage in basis points. Default: 100 (1%)"
+        },
+        {
+          "name": "idempotencyKey",
+          "type": "string",
+          "required": true,
+          "description": "Unique key to prevent duplicate swaps"
+        }
+      ],
+      "response": {
+        "requestId": "Internal request tracking ID",
+        "txSignature": "Solana transaction signature",
+        "status": "confirmed | failed | pending_confirmation",
+        "error": "Error message if failed"
+      }
+    },
+    {
+      "name": "pay_x402",
+      "description": "Pay a 402-gated HTTP endpoint. When you receive a 402 Payment Required response, extract the payment requirements and pass them here. LobsterPay validates against vault policy and executes the payment.",
+      "method": "POST",
+      "path": "/v1/agent/actions/x402",
+      "parameters": [
+        {
+          "name": "paymentRequirements",
+          "type": "object",
+          "required": true,
+          "description": "Payment requirements from the 402 response. Must include: scheme ('exact'), network ('solana'), asset (mint address), amount (atomic units), recipient (destination address). Optional: paymentId for dedup."
+        },
+        {
+          "name": "originalRequestUrl",
+          "type": "string",
+          "required": true,
+          "description": "The URL that returned the 402 response"
+        },
+        {
+          "name": "idempotencyKey",
+          "type": "string",
+          "required": true,
+          "description": "Unique key to prevent duplicate payments"
+        }
+      ],
+      "response": {
+        "requestId": "Internal request tracking ID",
+        "txSignature": "Solana transaction signature",
+        "status": "confirmed | failed | duplicate",
+        "paymentId": "Payment identifier for verification",
+        "error": "Error message if failed"
+      }
+    }
+  ],
+  "common_mints": {
+    "USDC": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+    "SOL": "So11111111111111111111111111111111111111112",
+    "USDT": "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB"
+  },
+  "usage_notes": [
+    "Always call check_vault first to understand your permissions and remaining budget",
+    "All amounts are in atomic units (smallest denomination). USDC has 6 decimals: 1 USDC = 1000000",
+    "Always provide a unique idempotencyKey for payment actions. Safe to retry with the same key.",
+    "Payments are only allowed to destinations on the vault's allowlist",
+    "If a payment is rejected, check the error — it will tell you if it's a limit, allowlist, or pause issue",
+    "The vault owner can revoke your API key at any time. Handle 401 errors gracefully."
+  ]
+}
