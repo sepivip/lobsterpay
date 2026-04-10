@@ -16,54 +16,26 @@ export default function Home() {
 	}, [connected, router]);
 
 	return (
-		<main className="hero-gradient" style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
+		<main className="hero-gradient flex flex-col" style={{ minHeight: "100vh" }}>
 			{/* Top bar */}
-			<header
-				style={{
-					padding: "20px 32px",
-					display: "flex",
-					alignItems: "center",
-					justifyContent: "space-between",
-				}}
-			>
-				<div
-					style={{
-						fontSize: "1.125rem",
-						fontWeight: 600,
-						letterSpacing: "-0.02em",
-					}}
-				>
-					<span style={{ color: "var(--accent)" }}>Lobster</span>
+			<header className="flex items-center justify-between" style={{ padding: "20px 32px" }}>
+				<div style={{ fontSize: "1.125rem", fontWeight: 600, letterSpacing: "-0.02em" }}>
+					<span className="text-accent">Lobster</span>
 					<span>Pay</span>
 				</div>
 				<WalletMultiButton />
 			</header>
 
 			{/* Hero */}
-			<div
-				style={{
-					flex: 1,
-					display: "flex",
-					flexDirection: "column",
-					alignItems: "center",
-					justifyContent: "center",
-					padding: "0 24px",
-					textAlign: "center",
-					maxWidth: 800,
-					margin: "0 auto",
-				}}
-			>
-				<div className="animate-in" style={{ marginBottom: 16 }}>
+			<div className="landing-hero">
+				<div className="animate-in mb-4">
 					<span className="label-mono">Solana Colosseum Hackathon</span>
 				</div>
 
-				<h1
-					className="text-display animate-in animate-delay-1"
-					style={{ marginBottom: 24 }}
-				>
+				<h1 className="text-display animate-in animate-delay-1 mb-5">
 					Give agents limits,
 					<br />
-					<span style={{ color: "var(--accent)" }}>not seed phrases.</span>
+					<span className="text-accent">not seed phrases.</span>
 				</h1>
 
 				<p
@@ -83,21 +55,12 @@ export default function Home() {
 					keys never leave your wallet.
 				</p>
 
-				<div className="animate-in animate-delay-3" style={{ display: "flex", gap: 12, alignItems: "center" }}>
+				<div className="animate-in animate-delay-3 flex gap-3 items-center">
 					<WalletMultiButton />
 				</div>
 
 				{/* Feature pills */}
-				<div
-					className="animate-in animate-delay-4"
-					style={{
-						display: "flex",
-						flexWrap: "wrap",
-						gap: 8,
-						justifyContent: "center",
-						marginTop: 48,
-					}}
-				>
+				<div className="animate-in animate-delay-4 flex flex-wrap gap-2 justify-center mt-5" style={{ marginTop: 48 }}>
 					{[
 						"PDA-Controlled Vaults",
 						"Per-TX Limits",
@@ -106,21 +69,7 @@ export default function Home() {
 						"Instant Revocation",
 						"x402 Payments",
 					].map((feature) => (
-						<span
-							key={feature}
-							style={{
-								fontFamily: "var(--font-mono)",
-								fontSize: "0.6875rem",
-								fontWeight: 500,
-								textTransform: "uppercase",
-								letterSpacing: "0.06em",
-								padding: "6px 14px",
-								borderRadius: "var(--radius-pill)",
-								background: "rgba(255,255,255,0.08)",
-								border: "1px solid rgba(255,255,255,0.12)",
-								color: "var(--text-secondary)",
-							}}
-						>
+						<span key={feature} className="feature-pill">
 							{feature}
 						</span>
 					))}
@@ -128,13 +77,7 @@ export default function Home() {
 			</div>
 
 			{/* Bottom tagline */}
-			<footer
-				className="animate-in animate-delay-5"
-				style={{
-					padding: "24px 32px",
-					textAlign: "center",
-				}}
-			>
+			<footer className="animate-in animate-delay-5 text-center" style={{ padding: "24px 32px" }}>
 				<span className="label-mono">
 					Built on Solana &middot; Anchor &middot; Open Source
 				</span>

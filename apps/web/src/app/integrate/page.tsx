@@ -83,60 +83,22 @@ function SkillCard({
 	};
 
 	return (
-		<div
-			className="card"
-			style={{
-				padding: 24,
-				display: "flex",
-				flexDirection: "column",
-				gap: 12,
-			}}
-		>
-			<div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-				<div
-					style={{
-						fontSize: "1.25rem",
-						width: 40,
-						height: 40,
-						display: "flex",
-						alignItems: "center",
-						justifyContent: "center",
-						background: "var(--bg-raised)",
-						borderRadius: "var(--radius-md)",
-						flexShrink: 0,
-					}}
-				>
-					{icon}
-				</div>
+		<div className="card p-5 flex flex-col gap-3">
+			<div className="flex items-center gap-3">
+				<div className="skill-icon">{icon}</div>
 				<div>
-					<div
-						style={{
-							fontSize: "1rem",
-							fontWeight: 500,
-							letterSpacing: "-0.01em",
-							color: "var(--text-primary)",
-						}}
-					>
+					<div className="text-lg text-primary" style={{ fontWeight: 500, letterSpacing: "-0.01em" }}>
 						{title}
 					</div>
-					<div className="label-mono" style={{ marginTop: 2 }}>
-						{best}
-					</div>
+					<div className="label-mono" style={{ marginTop: 2 }}>{best}</div>
 				</div>
 			</div>
 
-			<p
-				style={{
-					fontSize: "0.875rem",
-					color: "var(--text-tertiary)",
-					lineHeight: 1.5,
-					flex: 1,
-				}}
-			>
+			<p className="text-base text-tertiary flex-1" style={{ lineHeight: 1.5 }}>
 				{description}
 			</p>
 
-			<div style={{ display: "flex", gap: 8 }}>
+			<div className="flex gap-2">
 				<button className="btn btn-primary btn-sm" onClick={handleDownload}>
 					Download
 				</button>
@@ -150,104 +112,47 @@ function SkillCard({
 
 export default function IntegratePage() {
 	return (
-		<div style={{ minHeight: "100vh", background: "var(--bg-deep)" }}>
+		<div className="page">
 			<Nav />
-			<main style={{ maxWidth: 1120, margin: "0 auto", padding: "32px 24px" }}>
+			<main className="page-content">
 				{/* Header */}
-				<div className="animate-in" style={{ marginBottom: 12 }}>
-					<h2 className="text-heading" style={{ marginBottom: 4 }}>
-						Agent Integration
-					</h2>
+				<div className="animate-in mb-3">
+					<h2 className="page-title">Agent Integration</h2>
 					<span className="label-mono">
 						Download skills for your AI agents
 					</span>
 				</div>
 
-				<p
-					className="animate-in animate-delay-1"
-					style={{
-						fontSize: "0.9375rem",
-						color: "var(--text-tertiary)",
-						lineHeight: 1.6,
-						maxWidth: 640,
-						marginBottom: 32,
-					}}
-				>
+				<p className="animate-in animate-delay-1 text-md text-tertiary mb-6" style={{ lineHeight: 1.6, maxWidth: 640 }}>
 					Give your agent a skill file and an API key. It will know how to
 					check balances, make payments, swap tokens, and pay 402-gated
 					endpoints — all within the limits you set in your vault policy.
 				</p>
 
 				{/* Quick start */}
-				<div
-					className="card animate-in animate-delay-2"
-					style={{ padding: 24, marginBottom: 24 }}
-				>
-					<div className="label-mono" style={{ marginBottom: 12 }}>
-						Quick Start
-					</div>
-					<div
-						style={{
-							display: "flex",
-							gap: 24,
-							flexWrap: "wrap",
-						}}
-					>
+				<div className="card p-5 animate-in animate-delay-2 mb-5">
+					<div className="label-mono mb-3">Quick Start</div>
+					<div className="flex gap-5 flex-wrap">
 						<div style={{ flex: "1 1 300px" }}>
-							<div
-								style={{
-									fontSize: "0.875rem",
-									color: "var(--text-secondary)",
-									marginBottom: 8,
-								}}
-							>
-								<strong style={{ color: "var(--text-primary)" }}>1.</strong>{" "}
+							<div className="text-base text-secondary mb-2">
+								<strong className="text-primary">1.</strong>{" "}
 								Create an API key in the{" "}
-								<a
-									href="/keys"
-									style={{ color: "var(--accent)", textDecoration: "none" }}
-								>
+								<a href="/keys" className="text-accent" style={{ textDecoration: "none" }}>
 									Keys tab
 								</a>
 							</div>
-							<div
-								style={{
-									fontSize: "0.875rem",
-									color: "var(--text-secondary)",
-									marginBottom: 8,
-								}}
-							>
-								<strong style={{ color: "var(--text-primary)" }}>2.</strong>{" "}
+							<div className="text-base text-secondary mb-2">
+								<strong className="text-primary">2.</strong>{" "}
 								Download a skill file below
 							</div>
-							<div
-								style={{
-									fontSize: "0.875rem",
-									color: "var(--text-secondary)",
-								}}
-							>
-								<strong style={{ color: "var(--text-primary)" }}>3.</strong>{" "}
+							<div className="text-base text-secondary">
+								<strong className="text-primary">3.</strong>{" "}
 								Add the skill + key to your agent
 							</div>
 						</div>
 						<div style={{ flex: "1 1 300px" }}>
-							<div className="label-mono" style={{ marginBottom: 8 }}>
-								Example (fetch)
-							</div>
-							<pre
-								style={{
-									background: "var(--bg-base)",
-									border: "1px solid var(--border-subtle)",
-									borderRadius: "var(--radius-md)",
-									padding: "12px 16px",
-									fontSize: "0.75rem",
-									fontFamily: "var(--font-mono)",
-									color: "var(--text-secondary)",
-									overflow: "auto",
-									lineHeight: 1.6,
-									margin: 0,
-								}}
-							>{`fetch("${API_URL}/v1/agent/actions/pay", {
+							<div className="label-mono mb-2">Example (fetch)</div>
+							<pre className="code-block">{`fetch("${API_URL}/v1/agent/actions/pay", {
   method: "POST",
   headers: {
     "Authorization": "Bearer lp_live_xxx",
@@ -265,14 +170,7 @@ export default function IntegratePage() {
 				</div>
 
 				{/* Skill download grid */}
-				<div
-					className="animate-in animate-delay-3"
-					style={{
-						display: "grid",
-						gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
-						gap: 12,
-					}}
-				>
+				<div className="animate-in animate-delay-3 grid-cards">
 					{SKILL_FORMATS.map((format) => (
 						<SkillCard
 							key={format.id}
@@ -286,27 +184,9 @@ export default function IntegratePage() {
 				</div>
 
 				{/* SDK section */}
-				<div
-					className="card animate-in animate-delay-4"
-					style={{ padding: 24, marginTop: 24 }}
-				>
-					<div className="label-mono" style={{ marginBottom: 12 }}>
-						TypeScript SDK
-					</div>
-					<pre
-						style={{
-							background: "var(--bg-base)",
-							border: "1px solid var(--border-subtle)",
-							borderRadius: "var(--radius-md)",
-							padding: "12px 16px",
-							fontSize: "0.75rem",
-							fontFamily: "var(--font-mono)",
-							color: "var(--text-secondary)",
-							overflow: "auto",
-							lineHeight: 1.6,
-							margin: 0,
-						}}
-					>{`import { createClient } from "@lobsterpay/sdk";
+				<div className="card p-5 animate-in animate-delay-4 mt-5">
+					<div className="label-mono mb-3">TypeScript SDK</div>
+					<pre className="code-block">{`import { createClient } from "@lobsterpay/sdk";
 
 const lp = createClient("lp_live_YOUR_KEY", "${API_URL}");
 

@@ -29,36 +29,12 @@ function ToggleRow({
 	onChange: (val: boolean) => void;
 }) {
 	return (
-		<label
-			style={{
-				display: "flex",
-				alignItems: "center",
-				justifyContent: "space-between",
-				padding: "14px 0",
-				borderBottom: "1px solid var(--border-subtle)",
-				cursor: "pointer",
-			}}
-		>
+		<label className="card-row cursor-pointer">
 			<div>
-				<div
-					style={{
-						fontSize: "0.9375rem",
-						fontWeight: 500,
-						letterSpacing: "-0.01em",
-						color: "var(--text-primary)",
-						marginBottom: 2,
-					}}
-				>
+				<div className="text-md text-primary" style={{ fontWeight: 500, letterSpacing: "-0.01em", marginBottom: 2 }}>
 					{label}
 				</div>
-				<div
-					style={{
-						fontSize: "0.8125rem",
-						color: "var(--text-tertiary)",
-					}}
-				>
-					{description}
-				</div>
+				<div className="text-sm text-tertiary">{description}</div>
 			</div>
 			<input
 				type="checkbox"
@@ -87,22 +63,8 @@ function FieldRow({
 }) {
 	return (
 		<div>
-			<div
-				style={{
-					display: "flex",
-					alignItems: "baseline",
-					justifyContent: "space-between",
-					marginBottom: 6,
-				}}
-			>
-				<label
-					style={{
-						fontSize: "0.8125rem",
-						color: "var(--text-tertiary)",
-					}}
-				>
-					{label}
-				</label>
+			<div className="flex items-baseline justify-between mb-2" style={{ marginBottom: 6 }}>
+				<label className="form-label" style={{ marginBottom: 0 }}>{label}</label>
 				{mono && <span className="label-mono">{mono}</span>}
 			</div>
 			<div style={{ position: "relative" }}>
@@ -112,21 +74,7 @@ function FieldRow({
 					value={value}
 					onChange={(e) => onChange(e.target.value)}
 				/>
-				{suffix && (
-					<span
-						style={{
-							position: "absolute",
-							right: 14,
-							top: "50%",
-							transform: "translateY(-50%)",
-							fontSize: "0.8125rem",
-							color: "var(--text-ghost)",
-							fontFamily: "var(--font-mono)",
-						}}
-					>
-						{suffix}
-					</span>
-				)}
+				{suffix && <span className="input-suffix">{suffix}</span>}
 			</div>
 		</div>
 	);
@@ -301,15 +249,13 @@ export default function PolicyPage() {
 	};
 
 	return (
-		<div style={{ minHeight: "100vh", background: "var(--bg-deep)" }}>
+		<div className="page">
 			<Nav />
 			<RequireWallet>
-			<main style={{ maxWidth: 1120, margin: "0 auto", padding: "32px 24px" }}>
+			<main className="page-content">
 				{/* Header */}
-				<div className="animate-in" style={{ marginBottom: 32 }}>
-					<h2 className="text-heading" style={{ marginBottom: 4 }}>
-						Vault Policy
-					</h2>
+				<div className="animate-in mb-6">
+					<h2 className="page-title">Vault Policy</h2>
 					<span className="label-mono">
 						Onchain + offchain enforcement rules
 					</span>
@@ -324,19 +270,12 @@ export default function PolicyPage() {
 					/>
 				) : (
 					<>
-						<div
-							style={{
-								display: "grid",
-								gridTemplateColumns: "repeat(auto-fit, minmax(340px, 1fr))",
-								gap: 16,
-								alignItems: "start",
-							}}
-						>
+						<div className="grid-2col">
 							{/* Left column */}
-							<div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+							<div className="flex flex-col gap-4">
 								{/* Allowed actions */}
 								<div className="card animate-in animate-delay-1" style={{ padding: "8px 24px" }}>
-									<div className="label-mono" style={{ padding: "14px 0", borderBottom: "1px solid var(--border-subtle)" }}>
+									<div className="label-mono card-section-header">
 										Allowed Actions
 									</div>
 									<ToggleRow
@@ -360,22 +299,14 @@ export default function PolicyPage() {
 								</div>
 
 								{/* Emergency */}
-								<div className="card animate-in animate-delay-3" style={{ padding: 24 }}>
-									<div className="label-mono" style={{ marginBottom: 16 }}>
-										Emergency Controls
-									</div>
-									<div
-										style={{
-											display: "flex",
-											alignItems: "center",
-											justifyContent: "space-between",
-										}}
-									>
+								<div className="card p-5 animate-in animate-delay-3">
+									<div className="label-mono mb-4">Emergency Controls</div>
+									<div className="flex items-center justify-between">
 										<div>
-											<div style={{ fontSize: "0.9375rem", fontWeight: 500, color: "var(--text-primary)" }}>
+											<div className="text-md text-primary" style={{ fontWeight: 500 }}>
 												{vault.paused ? "Unpause Vault" : "Pause Vault"}
 											</div>
-											<div style={{ fontSize: "0.8125rem", color: "var(--text-tertiary)" }}>
+											<div className="text-sm text-tertiary">
 												{vault.paused
 													? "Resume all agent actions"
 													: "Immediately block all agent actions"}
@@ -397,13 +328,13 @@ export default function PolicyPage() {
 							</div>
 
 							{/* Right column */}
-							<div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+							<div className="flex flex-col gap-4">
 								{/* Limits */}
-								<div className="card animate-in animate-delay-2" style={{ padding: 24 }}>
-									<div className="label-mono" style={{ marginBottom: 20 }}>
+								<div className="card p-5 animate-in animate-delay-2">
+									<div className="label-mono mb-5" style={{ marginBottom: 20 }}>
 										Spending Limits
 									</div>
-									<div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+									<div className="flex flex-col gap-4">
 										<FieldRow
 											label="Max Per Transaction"
 											mono="Atomic Units"
@@ -431,20 +362,13 @@ export default function PolicyPage() {
 								</div>
 
 								{/* Allowlists */}
-								<div className="card animate-in animate-delay-4" style={{ padding: 24 }}>
-									<div className="label-mono" style={{ marginBottom: 20 }}>
+								<div className="card p-5 animate-in animate-delay-4">
+									<div className="label-mono mb-5" style={{ marginBottom: 20 }}>
 										Allowlists
 									</div>
-									<div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+									<div className="flex flex-col gap-4">
 										<div>
-											<label
-												style={{
-													display: "block",
-													fontSize: "0.8125rem",
-													color: "var(--text-tertiary)",
-													marginBottom: 6,
-												}}
-											>
+											<label className="form-label">
 												Allowed Mints (one per line, max 8)
 											</label>
 											<textarea
@@ -457,14 +381,7 @@ export default function PolicyPage() {
 											/>
 										</div>
 										<div>
-											<label
-												style={{
-													display: "block",
-													fontSize: "0.8125rem",
-													color: "var(--text-tertiary)",
-													marginBottom: 6,
-												}}
-											>
+											<label className="form-label">
 												Allowed Destinations (one per line, max 8)
 											</label>
 											<textarea
@@ -482,15 +399,7 @@ export default function PolicyPage() {
 						</div>
 
 						{/* Save bar */}
-						<div
-							className="animate-in animate-delay-5"
-							style={{
-								marginTop: 24,
-								display: "flex",
-								justifyContent: "flex-end",
-								gap: 8,
-							}}
-						>
+						<div className="animate-in animate-delay-5 flex justify-end gap-2 mt-5">
 							<button className="btn btn-ghost" onClick={handleReset}>
 								Reset
 							</button>

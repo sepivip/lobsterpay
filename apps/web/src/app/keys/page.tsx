@@ -76,51 +76,30 @@ export default function KeysPage() {
 	const activeCount = keys.filter((k) => k.status === "active").length;
 
 	return (
-		<div style={{ minHeight: "100vh", background: "var(--bg-deep)" }}>
+		<div className="page">
 			<Nav />
 			<RequireWallet>
-			<main style={{ maxWidth: 1120, margin: "0 auto", padding: "32px 24px" }}>
+			<main className="page-content">
 				{/* Raw key reveal modal */}
 				{newRawKey && (
 					<div
-						style={{
-							position: "fixed",
-							inset: 0,
-							background: "rgba(0,0,0,0.6)",
-							display: "flex",
-							alignItems: "center",
-							justifyContent: "center",
-							zIndex: 100,
-						}}
+						className="modal-overlay"
 						onClick={() => setNewRawKey(null)}
 					>
 						<div
-							className="card"
-							style={{ padding: 32, maxWidth: 560, width: "100%" }}
+							className="card modal-content"
 							onClick={(e) => e.stopPropagation()}
 						>
-							<div className="label-mono" style={{ marginBottom: 12, color: "var(--warning)" }}>
+							<div className="label-mono mb-3 text-warning">
 								Save This Key Now
 							</div>
-							<p style={{ fontSize: "0.875rem", color: "var(--text-tertiary)", marginBottom: 16 }}>
+							<p className="text-base text-tertiary mb-4">
 								This is the only time you will see this key. Copy it and store it securely.
 							</p>
-							<code
-								style={{
-									display: "block",
-									fontFamily: "var(--font-mono)",
-									fontSize: "0.8125rem",
-									background: "var(--bg-raised)",
-									padding: "12px 16px",
-									borderRadius: "var(--radius-sm)",
-									wordBreak: "break-all",
-									marginBottom: 16,
-									color: "var(--text-primary)",
-								}}
-							>
+							<code className="code-inline mb-4" style={{ display: "block", wordBreak: "break-all", padding: "12px 16px" }}>
 								{newRawKey}
 							</code>
-							<div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+							<div className="flex gap-2 justify-end">
 								<button
 									className="btn btn-secondary btn-sm"
 									onClick={() => {
@@ -142,19 +121,9 @@ export default function KeysPage() {
 				)}
 
 				{/* Header */}
-				<div
-					className="animate-in"
-					style={{
-						display: "flex",
-						alignItems: "center",
-						justifyContent: "space-between",
-						marginBottom: 32,
-					}}
-				>
+				<div className="page-header animate-in">
 					<div>
-						<h2 className="text-heading" style={{ marginBottom: 4 }}>
-							API Keys
-						</h2>
+						<h2 className="page-title">API Keys</h2>
 						<span className="label-mono">
 							{activeCount} active key{activeCount !== 1 ? "s" : ""}
 						</span>
@@ -170,32 +139,11 @@ export default function KeysPage() {
 
 				{/* Create form (collapsed) */}
 				{showCreate && (
-					<div
-						className="card animate-in"
-						style={{ padding: 24, marginBottom: 16 }}
-					>
-						<div className="label-mono" style={{ marginBottom: 16 }}>
-							New API Key
-						</div>
-						<div
-							style={{
-								display: "grid",
-								gridTemplateColumns: "1fr 1fr",
-								gap: 12,
-								marginBottom: 16,
-							}}
-						>
+					<div className="card p-5 animate-in mb-4">
+						<div className="label-mono mb-4">New API Key</div>
+						<div className="grid-2col mb-4" style={{ gridTemplateColumns: "1fr 1fr", gap: 12 }}>
 							<div>
-								<label
-									style={{
-										display: "block",
-										fontSize: "0.8125rem",
-										color: "var(--text-tertiary)",
-										marginBottom: 6,
-									}}
-								>
-									Label
-								</label>
+								<label className="form-label">Label</label>
 								<input
 									className="input"
 									placeholder="e.g. SeekerClaw Production"
@@ -204,16 +152,7 @@ export default function KeysPage() {
 								/>
 							</div>
 							<div>
-								<label
-									style={{
-										display: "block",
-										fontSize: "0.8125rem",
-										color: "var(--text-tertiary)",
-										marginBottom: 6,
-									}}
-								>
-									Expires (optional)
-								</label>
+								<label className="form-label">Expires (optional)</label>
 								<input
 									className="input"
 									type="date"
@@ -222,7 +161,7 @@ export default function KeysPage() {
 								/>
 							</div>
 						</div>
-						<div style={{ display: "flex", gap: 8 }}>
+						<div className="flex gap-2">
 							<button
 								className="btn btn-primary btn-sm"
 								onClick={handleCreate}
@@ -241,15 +180,13 @@ export default function KeysPage() {
 				)}
 
 				{/* Keys table */}
-				<div className="card animate-in animate-delay-1" style={{ overflow: "hidden" }}>
+				<div className="card animate-in animate-delay-1 overflow-hidden">
 					{loading ? (
-						<div style={{ padding: "48px 24px", textAlign: "center" }}>
-							<p style={{ color: "var(--text-ghost)", fontSize: "0.875rem" }}>
-								Loading...
-							</p>
+						<div className="text-center" style={{ padding: "48px 24px" }}>
+							<p className="text-ghost text-base">Loading...</p>
 						</div>
 					) : keys.length === 0 ? (
-						<div style={{ padding: "16px" }}>
+						<div className="p-4">
 							{!vault ? (
 								<EmptyState
 									icon="🔐"
@@ -267,7 +204,7 @@ export default function KeysPage() {
 							)}
 						</div>
 					) : (
-						<table style={{ width: "100%", borderCollapse: "collapse" }}>
+						<table className="w-full" style={{ borderCollapse: "collapse" }}>
 							<thead>
 								<tr>
 									<th className="table-header">Key</th>
@@ -275,31 +212,18 @@ export default function KeysPage() {
 									<th className="table-header">Status</th>
 									<th className="table-header">Created</th>
 									<th className="table-header">Last Used</th>
-									<th className="table-header" style={{ textAlign: "right" }}>
-										Actions
-									</th>
+									<th className="table-header text-right">Actions</th>
 								</tr>
 							</thead>
 							<tbody>
 								{keys.map((key) => (
 									<tr key={key.id} className="table-row">
 										<td className="table-cell">
-											<code
-												style={{
-													fontFamily: "var(--font-mono)",
-													fontSize: "0.8125rem",
-													color: "var(--text-primary)",
-													background: "var(--bg-raised)",
-													padding: "2px 8px",
-													borderRadius: "var(--radius-sm)",
-												}}
-											>
+											<code className="code-inline">
 												{key.prefix || key.keyPrefix || "lp_"}••••••••
 											</code>
 										</td>
-										<td className="table-cell" style={{ color: "var(--text-primary)" }}>
-											{key.label}
-										</td>
+										<td className="table-cell text-primary">{key.label}</td>
 										<td className="table-cell">
 											<span
 												className={`badge ${
@@ -324,7 +248,7 @@ export default function KeysPage() {
 										<td className="table-cell">
 											{key.lastUsedAt ? new Date(key.lastUsedAt).toLocaleDateString() : "Never"}
 										</td>
-										<td className="table-cell" style={{ textAlign: "right" }}>
+										<td className="table-cell text-right">
 											{key.status === "active" && (
 												<button
 													className="btn btn-danger btn-sm"

@@ -29,14 +29,8 @@ function TypeBadge({ type }: { type: string }) {
 	const color = colors[type] || "var(--text-tertiary)";
 	return (
 		<span
+			className="type-badge"
 			style={{
-				fontFamily: "var(--font-mono)",
-				fontSize: "0.625rem",
-				fontWeight: 500,
-				textTransform: "uppercase",
-				letterSpacing: "0.08em",
-				padding: "3px 8px",
-				borderRadius: "var(--radius-pill)",
 				background: `${color}18`,
 				color: color,
 				border: `1px solid ${color}30`,
@@ -89,29 +83,20 @@ export default function ActivityPage() {
 	});
 
 	return (
-		<div style={{ minHeight: "100vh", background: "var(--bg-deep)" }}>
+		<div className="page">
 			<Nav />
 			<RequireWallet>
-			<main style={{ maxWidth: 1120, margin: "0 auto", padding: "32px 24px" }}>
+			<main className="page-content">
 				{/* Header */}
-				<div className="animate-in" style={{ marginBottom: 32 }}>
-					<h2 className="text-heading" style={{ marginBottom: 4 }}>
-						Activity
-					</h2>
+				<div className="animate-in mb-6">
+					<h2 className="page-title">Activity</h2>
 					<span className="label-mono">
 						{activity.length} event{activity.length !== 1 ? "s" : ""}
 					</span>
 				</div>
 
 				{/* Filters */}
-				<div
-					className="animate-in animate-delay-1"
-					style={{
-						display: "flex",
-						gap: 6,
-						marginBottom: 16,
-					}}
-				>
+				<div className="animate-in animate-delay-1 flex gap-2 mb-4">
 					{["All", "Payments", "Swaps", "System"].map((f) => (
 						<button
 							key={f}
@@ -124,15 +109,13 @@ export default function ActivityPage() {
 				</div>
 
 				{/* Activity list */}
-				<div className="card animate-in animate-delay-2" style={{ overflow: "hidden" }}>
+				<div className="card animate-in animate-delay-2 overflow-hidden">
 					{loading && activity.length === 0 ? (
-						<div style={{ padding: "48px 24px", textAlign: "center" }}>
-							<p style={{ color: "var(--text-ghost)", fontSize: "0.875rem" }}>
-								Loading...
-							</p>
+						<div className="text-center" style={{ padding: "48px 24px" }}>
+							<p className="text-ghost text-base">Loading...</p>
 						</div>
 					) : filteredActivity.length === 0 ? (
-						<div style={{ padding: "48px 24px", textAlign: "center" }}>
+						<div style={{ padding: "48px 24px" }} className="text-center">
 							{!vault ? (
 								<EmptyState
 									icon="📊"
@@ -150,50 +133,18 @@ export default function ActivityPage() {
 						</div>
 					) : (
 						<>
-							{filteredActivity.map((item, index) => (
-								<div
-									key={item.id}
-									style={{
-										display: "flex",
-										alignItems: "center",
-										gap: 16,
-										padding: "16px 24px",
-										borderBottom:
-											index < filteredActivity.length - 1
-												? "1px solid var(--border-subtle)"
-												: "none",
-										transition: "background 0.1s ease",
-									}}
-									onMouseEnter={(e) =>
-										(e.currentTarget.style.background = "var(--bg-raised)")
-									}
-									onMouseLeave={(e) =>
-										(e.currentTarget.style.background = "transparent")
-									}
-								>
+							{filteredActivity.map((item) => (
+								<div key={item.id} className="activity-row">
 									{/* Type */}
 									<TypeBadge type={item.type} />
 
 									{/* Description */}
-									<div style={{ flex: 1, minWidth: 0 }}>
-										<div
-											style={{
-												fontSize: "0.875rem",
-												color: "var(--text-primary)",
-												letterSpacing: "-0.01em",
-											}}
-										>
+									<div className="flex-1 min-w-0">
+										<div className="text-base text-primary" style={{ letterSpacing: "-0.01em" }}>
 											{item.description}
 										</div>
 										{item.txSignature && (
-											<div
-												style={{
-													fontSize: "0.75rem",
-													fontFamily: "var(--font-mono)",
-													color: "var(--text-ghost)",
-													marginTop: 2,
-												}}
-											>
+											<div className="font-mono text-ghost" style={{ fontSize: "0.75rem", marginTop: 2 }}>
 												{item.txSignature}
 											</div>
 										)}
@@ -201,19 +152,9 @@ export default function ActivityPage() {
 
 									{/* Amount */}
 									{item.amount && (
-										<div
-											style={{
-												fontSize: "0.875rem",
-												fontFamily: "var(--font-mono)",
-												fontWeight: 500,
-												color: "var(--text-primary)",
-												letterSpacing: "-0.02em",
-												textAlign: "right",
-												whiteSpace: "nowrap",
-											}}
-										>
+										<div className="text-base font-mono text-primary whitespace-nowrap text-right" style={{ fontWeight: 500, letterSpacing: "-0.02em" }}>
 											{item.amount}{" "}
-											<span style={{ color: "var(--text-tertiary)", fontWeight: 400 }}>
+											<span className="text-tertiary" style={{ fontWeight: 400 }}>
 												{item.mint}
 											</span>
 										</div>
@@ -233,21 +174,13 @@ export default function ActivityPage() {
 									</span>
 
 									{/* Time */}
-									<div
-										style={{
-											fontSize: "0.75rem",
-											color: "var(--text-ghost)",
-											whiteSpace: "nowrap",
-											minWidth: 100,
-											textAlign: "right",
-										}}
-									>
+									<div className="text-ghost whitespace-nowrap text-right" style={{ fontSize: "0.75rem", minWidth: 100 }}>
 										{item.createdAt}
 									</div>
 								</div>
 							))}
 							{nextCursor && (
-								<div style={{ padding: "16px 24px", textAlign: "center" }}>
+								<div className="text-center" style={{ padding: "16px 24px" }}>
 									<button
 										className="btn btn-ghost btn-sm"
 										onClick={() => fetchActivity(nextCursor)}

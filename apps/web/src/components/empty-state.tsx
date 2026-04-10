@@ -17,56 +17,18 @@ export function EmptyState({
 	const router = useRouter();
 
 	return (
-		<div
-			className="card"
-			style={{
-				padding: "64px 32px",
-				textAlign: "center",
-				display: "flex",
-				flexDirection: "column",
-				alignItems: "center",
-				gap: 16,
-			}}
-		>
-			<div
-				style={{
-					fontSize: "2rem",
-					lineHeight: 1,
-					opacity: 0.5,
-					marginBottom: 4,
-				}}
-			>
-				{icon}
-			</div>
-			<div
-				style={{
-					fontSize: "1rem",
-					fontWeight: 500,
-					letterSpacing: "-0.01em",
-					color: "var(--text-primary)",
-				}}
-			>
-				{title}
-			</div>
-			<div
-				style={{
-					fontSize: "0.875rem",
-					color: "var(--text-tertiary)",
-					maxWidth: 360,
-					lineHeight: 1.5,
-				}}
-			>
-				{description}
-			</div>
+		<div className="card empty-state">
+			<div className="empty-state-icon">{icon}</div>
+			<div className="empty-state-title">{title}</div>
+			<div className="empty-state-desc">{description}</div>
 			{action === "connect" && (
-				<div style={{ marginTop: 8 }}>
+				<div className="mt-4">
 					<WalletMultiButton />
 				</div>
 			)}
 			{action === "create-vault" && (
 				<button
-					className="btn btn-primary"
-					style={{ marginTop: 8 }}
+					className="btn btn-primary mt-4"
 					onClick={() => router.push("/dashboard")}
 				>
 					Create Vault
@@ -74,8 +36,7 @@ export function EmptyState({
 			)}
 			{action && typeof action === "object" && (
 				<button
-					className="btn btn-primary"
-					style={{ marginTop: 8 }}
+					className="btn btn-primary mt-4"
 					onClick={action.onClick}
 				>
 					{action.label}

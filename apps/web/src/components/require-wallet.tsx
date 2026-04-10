@@ -8,7 +8,7 @@ export function RequireWallet({ children }: { children: React.ReactNode }) {
 
 	if (!connected) {
 		return (
-			<div style={{ maxWidth: 1120, margin: "0 auto", padding: "80px 24px" }}>
+			<div className="require-wallet-wrap">
 				<EmptyState
 					icon="🔗"
 					title="Connect your wallet"
