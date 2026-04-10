@@ -31,6 +31,7 @@ Token accounts
 | `apps/web` | Next.js dashboard — vault management, keys, policy, activity |
 | `packages/shared` | Zod schemas, types, constants, errors |
 | `packages/sdk` | TypeScript SDK for agents |
+| `packages/mcp-server` | MCP server — plug LobsterPay into any AI agent |
 
 ## Quick Start
 
@@ -144,6 +145,52 @@ const result = await client.executePay({
   idempotencyKey: "pay-001",
 });
 ```
+
+### MCP Server (for AI Agents)
+
+Give any MCP-compatible AI agent (Claude, etc.) the ability to make payments, swaps, and x402 purchases through your LobsterPay vault.
+
+**Tools available:**
+
+| Tool | Description |
+|------|-------------|
+| `check_vault` | View vault status, balances, spending limits |
+| `make_payment` | Send tokens to approved destinations |
+| `get_swap_quote` | Preview a token swap |
+| `execute_swap` | Execute a swap through DEX aggregator |
+| `pay_x402` | Pay a 402-gated HTTP endpoint |
+| `list_activity` | Check recent transaction history |
+
+**Setup for Claude Code / Claude Desktop:**
+
+Add to your MCP config (`claude_desktop_config.json` or `.claude/settings.json`):
+
+```json
+{
+  "mcpServers": {
+    "lobsterpay": {
+      "command": "npx",
+      "args": ["-y", "@lobsterpay/mcp-server"],
+      "env": {
+        "LOBSTERPAY_API_KEY": "lp_live_YOUR_KEY",
+        "LOBSTERPAY_API_URL": "http://localhost:3001"
+      }
+    }
+  }
+}
+```
+
+Or run directly:
+
+```bash
+LOBSTERPAY_API_KEY=lp_live_YOUR_KEY pnpm --filter @lobsterpay/mcp-server start
+```
+
+**Example agent prompt:**
+
+> "Pay 5 USDC to 7xKXmJ...m4Qp for the API subscription invoice-042"
+
+The agent will call `make_payment` with the appropriate parameters, and LobsterPay enforces all vault policy limits.
 
 ## Anchor Program
 
