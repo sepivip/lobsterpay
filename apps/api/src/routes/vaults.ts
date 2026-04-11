@@ -24,9 +24,14 @@ function ownerAuth(db: Db) {
 }
 
 async function verifyVaultOwnership(db: Db, vaultId: string, walletAddress: string): Promise<boolean> {
-  const rows = await db`SELECT owner_wallet FROM vaults WHERE id = ${vaultId}`;
+  const rows = await db`
+    SELECT o.wallet_address
+    FROM vaults v
+    JOIN owners o ON v.owner_id = o.id
+    WHERE v.id = ${vaultId}
+  `;
   if (rows.length === 0) return false;
-  return rows[0].owner_wallet === walletAddress;
+  return rows[0].wallet_address === walletAddress;
 }
 
 export function vaultRoutes(app: FastifyInstance, db: Db, config: Config) {
