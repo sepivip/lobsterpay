@@ -5,7 +5,7 @@ resolution = true
 skip-lint = false
 
 [programs.devnet]
-lobsterpay = "5mrHEGGwCUkjUgnEUvJz52sf7sxCQG9yfYiP8Qyjec4o"
+lobsterpay = "A184DBQaCM6qWETbEDJUtr25bSuuTH72sTTixsyoZbtS"
 
 [registry]
 url = "https://api.apr.dev"

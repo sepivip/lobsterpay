@@ -23,7 +23,7 @@ import {
 // ---------------------------------------------------------------------------
 
 export const LOBSTERPAY_PROGRAM_ID = new PublicKey(
-  "5mrHEGGwCUkjUgnEUvJz52sf7sxCQG9yfYiP8Qyjec4o",
+  "A184DBQaCM6qWETbEDJUtr25bSuuTH72sTTixsyoZbtS",
 );
 
 /**
