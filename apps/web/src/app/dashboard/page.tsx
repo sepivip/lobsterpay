@@ -1,6 +1,7 @@
 "use client";
 
 import { Nav } from "@/components/nav";
+import { CopyableAddress } from "@/components/copyable-address";
 import { DepositFeesModal } from "@/components/deposit-fees-modal";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { useConnection } from "@solana/wallet-adapter-react";
@@ -181,8 +182,9 @@ export default function DashboardPage() {
 			: "Active"
 		: "No vault";
 
-	const vaultPda = vault?.vaultPda
-		? `${vault.vaultPda.slice(0, 4)}...${vault.vaultPda.slice(-4)}`
+	const vaultPdaFull = vault?.vault_pda || vault?.vaultPda || null;
+	const vaultPda = vaultPdaFull
+		? `${vaultPdaFull.slice(0, 4)}...${vaultPdaFull.slice(-4)}`
 		: null;
 
 	const dailySpent = vault?.policy?.dailySpent ?? 0;
@@ -330,6 +332,34 @@ export default function DashboardPage() {
 								>
 									Deposit Fees
 								</button>
+							</div>
+						)}
+
+						{/* Vault addresses */}
+						{vault && vaultPdaFull && (
+							<div className="card animate-in animate-delay-3 mb-5" style={{ padding: "20px 24px" }}>
+								<div className="label-mono" style={{ marginBottom: 8 }}>Vault Addresses</div>
+								<CopyableAddress
+									label="Vault PDA"
+									address={vaultPdaFull}
+								/>
+								{(vault.fee_vault_pda || vault.feeVaultPda) && (
+									<CopyableAddress
+										label="Fee Vault"
+										address={vault.fee_vault_pda || vault.feeVaultPda}
+									/>
+								)}
+								{vault.policy_pda || vault.policyPda ? (
+									<CopyableAddress
+										label="Policy"
+										address={vault.policy_pda || vault.policyPda}
+									/>
+								) : null}
+								<div className="text-sm text-tertiary" style={{ marginTop: 12, lineHeight: 1.6 }}>
+									To fund the vault, send SPL tokens (e.g. USDC) to the vault&apos;s
+									Associated Token Account. Open the Vault PDA in Explorer to find token accounts,
+									or transfer directly using the vault PDA as the owner address.
+								</div>
 							</div>
 						)}
 
