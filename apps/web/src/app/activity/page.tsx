@@ -18,23 +18,9 @@ const TYPE_LABELS: Record<string, string> = {
 };
 
 function TypeBadge({ type }: { type: string }) {
-	const colors: Record<string, string> = {
-		payment: "var(--accent)",
-		swap: "#7c5cfc",
-		x402: "#ffa502",
-		withdrawal: "var(--text-tertiary)",
-		key_created: "var(--success)",
-		pause_toggled: "var(--warning)",
-	};
-	const color = colors[type] || "var(--text-tertiary)";
 	return (
 		<span
 			className="type-badge"
-			style={{
-				background: `${color}18`,
-				color: color,
-				border: `1px solid ${color}30`,
-			}}
 		>
 			{TYPE_LABELS[type] || type}
 		</span>
