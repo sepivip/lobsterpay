@@ -91,6 +91,7 @@ export default function DashboardPage() {
 		feeBalance,
 		feeBalanceLow,
 		feeVaultInitialized,
+		tokenBalances,
 		refresh,
 		refreshFeeBalance,
 		createVault,
@@ -193,6 +194,16 @@ export default function DashboardPage() {
 	const feeBalanceValue = feeVaultInitialized
 		? formatSol(feeBalance)
 		: "\u2014";
+
+	// Resolve on-chain token balances for display
+	const KNOWN_MINTS: Record<string, string> = {
+		"4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU": "USDC",
+		"EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v": "USDC",
+	};
+	const primaryBalance = tokenBalances.find((t) => KNOWN_MINTS[t.mint] === "USDC");
+	const primaryBalanceDisplay = primaryBalance
+		? primaryBalance.uiAmount.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 6 })
+		: "0";
 
 	return (
 		<div className="page">
@@ -310,7 +321,7 @@ export default function DashboardPage() {
 							/>
 							<StatCard
 								label="USDC Balance"
-								value={vault ? (vault.balanceUsdc ?? "0") : "\u2014"}
+								value={vault ? primaryBalanceDisplay : "\u2014"}
 								suffix="USDC"
 								delay={2}
 							/>
@@ -355,6 +366,32 @@ export default function DashboardPage() {
 										address={vault.policy_pda || vault.policyPda}
 									/>
 								) : null}
+								{tokenBalances.length > 0 && (
+									<>
+										<div className="label-mono" style={{ marginTop: 16, marginBottom: 8 }}>Token Balances</div>
+										{tokenBalances.map((tb) => (
+											<div
+												key={tb.mint}
+												className="flex items-center justify-between"
+												style={{ padding: "8px 0", borderBottom: "1px solid var(--border-subtle)" }}
+											>
+												<div style={{ minWidth: 0 }}>
+													<span className="text-sm text-primary" style={{ fontWeight: 500 }}>
+														{KNOWN_MINTS[tb.mint] || `${tb.mint.slice(0, 4)}...${tb.mint.slice(-4)}`}
+													</span>
+													{!KNOWN_MINTS[tb.mint] && (
+														<span className="text-sm text-ghost" style={{ marginLeft: 8, fontFamily: "var(--font-mono)" }}>
+															{tb.mint.slice(0, 8)}...
+														</span>
+													)}
+												</div>
+												<span className="text-sm text-primary" style={{ fontFamily: "var(--font-mono)", fontWeight: 500 }}>
+													{tb.uiAmount.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: tb.decimals })}
+												</span>
+											</div>
+										))}
+									</>
+								)}
 								<div className="text-sm text-tertiary" style={{ marginTop: 12, lineHeight: 1.6 }}>
 									To fund the vault, send SPL tokens (e.g. USDC) to the vault&apos;s
 									Associated Token Account. Open the Vault PDA in Explorer to find token accounts,

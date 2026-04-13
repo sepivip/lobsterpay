@@ -1,5 +1,6 @@
 "use client";
 
+import { PublicKey } from "@solana/web3.js";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { useConnection } from "@solana/wallet-adapter-react";
 import { useEffect, useState, useCallback } from "react";
@@ -9,6 +10,15 @@ import { buildInitializeVaultTx, deriveFeeVaultPda } from "@/lib/solana";
 /** Threshold below which the fee vault is considered "low" (0.01 SOL). */
 export const FEE_BALANCE_LOW_THRESHOLD_LAMPORTS = 10_000_000n;
 
+const TOKEN_PROGRAM_ID = new PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
+
+export interface TokenBalance {
+  mint: string;
+  amount: string;
+  uiAmount: number;
+  decimals: number;
+}
+
 export interface VaultState {
   vault: any | null;
   loading: boolean;
@@ -16,6 +26,7 @@ export interface VaultState {
   feeBalance: bigint | null;
   feeBalanceLow: boolean;
   feeVaultInitialized: boolean;
+  tokenBalances: TokenBalance[];
   refresh: () => Promise<void>;
   refreshFeeBalance: () => Promise<void>;
   createVault: () => Promise<string>;
@@ -29,6 +40,28 @@ export function useVault(): VaultState {
   const [error, setError] = useState<string | null>(null);
   const [feeBalance, setFeeBalance] = useState<bigint | null>(null);
   const [feeVaultInitialized, setFeeVaultInitialized] = useState(false);
+  const [tokenBalances, setTokenBalances] = useState<TokenBalance[]>([]);
+
+  const refreshTokenBalances = useCallback(async (vaultPda: string) => {
+    try {
+      const vaultPubkey = new PublicKey(vaultPda);
+      const resp = await connection.getParsedTokenAccountsByOwner(vaultPubkey, {
+        programId: TOKEN_PROGRAM_ID,
+      });
+      const balances = resp.value.map((ta) => {
+        const info = ta.account.data.parsed.info;
+        return {
+          mint: info.mint as string,
+          amount: info.tokenAmount.amount as string,
+          uiAmount: info.tokenAmount.uiAmount as number,
+          decimals: info.tokenAmount.decimals as number,
+        };
+      });
+      setTokenBalances(balances);
+    } catch {
+      setTokenBalances([]);
+    }
+  }, [connection]);
 
   const refreshFeeBalance = useCallback(async () => {
     if (!publicKey) {
@@ -59,14 +92,18 @@ export function useVault(): VaultState {
     try {
       const result = await api.getVaultByOwner(publicKey.toString());
       setVault(result);
-      // Fetch fee balance in parallel with any subsequent work
-      await refreshFeeBalance();
+      const vaultPda = result?.vault_pda || result?.vaultPda;
+      // Fetch on-chain balances in parallel
+      await Promise.all([
+        refreshFeeBalance(),
+        vaultPda ? refreshTokenBalances(vaultPda) : Promise.resolve(),
+      ]);
     } catch (err: any) {
       setError(err.message);
     } finally {
       setLoading(false);
     }
-  }, [publicKey, refreshFeeBalance]);
+  }, [publicKey, refreshFeeBalance, refreshTokenBalances]);
 
   const createVault = useCallback(async (): Promise<string> => {
     if (!publicKey) throw new Error("Wallet not connected");
@@ -123,6 +160,7 @@ export function useVault(): VaultState {
       setVault(null);
       setFeeBalance(null);
       setFeeVaultInitialized(false);
+      setTokenBalances([]);
       setLoading(false);
     }
   }, [connected, publicKey, refresh]);
@@ -137,6 +175,7 @@ export function useVault(): VaultState {
     feeBalance,
     feeBalanceLow,
     feeVaultInitialized,
+    tokenBalances,
     refresh,
     refreshFeeBalance,
     createVault,
