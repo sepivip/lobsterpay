@@ -101,6 +101,20 @@ pub fn handler(ctx: Context<ExecutePayExact>, params: ExecutePayExactParams) -> 
         LobsterPayError::DestinationNotAllowed
     );
 
+    // Guard: no duplicate account aliasing — vault can't pay itself
+    require!(
+        ctx.accounts.vault_token_account.key() != ctx.accounts.destination_token_account.key(),
+        LobsterPayError::DuplicateAccountAliasing
+    );
+    require!(
+        ctx.accounts.vault_token_account.key() != ctx.accounts.treasury_token_account.key(),
+        LobsterPayError::DuplicateAccountAliasing
+    );
+    require!(
+        ctx.accounts.destination_token_account.key() != ctx.accounts.treasury_token_account.key(),
+        LobsterPayError::DuplicateAccountAliasing
+    );
+
     // Guard: amount > 0
     require!(params.amount > 0, LobsterPayError::InvalidAmount);
 

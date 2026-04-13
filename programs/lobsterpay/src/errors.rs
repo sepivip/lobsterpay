@@ -46,4 +46,6 @@ pub enum LobsterPayError {
     InvalidTreasury,
     #[msg("Fee treasury token account mint mismatch")]
     InvalidFeeTreasuryMint,
+    #[msg("Destination account must differ from source account")]
+    DuplicateAccountAliasing,
 }
