@@ -161,18 +161,20 @@ export default function ActivityPage() {
 										</div>
 									)}
 
-									{/* Status */}
-									<span
-										className={`badge ${
-											item.status === "confirmed"
-												? "badge-success"
-												: item.status === "failed"
-													? "badge-danger"
-													: "badge-warning"
-										}`}
-									>
-										{item.status}
-									</span>
+									{/* Status — only for tx-backed events */}
+									{item.status && (
+										<span
+											className={`badge ${
+												item.status === "confirmed"
+													? "badge-success"
+													: item.status === "failed"
+														? "badge-danger"
+														: "badge-warning"
+											}`}
+										>
+											{item.status}
+										</span>
+									)}
 
 									{/* Time */}
 									<div className="text-ghost whitespace-nowrap text-right" style={{ fontSize: "0.75rem", minWidth: 100 }}>
