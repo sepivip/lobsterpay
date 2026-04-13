@@ -10,14 +10,14 @@
   /* Canvas & Surface — warm near-black, never pure #000 */
   --bg-deep: #1f2228;
   --bg-base: #1f2228;
-  --bg-raised: rgba(255, 255, 255, 0.03);
-  --bg-card: rgba(255, 255, 255, 0.03);
+  --bg-raised: rgba(255, 255, 255, 0.04);
+  --bg-card: rgba(255, 255, 255, 0.05);
   --bg-card-hover: rgba(255, 255, 255, 0.08);
 
-  /* Borders — white at low opacity */
-  --border-subtle: rgba(255, 255, 255, 0.1);
-  --border-default: rgba(255, 255, 255, 0.1);
-  --border-strong: rgba(255, 255, 255, 0.2);
+  /* Borders — white at low opacity, visible enough to define structure */
+  --border-subtle: rgba(255, 255, 255, 0.12);
+  --border-default: rgba(255, 255, 255, 0.12);
+  --border-strong: rgba(255, 255, 255, 0.22);
 
   /* Text — pure white hierarchy via opacity */
   --text-primary: #ffffff;
@@ -32,13 +32,13 @@
   --accent-glow: none;
   --accent-subtle: rgba(255, 255, 255, 0.05);
 
-  /* Functional status — kept minimal for financial UX */
-  --success: rgba(255, 255, 255, 0.8);
-  --success-dim: rgba(255, 255, 255, 0.08);
-  --warning: rgba(255, 255, 255, 0.6);
-  --warning-dim: rgba(255, 255, 255, 0.06);
-  --danger: rgba(255, 255, 255, 0.5);
-  --danger-dim: rgba(255, 255, 255, 0.05);
+  /* Functional status — muted but distinguishable (financial UX requires this) */
+  --success: #34d399;
+  --success-dim: rgba(52, 211, 153, 0.12);
+  --warning: #fbbf24;
+  --warning-dim: rgba(251, 191, 36, 0.10);
+  --danger: #f87171;
+  --danger-dim: rgba(248, 113, 113, 0.10);
 
   /* Typography — Geist fonts loaded via next/font in layout.tsx */
   --font-sans: var(--font-geist-sans), system-ui, -apple-system, sans-serif;
@@ -211,13 +211,13 @@ body {
 }
 
 .btn-danger {
-  background: transparent;
-  color: var(--text-primary);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: var(--danger-dim);
+  color: var(--danger);
+  border: 1px solid var(--danger);
 }
 
 .btn-danger:hover {
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(248, 113, 113, 0.2);
 }
 
 .btn-sm {
@@ -229,6 +229,12 @@ body {
   width: 36px;
   height: 36px;
   padding: 0;
+}
+
+.btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  pointer-events: none;
 }
 
 /* ── Card — transparent surface, thin border, no shadow ───────────────── */
@@ -319,22 +325,22 @@ body {
 }
 
 .badge-success {
-  border-color: rgba(255, 255, 255, 0.3);
-  color: var(--text-primary);
+  border-color: var(--success);
+  color: var(--success);
 }
 
 .badge-warning {
-  border-color: rgba(255, 255, 255, 0.2);
-  color: var(--text-secondary);
+  border-color: var(--warning);
+  color: var(--warning);
 }
 
 .badge-danger {
-  border-color: rgba(255, 255, 255, 0.15);
-  color: var(--text-tertiary);
+  border-color: var(--danger);
+  color: var(--danger);
 }
 
 .badge-neutral {
-  border-color: var(--border-subtle);
+  border-color: var(--border-strong);
   color: var(--text-tertiary);
 }
 
@@ -349,17 +355,17 @@ body {
 }
 
 .status-dot-active {
-  background: var(--text-primary);
-  box-shadow: 0 0 6px rgba(255, 255, 255, 0.4);
+  background: var(--success);
+  box-shadow: 0 0 6px var(--success);
 }
 
 .status-dot-paused {
-  background: var(--text-tertiary);
-  box-shadow: 0 0 4px rgba(255, 255, 255, 0.2);
+  background: var(--warning);
+  box-shadow: 0 0 4px var(--warning);
 }
 
 .status-dot-revoked {
-  background: var(--text-ghost);
+  background: var(--danger);
 }
 
 /* ── Table ── */
@@ -604,17 +610,7 @@ body {
 .grid-stats {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: 1px;
-  border: 1px solid var(--border-subtle);
-}
-
-.grid-stats > .card {
-  border: none;
-  border-right: 1px solid var(--border-subtle);
-}
-
-.grid-stats > .card:last-child {
-  border-right: none;
+  gap: 12px;
 }
 
 .grid-2col {
@@ -760,9 +756,10 @@ body {
 .text-tertiary { color: var(--text-tertiary); }
 .text-ghost { color: var(--text-ghost); }
 .text-accent { color: var(--text-primary); }
-.text-danger { color: var(--text-secondary); }
-.text-success { color: var(--text-primary); }
-.text-warning { color: var(--text-secondary); }
+a.text-accent { text-decoration: underline; text-underline-offset: 3px; }
+.text-danger { color: var(--danger); }
+.text-success { color: var(--success); }
+.text-warning { color: var(--warning); }
 
 /* ── Font size utilities ── */
 
@@ -799,7 +796,7 @@ body {
 .empty-state-icon {
   font-size: 2rem;
   line-height: 1;
-  opacity: 0.3;
+  opacity: 0.6;
   margin-bottom: 4px;
 }
 
@@ -830,7 +827,7 @@ body {
 .form-label {
   display: block;
   font-size: 0.875rem;
-  color: var(--text-secondary);
+  color: var(--text-primary);
   margin-bottom: 6px;
 }
 
@@ -874,7 +871,9 @@ body {
   text-transform: uppercase;
   letter-spacing: 0.08em;
   padding: 3px 8px;
-  border: 1px solid var(--border-subtle);
+  border: 1px solid var(--border-strong);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-primary);
 }
 
 /* ── Landing feature pill — monospace tag ──────────────────────────────── */
