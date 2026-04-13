@@ -7,6 +7,7 @@
 
 import {
   Connection,
+  ComputeBudgetProgram,
   PublicKey,
   SystemProgram,
   Transaction,
@@ -581,11 +582,16 @@ export function buildWithdrawOwnerIx(args: {
 /**
  * Build a legacy Transaction from an array of instructions, fetching the
  * latest blockhash from the provided connection.
+ *
+ * Automatically prepends compute budget instructions:
+ * - setComputeUnitLimit: conservative CU cap (default 300k)
+ * - setComputeUnitPrice: priority fee for congestion (default 1000 micro-lamports)
  */
 export async function buildTransaction(
   instructions: TransactionInstruction[],
   feePayer: PublicKey,
   connection: Connection,
+  opts?: { computeUnits?: number; priorityFee?: number },
 ): Promise<Transaction> {
   const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash();
 
@@ -593,6 +599,16 @@ export async function buildTransaction(
   tx.recentBlockhash = blockhash;
   tx.lastValidBlockHeight = lastValidBlockHeight;
   tx.feePayer = feePayer;
+
+  // Prepend compute budget instructions for reliability + priority
+  tx.add(
+    ComputeBudgetProgram.setComputeUnitLimit({
+      units: opts?.computeUnits ?? 300_000,
+    }),
+    ComputeBudgetProgram.setComputeUnitPrice({
+      microLamports: opts?.priorityFee ?? 1_000,
+    }),
+  );
 
   for (const ix of instructions) {
     tx.add(ix);

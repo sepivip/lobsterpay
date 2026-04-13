@@ -56,6 +56,12 @@ pub fn handler(ctx: Context<WithdrawOwner>, params: WithdrawOwnerParams) -> Resu
     // Guard: amount must be positive
     require!(params.amount > 0, LobsterPayError::InvalidAmount);
 
+    // Guard: no duplicate account aliasing
+    require!(
+        ctx.accounts.vault_token_account.key() != ctx.accounts.destination_token_account.key(),
+        LobsterPayError::DuplicateAccountAliasing
+    );
+
     let vault = &ctx.accounts.vault;
     let owner_key = vault.owner.key();
     let seeds: &[&[u8]] = &[VAULT_SEED, owner_key.as_ref(), &[vault.bump]];
