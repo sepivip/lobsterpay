@@ -1,7 +1,12 @@
 {
-  "version": "0.2.0",
+  "version": "0.2.1",
   "updated": "2026-04-16",
   "changelog": [
+    {
+      "version": "0.2.1",
+      "date": "2026-04-16",
+      "notes": "check_vault now returns real on-chain token balances (previously always empty). Balances are an array of { mint, symbol, amount, uiAmount, decimals } filtered to non-zero holdings."
+    },
     {
       "version": "0.2.0",
       "date": "2026-04-16",
