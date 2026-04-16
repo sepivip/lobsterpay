@@ -20,7 +20,7 @@
       "parameters": [],
       "response": {
         "vaultPda": "Solana address of the vault",
-        "balances": "Token balances in the vault",
+        "balances": "Array of token balances held by the vault. Each entry: { mint, symbol (nullable), amount (atomic string), uiAmount (number), decimals }. Empty array if vault holds no tokens yet.",
         "permissions": {
           "allowedActions": "Bitmask: 1=swap, 2=pay, 4=x402",
           "maxPerTxAmountAtomic": "Max amount per single transaction (atomic units)",

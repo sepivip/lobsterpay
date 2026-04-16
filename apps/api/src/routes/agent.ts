@@ -6,8 +6,40 @@ import { createTxService } from "../services/tx.service.js";
 import { createSwapService } from "../services/swap.service.js";
 import { createX402Service } from "../services/x402.service.js";
 import { payRequestSchema, swapRequestSchema, x402RequestSchema } from "@lobsterpay/shared";
-import { PublicKey } from "@solana/web3.js";
+import { Connection, PublicKey } from "@solana/web3.js";
 import { TOKEN_PROGRAM_ID, getAssociatedTokenAddressSync, getOrCreateAssociatedTokenAccount } from "@solana/spl-token";
+
+// Known SPL mints — used to decorate balances with human-readable symbols.
+const KNOWN_MINTS: Record<string, string> = {
+  "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v": "USDC",
+  "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU": "USDC",
+  "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB": "USDT",
+  "So11111111111111111111111111111111111111112": "SOL",
+};
+
+async function fetchVaultBalances(connection: Connection, vaultPda: string) {
+  try {
+    const owner = new PublicKey(vaultPda);
+    const resp = await connection.getParsedTokenAccountsByOwner(owner, {
+      programId: TOKEN_PROGRAM_ID,
+    });
+    return resp.value
+      .map((ta) => {
+        const info = ta.account.data.parsed.info;
+        const mint = info.mint as string;
+        return {
+          mint,
+          symbol: KNOWN_MINTS[mint] ?? null,
+          amount: info.tokenAmount.amount as string,
+          uiAmount: info.tokenAmount.uiAmount as number,
+          decimals: info.tokenAmount.decimals as number,
+        };
+      })
+      .filter((b) => b.uiAmount > 0);
+  } catch {
+    return [];
+  }
+}
 import { createHash } from "node:crypto";
 import {
   buildExecutePayExactIx,
@@ -27,6 +59,7 @@ export function agentRoutes(app: FastifyInstance, db: Db, config: Config) {
   const txService = createTxService(db, config);
   const swapService = createSwapService(db, config);
   const x402Service = createX402Service(db, config);
+  const connection = new Connection(config.SOLANA_RPC_URL, "confirmed");
 
   // GET /v1/agent/vault
   app.get("/v1/agent/vault", { preHandler: auth }, async (request) => {
@@ -49,9 +82,11 @@ export function agentRoutes(app: FastifyInstance, db: Db, config: Config) {
     const effectiveDaily = apiKey.daily_limit_override ?? policy.daily_limit_amount_atomic;
     const effectiveActions = apiKey.allowed_actions_override ?? policy.allowed_actions;
 
+    const balances = await fetchVaultBalances(connection, policy.vault_pda);
+
     return {
       vaultPda: policy.vault_pda,
-      balances: {},
+      balances,
       permissions: {
         allowedActions: effectiveActions,
         maxPerTxAmountAtomic: String(effectivePerTx),
