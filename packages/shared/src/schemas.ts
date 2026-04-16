@@ -98,6 +98,10 @@ export const envSchema = z.object({
   LOG_LEVEL: z.string().default("info"),
   FEE_PAYER_SECRET_KEY: z.string().optional(),
   ALLOWED_ORIGIN: z.string().optional(),
+  // Public URL the API is reachable at from the internet — used to
+  // substitute {LOBSTERPAY_API_URL} placeholders in downloaded skill
+  // files (skill.json, agent-prompt.md, mcp-config.json, openapi.json).
+  PUBLIC_API_URL: z.string().default("http://localhost:3001"),
 });
 
 // Inferred types

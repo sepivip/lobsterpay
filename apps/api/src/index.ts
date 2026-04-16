@@ -26,7 +26,7 @@ async function main() {
   // Register routes
   vaultRoutes(app, db, config);
   agentRoutes(app, db, config);
-  skillRoutes(app);
+  skillRoutes(app, config);
 
   await app.listen({ port: config.API_PORT, host: config.API_HOST });
   console.log(`LobsterPay API running on ${config.API_HOST}:${config.API_PORT}`);
