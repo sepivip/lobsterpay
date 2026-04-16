@@ -2,10 +2,14 @@ import type { FastifyInstance } from "fastify";
 import { readFile } from "node:fs/promises";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import type { Config } from "../config.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-export function skillRoutes(app: FastifyInstance) {
+const PLACEHOLDER = "{LOBSTERPAY_API_URL}";
+
+export function skillRoutes(app: FastifyInstance, config: Config) {
+	const apiUrl = config.PUBLIC_API_URL.replace(/\/$/, "");
 	// GET /v1/skills — list available skill formats
 	app.get("/v1/skills", async () => ({
 		formats: [
@@ -50,10 +54,11 @@ export function skillRoutes(app: FastifyInstance) {
 
 		switch (format) {
 			case "skill.json": {
-				const content = await readFile(
+				const raw = await readFile(
 					join(__dirname, "../skills/lobsterpay-skill.json"),
 					"utf-8",
 				);
+				const content = raw.split(PLACEHOLDER).join(apiUrl);
 				return reply
 					.header("Content-Type", "application/json")
 					.header(
@@ -64,10 +69,11 @@ export function skillRoutes(app: FastifyInstance) {
 			}
 
 			case "agent-prompt.md": {
-				const content = await readFile(
+				const raw = await readFile(
 					join(__dirname, "../skills/lobsterpay-agent-prompt.md"),
 					"utf-8",
 				);
+				const content = raw.split(PLACEHOLDER).join(apiUrl);
 				return reply
 					.header("Content-Type", "text/markdown")
 					.header(
@@ -78,7 +84,7 @@ export function skillRoutes(app: FastifyInstance) {
 			}
 
 			case "openapi.json": {
-				const spec = buildOpenApiSpec();
+				const spec = buildOpenApiSpec(apiUrl);
 				return reply
 					.header("Content-Type", "application/json")
 					.header(
@@ -89,14 +95,14 @@ export function skillRoutes(app: FastifyInstance) {
 			}
 
 			case "mcp-config.json": {
-				const config = {
+				const mcpConfig = {
 					mcpServers: {
 						lobsterpay: {
 							command: "npx",
 							args: ["-y", "@lobsterpay/mcp-server"],
 							env: {
 								LOBSTERPAY_API_KEY: "lp_live_YOUR_KEY_HERE",
-								LOBSTERPAY_API_URL: "http://localhost:3001",
+								LOBSTERPAY_API_URL: apiUrl,
 							},
 						},
 					},
@@ -107,7 +113,7 @@ export function skillRoutes(app: FastifyInstance) {
 						"Content-Disposition",
 						'attachment; filename="lobsterpay-mcp-config.json"',
 					)
-					.send(JSON.stringify(config, null, 2));
+					.send(JSON.stringify(mcpConfig, null, 2));
 			}
 
 			default:
@@ -118,7 +124,7 @@ export function skillRoutes(app: FastifyInstance) {
 	});
 }
 
-function buildOpenApiSpec() {
+function buildOpenApiSpec(apiUrl: string) {
 	return {
 		openapi: "3.0.3",
 		info: {
@@ -127,7 +133,7 @@ function buildOpenApiSpec() {
 			description:
 				"Permissioned payment API for AI agents on Solana. Authenticate with an API key to make payments, swaps, and x402 purchases within vault policy limits.",
 		},
-		servers: [{ url: "{baseUrl}", variables: { baseUrl: { default: "http://localhost:3001" } } }],
+		servers: [{ url: apiUrl }],
 		security: [{ bearerAuth: [] }],
 		components: {
 			securitySchemes: {
