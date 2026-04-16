@@ -1,17 +1,47 @@
 import type { FastifyInstance } from "fastify";
 import { readFile } from "node:fs/promises";
+import { readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Config } from "../config.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-const PLACEHOLDER = "{LOBSTERPAY_API_URL}";
+const API_URL_PLACEHOLDER = "{LOBSTERPAY_API_URL}";
+const VERSION_PLACEHOLDER = "{SKILL_VERSION}";
+const UPDATED_PLACEHOLDER = "{SKILL_UPDATED}";
+
+interface SkillsManifest {
+	version: string;
+	updated: string;
+	changelog: Array<{ version: string; date: string; notes: string }>;
+}
+
+function loadManifest(): SkillsManifest {
+	const raw = readFileSync(
+		join(__dirname, "../skills/skills-manifest.json"),
+		"utf-8",
+	);
+	return JSON.parse(raw) as SkillsManifest;
+}
 
 export function skillRoutes(app: FastifyInstance, config: Config) {
 	const apiUrl = config.PUBLIC_API_URL.replace(/\/$/, "");
-	// GET /v1/skills — list available skill formats
+	const manifest = loadManifest();
+
+	const applyPlaceholders = (text: string): string =>
+		text
+			.split(API_URL_PLACEHOLDER)
+			.join(apiUrl)
+			.split(VERSION_PLACEHOLDER)
+			.join(manifest.version)
+			.split(UPDATED_PLACEHOLDER)
+			.join(manifest.updated);
+
+	// GET /v1/skills — list available skill formats + current version
 	app.get("/v1/skills", async () => ({
+		version: manifest.version,
+		updated: manifest.updated,
 		formats: [
 			{
 				id: "skill-json",
@@ -48,6 +78,14 @@ export function skillRoutes(app: FastifyInstance, config: Config) {
 		],
 	}));
 
+	// GET /v1/skills/version — lightweight version check endpoint.
+	// Agents can poll this cheaply to detect when they should re-download.
+	app.get("/v1/skills/version", async () => ({
+		version: manifest.version,
+		updated: manifest.updated,
+		changelog: manifest.changelog,
+	}));
+
 	// GET /v1/skills/download/:format — download a specific skill file
 	app.get("/v1/skills/download/:format", async (request, reply) => {
 		const { format } = request.params as { format: string };
@@ -58,14 +96,14 @@ export function skillRoutes(app: FastifyInstance, config: Config) {
 					join(__dirname, "../skills/lobsterpay-skill.json"),
 					"utf-8",
 				);
-				const content = raw.split(PLACEHOLDER).join(apiUrl);
 				return reply
 					.header("Content-Type", "application/json")
+					.header("X-Skill-Version", manifest.version)
 					.header(
 						"Content-Disposition",
 						'attachment; filename="lobsterpay-skill.json"',
 					)
-					.send(content);
+					.send(applyPlaceholders(raw));
 			}
 
 			case "agent-prompt.md": {
@@ -73,20 +111,21 @@ export function skillRoutes(app: FastifyInstance, config: Config) {
 					join(__dirname, "../skills/lobsterpay-agent-prompt.md"),
 					"utf-8",
 				);
-				const content = raw.split(PLACEHOLDER).join(apiUrl);
 				return reply
 					.header("Content-Type", "text/markdown")
+					.header("X-Skill-Version", manifest.version)
 					.header(
 						"Content-Disposition",
 						'attachment; filename="lobsterpay-agent-prompt.md"',
 					)
-					.send(content);
+					.send(applyPlaceholders(raw));
 			}
 
 			case "openapi.json": {
-				const spec = buildOpenApiSpec(apiUrl);
+				const spec = buildOpenApiSpec(apiUrl, manifest.version);
 				return reply
 					.header("Content-Type", "application/json")
+					.header("X-Skill-Version", manifest.version)
 					.header(
 						"Content-Disposition",
 						'attachment; filename="lobsterpay-openapi.json"',
@@ -96,6 +135,7 @@ export function skillRoutes(app: FastifyInstance, config: Config) {
 
 			case "mcp-config.json": {
 				const mcpConfig = {
+					_comment: `LobsterPay MCP config · skill version ${manifest.version} · updated ${manifest.updated}`,
 					mcpServers: {
 						lobsterpay: {
 							command: "npx",
@@ -109,6 +149,7 @@ export function skillRoutes(app: FastifyInstance, config: Config) {
 				};
 				return reply
 					.header("Content-Type", "application/json")
+					.header("X-Skill-Version", manifest.version)
 					.header(
 						"Content-Disposition",
 						'attachment; filename="lobsterpay-mcp-config.json"',
@@ -124,12 +165,12 @@ export function skillRoutes(app: FastifyInstance, config: Config) {
 	});
 }
 
-function buildOpenApiSpec(apiUrl: string) {
+function buildOpenApiSpec(apiUrl: string, version: string) {
 	return {
 		openapi: "3.0.3",
 		info: {
 			title: "LobsterPay Agent API",
-			version: "0.1.0",
+			version,
 			description:
 				"Permissioned payment API for AI agents on Solana. Authenticate with an API key to make payments, swaps, and x402 purchases within vault policy limits.",
 		},

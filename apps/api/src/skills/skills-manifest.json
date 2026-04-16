@@ -1,0 +1,16 @@
+{
+  "version": "0.2.0",
+  "updated": "2026-04-16",
+  "changelog": [
+    {
+      "version": "0.2.0",
+      "date": "2026-04-16",
+      "notes": "Skill files now served with real HTTPS API URL (no more {LOBSTERPAY_API_URL} placeholders or localhost defaults). Added versioning so agents can detect updates."
+    },
+    {
+      "version": "0.1.0",
+      "date": "2026-04-09",
+      "notes": "Initial release: check_vault, make_payment, get_swap_quote, execute_swap, pay_x402 tools."
+    }
+  ]
+}

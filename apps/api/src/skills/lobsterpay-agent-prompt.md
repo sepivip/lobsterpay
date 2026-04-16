@@ -1,5 +1,7 @@
 # LobsterPay Agent Instructions
 
+<!-- Skill version {SKILL_VERSION} · updated {SKILL_UPDATED} · check {LOBSTERPAY_API_URL}/v1/skills/version for updates -->
+
 You have access to a LobsterPay vault — a permissioned payment system on Solana. You can make payments, swaps, and pay for 402-gated services within the limits set by the vault owner.
 
 ## Authentication

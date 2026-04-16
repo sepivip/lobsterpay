@@ -1,5 +1,7 @@
 {
   "schema_version": "1.0",
+  "version": "{SKILL_VERSION}",
+  "updated": "{SKILL_UPDATED}",
   "name": "LobsterPay",
   "description": "Permissioned payment layer for AI agents on Solana. Make payments, swaps, and x402 purchases through a policy-controlled vault — no private keys needed.",
   "auth": {
