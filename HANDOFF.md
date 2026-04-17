@@ -1,230 +1,272 @@
-# LobsterPay — deploy session handoff
+# LobsterPay — Mac session handoff (Phase 2: fee-reimbursement upgrade)
 
-> **For the next Claude Code / agent session picking up this work on a different device.**
-> This doc is a snapshot of where we left off mid-deploy. Delete it once the smoke test passes end-to-end.
+> **Delete this file after the upgrade is verified end-to-end.** It's session-specific working doc, not durable documentation.
 >
-> Last updated: 2026-04-11 (after commit `e0a2fca`)
+> Last updated: 2026-04-16 after commit `9f18972`.
 
-## TL;DR
+## Why you're on the Mac
 
-LobsterPay is mid-deploy. The **Railway stack (API + Web + Postgres) is live and healthy**. The **Anchor program was never deployed to devnet** — the previous program id was a placeholder, and the Windows machine we were working on couldn't build Anchor 0.31.1 because Solana 1.x on Windows bundles a Rust too old for `edition = "2024"` crates. The user is resuming on **macOS** to finish the Anchor build + deploy, then we wire Railway env vars, clean a stale DB row, and smoke test.
+The Anchor program has been **upgraded in place** at the source level (same program ID, new binary). The Fastify API and Next.js web app have already redeployed via Railway on the last push. What's left is the part a Mac/Linux toolchain has to do: `anchor build && anchor deploy` to push the new program bytes on-chain.
 
-**Your job as the next agent:** read this, run the Anchor build + deploy on Mac, then complete the remaining 4 todo items at the bottom.
+After that lands, you'll do two small follow-ups (Railway env var + one Phantom signature) and LobsterPay is fully self-serve.
 
-## Current state
+## What changed (context for reviewers)
 
-### What works (Railway, already deployed)
+**The "vault pays its own gas" refactor (commit `9f18972`, skill v0.3.0):**
 
-| Service | URL | Status |
-|---|---|---|
-| `@lobsterpay/api` (Fastify) | https://lobsterpayapi-production.up.railway.app | 🟢 `/health` → 200, DB connected, 9 migrations applied, CORS wired, auth middleware working |
-| `@lobsterpay/web` (Next.js 15) | https://lobsterpayweb-production.up.railway.app | 🟢 Loads, wallet adapter connects, `NEXT_PUBLIC_*` env vars baked in at build time |
-| Postgres | (internal) | 🟢 |
+- `execute_pay_exact` now reimburses the tx fee payer from the vault's `fee_vault` PDA after each payment — bounded at `FEE_REIMBURSEMENT_LAMPORTS = 10_000` (0.00001 SOL) with a rent-exempt guard.
+- `initialize_vault` params struct grew an `Option<Pubkey> authorized_agent` at the end (borsh-compatible addition; `None` keeps the old owner-default behavior).
+- Backend exposes `GET /v1/config/relayer` returning the service relayer's pubkey derived from `FEE_PAYER_SECRET_KEY`.
+- Frontend's `useVault.createVault()` fetches the relayer pubkey and threads it into the `initialize_vault` tx so new vaults are born agent-ready.
 
-Railway is watching `main`. Any push auto-rebuilds the affected service(s).
+**Net UX change:** users no longer need to manage a per-deployment fee-payer key or perform an extra `update_authorized_agent` step. Deposit SOL into the fee_vault, deposit tokens into the vault's ATA, issue API keys — done.
 
-### What's broken and why
-
-**The Solana program behind id `A184DBQaCM6qWETbEDJUtr25bSuuTH72sTTixsyoZbtS` does not exist on any cluster yet.** Every attempt to `initialize_vault` / `initialize_fee_vault` fails at wallet pre-send simulation because the RPC node can't resolve the program account. The frontend reports "Failed to create vault" / "Simulation failed" with no on-chain tx ever hitting the signature history.
-
-This is the **only** remaining blocker. Once the program is deployed and Railway env vars are updated, the smoke test should pass.
-
-## Key identifiers (all public, safe to share)
+## Immutable facts
 
 | Thing | Value |
 |---|---|
-| **Program id (NEW, in repo)** | `A184DBQaCM6qWETbEDJUtr25bSuuTH72sTTixsyoZbtS` |
-| **Deployer wallet** (funded with ~5 SOL on devnet) | `2ALtGZpteopcZgKCcW6eHcSiwvLGkoqrnEGidsJe5Lq3` |
-| **User's Phantom wallet** (dashboard owner for smoke test) | `EVfTBY7prqCDMU3LYHAe1LBDpHfjughceYmicBLB8atF` |
-| **GitHub repo** | https://github.com/sepivip/lobsterpay |
-| **Solana cluster** | `devnet` (`https://api.devnet.solana.com`) |
+| Program ID (unchanged) | `A184DBQaCM6qWETbEDJUtr25bSuuTH72sTTixsyoZbtS` |
+| Deployer address (also unchanged, same upgrade authority) | `2ALtGZpteopcZgKCcW6eHcSiwvLGkoqrnEGidsJe5Lq3` |
+| **New: Service relayer address** | `8cSZsHi17gjtiBrccZK5JzqNzi4v1md7GzBG1twuKKgb` |
+| API URL | `https://lobsterpayapi-production.up.railway.app` |
+| Web URL | `https://lobsterpayweb-production.up.railway.app` |
+| User's Phantom wallet (owner) | `EVfTBY7prqCDMU3LYHAe1LBDpHfjughceYmicBLB8atF` |
+| User's existing vault ID | `a502cb4a-7ff9-474e-aebb-172879decee5` |
 
-## Key files / where things live
+## Required secrets
 
-| Path | Purpose |
-|---|---|
-| [.env.deploy.example](.env.deploy.example) | Template + docs for the deploy-time keypair env vars. Read this first on Mac. |
-| `.env.deploy` *(gitignored, must be restored from password manager)* | Real base58 keypairs for `PROGRAM_KEYPAIR` + `DEPLOYER_KEYPAIR`. User has a backup in their password manager. |
-| [programs/lobsterpay/src/lib.rs](programs/lobsterpay/src/lib.rs) | `declare_id!()` matches the new program id |
-| [Anchor.toml](Anchor.toml) | `[programs.devnet]` entry matches the new program id |
-| [apps/web/src/lib/solana.ts](apps/web/src/lib/solana.ts) | Frontend hardcoded `PROGRAM_ID` matches |
-| [apps/api/src/solana/instructions.ts](apps/api/src/solana/instructions.ts) | Backend hardcoded `LOBSTERPAY_PROGRAM_ID` matches |
-| [DEPLOY.md](DEPLOY.md) | Original Railway deploy walkthrough (already done; kept for reference) |
-| [README.md](README.md) | Project overview. Program id in it is up to date. |
+All secrets live in [`.env.deploy`](.env.deploy) (gitignored). Keep a backup in your password manager.
 
-## What was done in the previous session (commit trail on `main`)
+The file should contain 6 lines by now:
 
 ```
-e0a2fca docs(deploy): add .env.deploy.example template
-a4e163c chore(deploy): regenerate program keypair + ID (devnet redeploy prep)
-e6e8cbf fix(api): verifyVaultOwnership queried non-existent column
-929081b fix(deploy): unblock Railway builds by skipping usb/node-hid native compile and scoping workspace installs
-8b3d74c feat: revenue model (pre-session, reference only)
+PROGRAM_KEYPAIR=<base58, from first deploy session>
+PROGRAM_ID=A184DBQaCM6qWETbEDJUtr25bSuuTH72sTTixsyoZbtS
+DEPLOYER_KEYPAIR=<base58, from first deploy session>
+DEPLOYER_ADDRESS=2ALtGZpteopcZgKCcW6eHcSiwvLGkoqrnEGidsJe5Lq3
+FEE_PAYER_KEYPAIR=<base58 — NEW for this upgrade>
+FEE_PAYER_ADDRESS=8cSZsHi17gjtiBrccZK5JzqNzi4v1md7GzBG1twuKKgb
 ```
 
-Each commit message is verbose and explains the *why*, not just the *what*. `git show <sha>` to read them.
+The file is in the repo root on the Windows box; copy its exact contents into the same path on Mac. Or paste from your password manager.
 
-## Next steps — what you need to do
+If `FEE_PAYER_KEYPAIR` is missing from your password manager entry, check the Windows box's `.env.deploy` — the value was written there during this session.
 
-### Phase 1 — Deploy the Anchor program from macOS
+## Phase 2 — what to do on Mac
 
-You (the next agent) are running on macOS. Anchor/Solana support is first-class there.
+### Step 1 — Sync the repo
 
-**Prerequisites:**
 ```bash
-# Solana CLI via Anza
-sh -c "$(curl -sSfL https://release.anza.xyz/stable/install)"
-
-# Anchor via avm
-cargo install --git https://github.com/coral-xyz/anchor avm --force
-avm install 0.31.1 && avm use 0.31.1
+cd ~/path/to/lobsterpay
+git pull origin main
+# should land at commit 9f18972 (or newer)
+git log --oneline -3
 ```
 
-**Restore the deploy secrets:**
-1. Ask the user to paste the contents of their password manager note titled (roughly) "LobsterPay devnet keys" into `lobsterpay/.env.deploy`. The file is gitignored.
-2. Verify with `git check-ignore -v .env.deploy` → should match `.gitignore:15`.
-3. Read [.env.deploy.example](.env.deploy.example) for the exact decode snippet. The inline `node -e` script in that file turns `PROGRAM_KEYPAIR` (base58) back into `target/deploy/lobsterpay-keypair.json` and `DEPLOYER_KEYPAIR` into a temp file like `/tmp/lobsterpay-deployer.json`.
+Verify you see `feat: vault pays its own gas` in the log.
 
-**Sanity-check the decoded keypairs:**
+### Step 2 — Restore `.env.deploy`
+
 ```bash
+# From password manager or from the Windows box. Paste all 6 lines.
+$EDITOR .env.deploy
+
+# Sanity check — gitignored?
+git check-ignore -v .env.deploy
+# should match .gitignore:15:.env.deploy
+```
+
+### Step 3 — Decode keypairs to JSON files
+
+`anchor deploy` needs the program keypair at `target/deploy/lobsterpay-keypair.json` and the deployer wallet at any path you'll pass via `--provider.wallet`.
+
+```bash
+source .env.deploy
+mkdir -p target/deploy
+
+# Program keypair — MUST be at this exact path for anchor deploy to match
+node -e '
+  const bs58 = (s) => { const A="123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"; let n=0n; for(const c of s){const i=A.indexOf(c);if(i<0)throw 0;n=n*58n+BigInt(i);} const bytes=[];while(n>0n){bytes.unshift(Number(n%256n));n/=256n;} for(const c of s){if(c!=="1")break;bytes.unshift(0);} return bytes; };
+  require("fs").writeFileSync(process.argv[1], JSON.stringify(bs58(process.env.PROGRAM_KEYPAIR)));
+' target/deploy/lobsterpay-keypair.json
+
+# Deployer keypair — temp path, deleted after deploy
+node -e '
+  const bs58 = (s) => { const A="123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"; let n=0n; for(const c of s){const i=A.indexOf(c);if(i<0)throw 0;n=n*58n+BigInt(i);} const bytes=[];while(n>0n){bytes.unshift(Number(n%256n));n/=256n;} for(const c of s){if(c!=="1")break;bytes.unshift(0);} return bytes; };
+  require("fs").writeFileSync(process.argv[1], JSON.stringify(bs58(process.env.DEPLOYER_KEYPAIR)));
+' /tmp/lobsterpay-deployer.json
+
+# Sanity check pubkeys match what's expected
 solana-keygen pubkey target/deploy/lobsterpay-keypair.json
-# → must print: A184DBQaCM6qWETbEDJUtr25bSuuTH72sTTixsyoZbtS
-
+#   expected: A184DBQaCM6qWETbEDJUtr25bSuuTH72sTTixsyoZbtS
 solana-keygen pubkey /tmp/lobsterpay-deployer.json
-# → must print: 2ALtGZpteopcZgKCcW6eHcSiwvLGkoqrnEGidsJe5Lq3
+#   expected: 2ALtGZpteopcZgKCcW6eHcSiwvLGkoqrnEGidsJe5Lq3
 ```
 
-If either doesn't match, **stop** — something was pasted wrong. Don't proceed.
+If either pubkey mismatches, **stop** — don't deploy. Something was pasted wrong.
 
-**Verify deployer wallet is still funded:**
+### Step 4 — Verify deployer has devnet SOL
+
 ```bash
 solana config set --url devnet
 solana balance 2ALtGZpteopcZgKCcW6eHcSiwvLGkoqrnEGidsJe5Lq3
-# → should show ≥4 SOL. If less, airdrop via https://faucet.solana.com
 ```
 
-**Build + deploy:**
+Upgrades reuse program rent so the cost is small (<0.01 SOL for tx fees). If the deployer is below 0.5 SOL, top up from https://faucet.solana.com.
+
+### Step 5 — Build + upgrade (not a fresh deploy)
+
 ```bash
 anchor build
-# First run takes 5-10 min. Produces target/deploy/lobsterpay.so
-# Warning about anchor-lang 0.31.1 vs CLI 0.32.x is OK, not a blocker.
+# First build on this machine may take ~5-10 min. Subsequent builds are fast.
+# Warning about anchor-lang 0.31.1 vs CLI 0.32.x is harmless.
 
 anchor deploy --provider.cluster devnet --provider.wallet /tmp/lobsterpay-deployer.json
-# Costs ~4-5 SOL in rent. Takes ~1-2 min.
-
-# Verify on chain
-solana program show A184DBQaCM6qWETbEDJUtr25bSuuTH72sTTixsyoZbtS --url devnet
-# Should show: Program Id, ProgramData Address, Authority (= deployer), Data Length
-
-rm /tmp/lobsterpay-deployer.json   # security hygiene — only .env.deploy persists
+# anchor detects the existing program at A184DB... via the keypair match
+# and submits an *upgrade* (buffer + write + upgrade ix), not a fresh deploy.
+# Takes ~1-2 min.
 ```
 
-**Double-check via RPC** (same thing I'll want to verify anyway):
+### Step 6 — Verify the upgrade landed
+
 ```bash
-curl -sS -X POST https://api.devnet.solana.com \
-  -H "Content-Type: application/json" \
-  -d '{"jsonrpc":"2.0","id":1,"method":"getAccountInfo","params":["A184DBQaCM6qWETbEDJUtr25bSuuTH72sTTixsyoZbtS",{"encoding":"base64"}]}' \
-  | head -c 300
-# "value": { ... "executable": true, "owner": "BPFLoaderUpgradeab1e11111111111111111111111" ... }
-# "value": null means it's STILL not deployed. Debug and retry.
+solana program show A184DBQaCM6qWETbEDJUtr25bSuuTH72sTTixsyoZbtS --url devnet
+# Look for:
+#   Program Id:      A184DBQaCM6qWETbEDJUtr25bSuuTH72sTTixsyoZbtS   (same)
+#   Owner:           BPFLoaderUpgradeab1e...                         (same)
+#   Authority:       2ALtGZpteopcZgKCcW6eHcSiwvLGkoqrnEGidsJe5Lq3   (same)
+#   Last Deployed In Slot:  <NEW number, higher than before>        (proves upgrade)
+#   Data Length:     <probably changed slightly>
 ```
 
-### Phase 2 — Wire the new program id into Railway
+The critical signal is the **Last Deployed In Slot** number updating. If it did, the new binary is live.
 
-Railway currently has **stale** env vars from before the program id was regenerated. Update both:
+### Step 7 — Clean up
 
-**On service `@lobsterpay/api`** → Variables → find `LOBSTERPAY_PROGRAM_ID` → set to:
-```
-A184DBQaCM6qWETbEDJUtr25bSuuTH72sTTixsyoZbtS
-```
-
-**On service `@lobsterpay/web`** → Variables → find `NEXT_PUBLIC_LOBSTERPAY_PROGRAM_ID` → set to:
-```
-A184DBQaCM6qWETbEDJUtr25bSuuTH72sTTixsyoZbtS
+```bash
+rm /tmp/lobsterpay-deployer.json
+# .env.deploy and target/deploy/lobsterpay-keypair.json stay (gitignored)
 ```
 
-Railway will auto-redeploy both services on the variable changes. The Web rebuild is the slow one (~2-3 min) because `NEXT_PUBLIC_*` gets baked into the client bundle at build time.
+## Phase 3 — Railway + on-chain migration (after anchor deploy)
 
-**Note:** the code references in the repo already have the new id (commit `a4e163c`), so a source-level git pull on Mac shouldn't require further edits to `apps/web/src/lib/solana.ts` or `apps/api/src/solana/instructions.ts`. Only the Railway env var strings need updating.
+These are browser-only steps. No Mac or code needed.
 
-### Phase 3 — Clean stale DB vault rows
+### Step 8 — Add `FEE_PAYER_SECRET_KEY` to Railway
 
-The user's wallet (`EVfTBY7...`) has one or more stale vault rows in Postgres from failed create attempts. Query first, then delete.
+`lobsterpay-api` service → **Variables** tab → **Raw Editor** (or add new variable):
 
-**Railway dashboard** → **Postgres** service → **Database** tab → SQL query box:
-
-```sql
-SELECT v.id, v.vault_pda, v.created_at
-FROM vaults v
-JOIN owners o ON v.owner_id = o.id
-WHERE o.wallet_address = 'EVfTBY7prqCDMU3LYHAe1LBDpHfjughceYmicBLB8atF';
+```
+FEE_PAYER_SECRET_KEY=<value of FEE_PAYER_KEYPAIR from .env.deploy>
 ```
 
-Known stale rows from the last session (may or may not still exist):
-- `f124621f-1f9e-4791-bef2-f8dcaa561b37`
-- `42855ecc-b743-4fca-8ab3-3c3cf129fe89`
-- `55829ada-08a6-4231-a1c0-0e2e2c4997e3`
+Save. Railway auto-redeploys the API (~2 min). After it comes up, verify:
 
-**For each returned vault id, delete children first (FK order matters):**
-
-```sql
-DELETE FROM activities      WHERE vault_id = '<vault-id>';
-DELETE FROM vault_policies  WHERE vault_id = '<vault-id>';
-DELETE FROM vaults          WHERE id       = '<vault-id>';
+```bash
+curl https://lobsterpayapi-production.up.railway.app/v1/config/relayer
+# Expected:
+# {"configured":true,"pubkey":"8cSZsHi17gjtiBrccZK5JzqNzi4v1md7GzBG1twuKKgb"}
 ```
 
-After deletion, `GET /v1/vaults/by-owner/EVfTBY7prqCDMU3LYHAe1LBDpHfjughceYmicBLB8atF` should return 404. This unhides the "Create Vault" button in the dashboard and lets the user retry the full flow.
+If you see `"configured": false`, the env var wasn't set correctly.
 
-### Phase 4 — End-to-end smoke test
+### Step 9 — Fund the service relayer with devnet SOL
 
-User opens https://lobsterpayweb-production.up.railway.app in a browser with Phantom on **Devnet**.
+The relayer pays tx fees upfront; the vault reimburses via fee_vault. It needs a starting balance so the first few txs don't fail.
 
-1. **Landing page** loads, wallet connects via "Select Wallet" → Phantom → Approve.
-2. Redirects to `/dashboard`. Dashboard shows "No vault yet, Create Vault" button.
-3. Click **Create Vault**. Phantom popup → `initialize_vault` tx → **sign** (critical: user must sign this, not just dismiss). ~15s devnet confirmation.
-4. Dashboard refreshes, shows vault PDA + "active" status + zero balances.
-5. Click **Initialize Fee Vault**. Phantom popup → `initialize_fee_vault` tx → sign.
-6. Click **Deposit Fees**, put in `0.005` SOL, sign.
-7. Dashboard should show a non-zero fee balance.
-8. Navigate to `/policy`, `/keys`, `/activity` — all pages load without 500s.
-9. Create an API key, revoke it, watch the activity page pick it up.
+```
+Address: 8cSZsHi17gjtiBrccZK5JzqNzi4v1md7GzBG1twuKKgb
+Fund: 0.05 SOL (will stay roughly flat with reimbursement)
+Faucet: https://faucet.solana.com/
+```
 
-If any step fails, read DevTools Console + Network tab + Railway API logs. Most common failure modes — and how to fix them — are logged in the commit messages of `e6e8cbf` and `929081b` (see `git log --format=full`).
+### Step 10 — Migrate the existing vault's authorized_agent
 
-## Gotchas learned the hard way this session
+Your current vault (`a502cb4a-...`) was born with `authorized_agent = your Phantom wallet`. The upgrade doesn't auto-migrate existing vaults; one Phantom-signed tx fixes it.
 
-**Do not repeat these mistakes.** Each one cost us real time.
+1. Open https://lobsterpayweb-production.up.railway.app/policy
+2. Scroll to **Advanced → Authorized Agent**
+3. Paste: `8cSZsHi17gjtiBrccZK5JzqNzi4v1md7GzBG1twuKKgb`
+4. Save
+5. Phantom pops up → Approve the `update_authorized_agent` tx
+6. Wait ~15s for devnet confirmation
 
-1. **`API_PORT` env var on Railway must be a literal number like `8080`, not `${{PORT}}`.** Railway's template `${{VAR}}` syntax works for cross-service refs like `${{Postgres.DATABASE_URL}}` but NOT for the built-in `PORT` variable. If `API_PORT` is set to `${{PORT}}` Fastify binds to port 0, Node auto-assigns a random ephemeral port, and Railway's healthcheck on 8080 never finds it.
+**New vaults (created after this upgrade) skip this step** — they auto-configure at `initialize_vault` by fetching `/v1/config/relayer`. Only pre-existing vaults need the migration.
 
-2. **`verifyVaultOwnership` in `apps/api/src/routes/vaults.ts` was querying a non-existent `owner_wallet` column.** Fixed in `e6e8cbf`. If you see PostgreSQL error code `42703` ("column ... does not exist") in API logs, check if more queries have the same bug.
+### Step 11 — Smoke test end-to-end
 
-3. **`usb` / `node-hid` native compile breaks Railway Nixpacks builds.** `@solana/wallet-adapter-wallets` pulls in `@ledgerhq/hw-transport-node-hid` → `usb`, which tries to compile native bindings during `pnpm install`. The Nixpacks image doesn't have `libusb-dev`. Fixed by `pnpm.neverBuiltDependencies: ["usb", "node-hid"]` in the root `package.json` (commit `929081b`).
+Open your Telegram / Beka's agent and try a payment. The earlier "Fee payer not configured" error should be gone. The new on-chain `FeeReimbursed` event should emit on each tx — you can watch for it via:
 
-4. **Don't run `pnpm install` at the repo root during per-service Railway builds.** Scope it to the target workspace: `pnpm install --frozen-lockfile --filter @lobsterpay/api...` so only that service's deps download.
+```bash
+# Count recent FeeReimbursed events (optional sanity check)
+solana logs A184DBQaCM6qWETbEDJUtr25bSuuTH72sTTixsyoZbtS --url devnet | grep "FeeReimbursed"
+```
 
-5. **`Cargo.lock` version 4 → 3 is a trap.** We downgraded it to work around old Windows Cargo, then reverted. Don't do it again. Modern cargo handles v4 fine. If you hit a "lock file version `4`" error, **upgrade the toolchain**, don't downgrade the lockfile.
+After ~3 successful payments, verify:
+- Your vault's USDC balance dropped by `amount - service_fee`
+- Treasury's USDC balance grew by `service_fee`
+- Your vault's fee_vault SOL balance dropped by ~`3 × 10_000 lamports` (~0.00003 SOL)
+- The service relayer's SOL balance roughly flat (a tiny bit below 0.05 SOL if actual tx cost > reimbursement, or a tiny bit above if less)
 
-6. **A DB vault row existing does NOT mean an on-chain vault exists.** The dashboard's `createVault()` is a 2-step flow: POST to backend (creates DB row) → build + sign on-chain tx. If step 2 fails or the user dismisses the wallet popup, you get a split-brain state. The frontend doesn't currently detect this — it hides the Create Vault button on every load where `getVaultByOwner` returns a row. If the user reports "Create Vault does nothing" or "Failed to create vault", **check if the Vault PDA actually exists on devnet** via `getAccountInfo`, not the DB.
+## Rollback plan (if something breaks)
 
-7. **"Wallet simulation failed" almost always means the program doesn't exist at the expected address.** Verify with `getAccountInfo` on the program id before blaming frontend or wallet. If `"value": null`, the program isn't there.
+The upgrade replaces the binary at the same program ID. If the new binary misbehaves:
 
-8. **Phantom/Solflare must be on Devnet**, not Mainnet or Testnet. These are three different clusters. LobsterPay is only deployed on Devnet. Phantom: Settings → Developer Settings → Testnet Mode → Network = Devnet. Solflare: Settings → Network → Devnet.
+```bash
+# Re-build from the previous commit + redeploy
+git checkout bb2e6d3 -- programs/lobsterpay/
+anchor build
+anchor deploy --provider.cluster devnet --provider.wallet /tmp/lobsterpay-deployer.json
+# Then reset source back to HEAD
+git checkout HEAD -- programs/lobsterpay/
+```
 
-9. **Windows + Anchor 0.31.1 does not work.** Solana 1.x on Windows bundles Rust too old for the current Anchor ecosystem (edition2024, feature resolver v2, etc.). Use Linux, macOS, WSL Ubuntu, or a Docker Linux container. Don't waste time fighting this.
+This rolls the on-chain binary back to the pre-upgrade state while leaving the Railway code on the new version. You'd then want to revert the frontend/backend changes via `git revert 9f18972` and push. But this shouldn't be necessary — the code is straightforward and tested against the same guards the previous version had.
 
-## Pre-session context you should have
+## Verification checklist
 
-The Explore agent reports from the previous session mapped the full repo architecture. If you need a deeper understanding of the codebase than README.md gives you:
+Mark these off as you go:
 
-- **Anchor program** — `programs/lobsterpay/src/` has 11 instructions + state/errors/events/constants. Core instructions: `initialize_vault`, `update_policy`, `update_authorized_agent`, `execute_pay_exact`, `execute_swap_exact_in` (stub — Phase 3, not implemented), `withdraw_owner`, `emergency_pause`, `initialize_fee_vault`, `deposit_fees`, `withdraw_fees`, `ensure_vault_token_account`. Guards enforce paused flag, action bitmask, mint/destination allowlists, per-tx + daily limits, fee vault balance ≥ 1.5M lamports.
+- [ ] `git pull origin main` on Mac, HEAD shows `9f18972` or newer
+- [ ] `.env.deploy` restored with all 6 lines including `FEE_PAYER_KEYPAIR`
+- [ ] Keypair JSONs decoded, `solana-keygen pubkey` matches expected addresses
+- [ ] `anchor build` succeeds (platform-tools warning is fine)
+- [ ] `anchor deploy` succeeds, `solana program show` shows new Last Deployed In Slot
+- [ ] `/tmp/lobsterpay-deployer.json` deleted
+- [ ] `FEE_PAYER_SECRET_KEY` set on Railway, `/v1/config/relayer` returns `configured: true`
+- [ ] Service relayer (`8cSZs...KKgb`) funded with ≥0.05 devnet SOL
+- [ ] Policy page → Advanced → Authorized Agent set to the relayer, Phantom-signed tx confirmed
+- [ ] Beka's agent successfully makes a payment end-to-end
 
-- **API** — Fastify 5, raw `postgres` driver (no ORM), Zod schemas from `@lobsterpay/shared`, hand-rolled Anchor instruction builders in `apps/api/src/solana/instructions.ts` (not the TypeScript client generated by `anchor build` — they rebuild discriminators + borsh serialization manually). 9 SQL migrations in `apps/api/src/db/migrations/`. Owner routes in `vaults.ts` (auth: `X-Wallet-Address` header + `verifyVaultOwnership` JOIN lookup). Agent routes in `agent.ts` (auth: SHA-256 of `Bearer <apiKey>` matched against `api_keys.key_hash`).
+Once all 9 boxes are checked, **delete this file**:
 
-- **Web** — Next.js 15 App Router, Tailwind v4, Solana wallet adapter (Phantom + Solflare), same hand-rolled instruction builders in `apps/web/src/lib/solana.ts`. Dashboard page is the critical smoke-test target.
+```bash
+rm HANDOFF.md
+git add HANDOFF.md
+git commit -m "chore: remove post-upgrade handoff doc"
+git push
+```
 
-- **Shared packages** — `packages/shared` has the Zod schemas + error types + constants that both API and Web import.
+## Commit trail for this upgrade
 
----
+```
+9f18972 feat: vault pays its own gas — fee_vault reimburses tx fee payer
+bb2e6d3 fix(api): check_vault returns real on-chain token balances (skill v0.2.1)
+46446ba feat(api): versioning for downloadable skills
+f4a3d9a fix(api): substitute {LOBSTERPAY_API_URL} in downloaded skill files
+e9f3665 fix(web): hide empty status badges on system activity events
+7519061 fix(web): restore functional status colors + improve visibility
+2d0a46e redesign(web): x.ai-inspired brutalist design system
+04bf143 feat(web): show real on-chain token balances on dashboard
+d13c660 feat(web): show full vault addresses on dashboard
+59ea03f fix: duplicate account aliasing + compute budget (previous Mac session)
+```
 
-**When all 4 phases above pass, delete this file** (`rm HANDOFF.md && git add -u && git commit -m "chore: remove post-deploy handoff doc"`). It's session-specific and will go stale.
+Each commit message has a full explanation. `git show <sha>` for details.
+
+## Touchstones if anything confuses you
+
+- **Don't regenerate the program keypair.** Same program ID must be preserved across sessions. Use the existing `PROGRAM_KEYPAIR` from `.env.deploy`.
+- **`anchor deploy` is an UPGRADE here, not a fresh deploy.** It detects the existing program at the same ID (via the keypair match) and submits an upgrade transaction. Do NOT create a new keypair or use a different program ID.
+- **Option C is the design direction locked in this session.** "Just vault" — no per-user hot wallet setup. The service relayer is operational infrastructure, not something users configure.
+- **If the agent still fails after Step 10**, check in order: (a) Is Railway API healthy? `curl .../health` = 200. (b) Is `/v1/config/relayer` returning the right pubkey? (c) Did the vault's `authorized_agent` actually update on-chain? Look at the vault account via `solana account <policy_pda>` and parse the field, or check the Policy page shows the new value. (d) Does the relayer wallet have SOL?
