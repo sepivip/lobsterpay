@@ -116,7 +116,22 @@ export function useVault(): VaultState {
       const result = await api.createVault(publicKey.toString());
       setVault(result.vault);
 
-      // 2. Build the onchain initialize_vault transaction
+      // 2. Fetch the service relayer pubkey so the vault is born with
+      // authorized_agent pre-configured. Agent payments work
+      // immediately without a separate update_authorized_agent step.
+      // If the service isn't configured, falls back to owner-only
+      // (manual step later via the Policy page).
+      let authorizedAgent: PublicKey | undefined;
+      try {
+        const relayer = await api.getRelayer();
+        if (relayer.configured && relayer.pubkey) {
+          authorizedAgent = new PublicKey(relayer.pubkey);
+        }
+      } catch {
+        // non-fatal — vault still works, just without agent delegation
+      }
+
+      // 3. Build the onchain initialize_vault transaction
       const { transaction } = await buildInitializeVaultTx(
         publicKey,
         connection,
@@ -126,6 +141,7 @@ export function useVault(): VaultState {
           maxPerTxAmountAtomic: 1_000_000, // 1 USDC (6 decimals)
           dailyLimitAmountAtomic: 10_000_000, // 10 USDC
           maxSlippageBps: 100, // 1%
+          authorizedAgent,
         }
       );
 

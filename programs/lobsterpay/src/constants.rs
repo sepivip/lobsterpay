@@ -26,6 +26,12 @@ pub const BPS_DENOMINATOR: u64 = 10_000;
 /// (Rent exempt for SOL-only account ≈ 890_880 lamports)
 pub const FEE_VAULT_MIN_BALANCE: u64 = 1_500_000; // 0.0015 SOL
 
+/// Lamports reimbursed from the fee_vault PDA to the tx fee payer
+/// after each agent action. Covers typical Solana network fees
+/// (5000 base + ~5000 priority) with a small buffer. Bounded so the
+/// relayer can never drain a user's fee vault beyond actual cost.
+pub const FEE_REIMBURSEMENT_LAMPORTS: u64 = 10_000; // 0.00001 SOL per agent tx
+
 /// LobsterPay treasury address — all service fees accrue here.
 /// NOTE: Replace with production treasury pubkey before mainnet deploy.
 /// Current value is a devnet keypair for testing.

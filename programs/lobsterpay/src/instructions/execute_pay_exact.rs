@@ -5,7 +5,7 @@ use anchor_spl::token_interface::{
 use std::str::FromStr;
 use crate::constants::*;
 use crate::errors::LobsterPayError;
-use crate::events::{PaymentExecuted, ServiceFeeCollected};
+use crate::events::{FeeReimbursed, PaymentExecuted, ServiceFeeCollected};
 use crate::state::{FeeVault, Policy, Vault};
 
 #[derive(AnchorSerialize, AnchorDeserialize)]
@@ -17,6 +17,10 @@ pub struct ExecutePayExactParams {
 #[derive(Accounts)]
 pub struct ExecutePayExact<'info> {
     /// The authority — either the vault owner OR policy.authorized_agent.
+    /// Also typically the tx fee payer; gets reimbursed from fee_vault
+    /// for actual network costs at the end of this instruction so the
+    /// vault economically pays its own gas.
+    #[account(mut)]
     pub authority: Signer<'info>,
 
     #[account(
@@ -31,10 +35,11 @@ pub struct ExecutePayExact<'info> {
     )]
     pub policy: Box<Account<'info, Policy>>,
 
-    /// Fee vault — must hold enough SOL to fund the network fee.
-    /// We check balance in the handler but don't mutate it here
-    /// (network fees are paid by the fee payer signer on the tx).
+    /// Fee vault — holds SOL used to reimburse the tx fee payer for
+    /// network costs after each agent action. Must remain rent-exempt
+    /// after reimbursement.
     #[account(
+        mut,
         seeds = [FEE_VAULT_SEED, vault.owner.as_ref()],
         bump = fee_vault.bump,
     )]
@@ -213,6 +218,39 @@ pub fn handler(ctx: Context<ExecutePayExact>, params: ExecutePayExactParams) -> 
         service_fee,
         request_hash: params.request_hash,
     });
+
+    // ── Reimburse the tx fee payer from fee_vault ──
+    // The vault pays its own gas. The authority (tx fee payer) gets back
+    // FEE_REIMBURSEMENT_LAMPORTS from the fee_vault PDA, bounded so the
+    // relayer can't drain the vault beyond actual tx cost. Uses direct
+    // lamport manipulation (both accounts are program-writable under this
+    // instruction context) instead of a System::transfer CPI — cheaper
+    // compute and doesn't require PDA seeds for a transfer from an
+    // account the program owns.
+    let fee_vault_info = ctx.accounts.fee_vault.to_account_info();
+    let fee_vault_current = fee_vault_info.lamports();
+    let rent = Rent::get()?;
+    let fee_vault_min_rent = rent.minimum_balance(fee_vault_info.data_len());
+    let available_for_reimbursement = fee_vault_current.saturating_sub(fee_vault_min_rent);
+    let reimbursement = FEE_REIMBURSEMENT_LAMPORTS.min(available_for_reimbursement);
+
+    if reimbursement > 0 {
+        let authority_info = ctx.accounts.authority.to_account_info();
+        **fee_vault_info.try_borrow_mut_lamports()? = fee_vault_current
+            .checked_sub(reimbursement)
+            .ok_or(LobsterPayError::ArithmeticOverflow)?;
+        **authority_info.try_borrow_mut_lamports()? = authority_info
+            .lamports()
+            .checked_add(reimbursement)
+            .ok_or(LobsterPayError::ArithmeticOverflow)?;
+
+        emit!(FeeReimbursed {
+            vault: vault.key(),
+            fee_vault: fee_vault_info.key(),
+            to: authority_info.key(),
+            amount: reimbursement,
+        });
+    }
 
     Ok(())
 }

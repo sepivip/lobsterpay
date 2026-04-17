@@ -2,13 +2,16 @@ import Fastify from "fastify";
 import cors from "@fastify/cors";
 import { loadConfig } from "./config.js";
 import { createDb } from "./db/client.js";
+import { createTxService } from "./services/tx.service.js";
 import { vaultRoutes } from "./routes/vaults.js";
 import { agentRoutes } from "./routes/agent.js";
 import { skillRoutes } from "./routes/skills.js";
+import { configRoutes } from "./routes/config.js";
 
 async function main() {
   const config = loadConfig();
   const db = createDb(config);
+  const txService = createTxService(db, config);
 
   const app = Fastify({
     logger: {
@@ -27,6 +30,7 @@ async function main() {
   vaultRoutes(app, db, config);
   agentRoutes(app, db, config);
   skillRoutes(app, config);
+  configRoutes(app, txService, config);
 
   await app.listen({ port: config.API_PORT, host: config.API_HOST });
   console.log(`LobsterPay API running on ${config.API_HOST}:${config.API_PORT}`);

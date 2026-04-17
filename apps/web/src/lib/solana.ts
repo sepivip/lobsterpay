@@ -58,6 +58,13 @@ export interface InitializeVaultParams {
   maxPerTxAmountAtomic: number | bigint;
   dailyLimitAmountAtomic: number | bigint;
   maxSlippageBps: number;
+  /**
+   * Pubkey authorized to sign agent actions on behalf of the owner.
+   * Typically the LobsterPay service relayer (fetch from /v1/config/relayer).
+   * If undefined, the on-chain program defaults to the owner (disables
+   * agent delegation).
+   */
+  authorizedAgent?: PublicKey;
 }
 
 export async function buildInitializeVaultTx(
@@ -75,12 +82,17 @@ export async function buildInitializeVaultTx(
   // Discriminator: sha256("global:initialize_vault")[0..8]
   const discriminator = Buffer.from([48, 191, 163, 44, 71, 129, 63, 164]);
 
-  // Args: allowed_actions(u64) + max_per_tx_amount_atomic(u64) + daily_limit_amount_atomic(u64) + max_slippage_bps(u16)
+  // Args: allowed_actions(u64) + max_per_tx_amount_atomic(u64) + daily_limit_amount_atomic(u64) + max_slippage_bps(u16) + authorized_agent(Option<Pubkey>)
+  const authorizedAgentBytes = params.authorizedAgent
+    ? Buffer.concat([Buffer.from([1]), params.authorizedAgent.toBuffer()])
+    : Buffer.from([0]);
+
   const args = Buffer.concat([
     u64LE(params.allowedActions),
     u64LE(params.maxPerTxAmountAtomic),
     u64LE(params.dailyLimitAmountAtomic),
     u16LE(params.maxSlippageBps),
+    authorizedAgentBytes,
   ]);
 
   const data = Buffer.concat([discriminator, args]);

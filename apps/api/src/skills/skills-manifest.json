@@ -1,7 +1,12 @@
 {
-  "version": "0.2.1",
+  "version": "0.3.0",
   "updated": "2026-04-16",
   "changelog": [
+    {
+      "version": "0.3.0",
+      "date": "2026-04-16",
+      "notes": "Fee model overhaul: the vault's on-chain fee_vault PDA now reimburses the tx fee payer after each agent action, so the vault economically pays its own gas. Users no longer need to manage a separate fee-payer keypair — deposit SOL into the fee_vault (via the dashboard) once and agent payments work indefinitely. New endpoint GET /v1/config/relayer returns the service relayer pubkey so frontends can auto-configure authorized_agent at vault creation. Anchor program upgraded in place: initialize_vault now accepts an optional authorized_agent param; execute_pay_exact reimburses the tx fee payer from fee_vault (bounded by FEE_REIMBURSEMENT_LAMPORTS = 10000, with rent-exempt guard). Existing vaults must call update_authorized_agent once to point at the service relayer."
+    },
     {
       "version": "0.2.1",
       "date": "2026-04-16",

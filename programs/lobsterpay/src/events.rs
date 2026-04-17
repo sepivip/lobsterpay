@@ -89,3 +89,11 @@ pub struct ServiceFeeCollected {
     pub amount: u64,
     pub treasury: Pubkey,
 }
+
+#[event]
+pub struct FeeReimbursed {
+    pub vault: Pubkey,
+    pub fee_vault: Pubkey,
+    pub to: Pubkey,
+    pub amount: u64,
+}
