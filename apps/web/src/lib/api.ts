@@ -27,6 +27,12 @@ async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
 }
 
 export const api = {
+  // Service config
+  getRelayer: () =>
+    apiFetch<{ configured: boolean; pubkey: string | null; note?: string }>(
+      "/v1/config/relayer"
+    ),
+
   // Vault
   createVault: (walletAddress: string) =>
     apiFetch<any>("/v1/vaults", {

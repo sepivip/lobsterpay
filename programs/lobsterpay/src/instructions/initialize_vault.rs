@@ -9,6 +9,12 @@ pub struct InitializeVaultParams {
     pub max_per_tx_amount_atomic: u64,
     pub daily_limit_amount_atomic: u64,
     pub max_slippage_bps: u16,
+    /// Pubkey authorized to sign agent actions on behalf of the owner.
+    /// Frontend passes the LobsterPay service relayer pubkey here so
+    /// agent payments work immediately without a separate
+    /// update_authorized_agent step. If None, defaults to the owner
+    /// (effectively disables agent delegation until manually enabled).
+    pub authorized_agent: Option<Pubkey>,
 }
 
 #[derive(Accounts)]
@@ -50,9 +56,12 @@ pub fn handler(ctx: Context<InitializeVault>, params: InitializeVaultParams) -> 
     let policy = &mut ctx.accounts.policy;
     policy.vault = vault.key();
     policy.owner = ctx.accounts.owner.key();
-    // Default authorized_agent to the owner — effectively disables agent
-    // delegation until the owner explicitly sets a backend agent key.
-    policy.authorized_agent = ctx.accounts.owner.key();
+    // authorized_agent defaults to the passed-in param (typically the
+    // LobsterPay service relayer) so agent flows work immediately.
+    // Falls back to the owner if not provided, disabling delegation.
+    policy.authorized_agent = params
+        .authorized_agent
+        .unwrap_or_else(|| ctx.accounts.owner.key());
     policy.paused = false;
     policy.allowed_actions = params.allowed_actions;
     policy.max_per_tx_amount_atomic = params.max_per_tx_amount_atomic;
