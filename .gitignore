@@ -42,3 +42,7 @@ coverage/
 .playwright-mcp/
 *.png
 *.jpg
+
+# Claude Code session transcripts (may contain pasted secrets)
+claude-session.jsonl
+*.session.jsonl
