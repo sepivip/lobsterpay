@@ -425,7 +425,9 @@ body {
   padding: 8px 16px !important;
   box-sizing: border-box !important;
   background-color: transparent !important;
-  border: 1px solid var(--border-strong) !important;
+  /* .btn uses border: none; matching here so the box model is identical
+     and the two buttons measure to the same height in the nav. */
+  border: none !important;
   transition: all 0.15s ease !important;
 }
 
