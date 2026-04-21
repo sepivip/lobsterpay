@@ -1,4 +1,7 @@
 @import "tailwindcss";
+/* Solana wallet-adapter base styles. Imported here (not in providers.tsx)
+   so our .wallet-adapter-button overrides below always cascade last. */
+@import "@solana/wallet-adapter-react-ui/styles.css";
 
 /* ══════════════════════════════════════════════════════════════════════════
    LobsterPay Design System — inspired by x.ai
@@ -406,6 +409,10 @@ body {
    since it always lives in a nav/top-bar context. Any change to .btn-sm
    (padding / font-size / line-height) should be mirrored here. */
 .wallet-adapter-button {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
   font-family: var(--font-mono) !important;
   font-size: 0.75rem !important;
   font-weight: 400 !important;
@@ -413,8 +420,10 @@ body {
   letter-spacing: var(--tracking-button) !important;
   border-radius: 0 !important;
   height: auto !important;
+  min-height: 0 !important;
   line-height: 1.43 !important;
   padding: 8px 16px !important;
+  box-sizing: border-box !important;
   background-color: transparent !important;
   border: 1px solid var(--border-strong) !important;
   transition: all 0.15s ease !important;
@@ -434,14 +443,16 @@ body {
   opacity: 0.9 !important;
 }
 
-/* Shrink the wallet adapter's built-in icon so it doesn't stretch the
-   button taller than sibling .btn-sm buttons in the same row. */
+/* Shrink the wallet adapter's built-in icon + kill its extra margins so
+   the button is the same pixel height as a sibling .btn-sm. The parent
+   uses gap: 8px already, so we zero out the library's margin-right/left. */
 .wallet-adapter-button-start-icon,
 .wallet-adapter-button-start-icon img,
 .wallet-adapter-button-end-icon,
 .wallet-adapter-button-end-icon img {
   width: 16px !important;
   height: 16px !important;
+  margin: 0 !important;
 }
 
 .wallet-adapter-modal-wrapper {
