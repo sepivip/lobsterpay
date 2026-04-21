@@ -402,16 +402,19 @@ body {
 
 /* ── Solana wallet adapter overrides ──────────────────────────────────── */
 
+/* Align Solana's WalletMultiButton with the design-system .btn-sm size,
+   since it always lives in a nav/top-bar context. Any change to .btn-sm
+   (padding / font-size / line-height) should be mirrored here. */
 .wallet-adapter-button {
   font-family: var(--font-mono) !important;
-  font-size: 0.875rem !important;
+  font-size: 0.75rem !important;
   font-weight: 400 !important;
   text-transform: uppercase !important;
   letter-spacing: var(--tracking-button) !important;
   border-radius: 0 !important;
   height: auto !important;
   line-height: 1.43 !important;
-  padding: 12px 24px !important;
+  padding: 8px 16px !important;
   background-color: transparent !important;
   border: 1px solid var(--border-strong) !important;
   transition: all 0.15s ease !important;
@@ -429,6 +432,16 @@ body {
 
 .wallet-adapter-button-trigger:hover {
   opacity: 0.9 !important;
+}
+
+/* Shrink the wallet adapter's built-in icon so it doesn't stretch the
+   button taller than sibling .btn-sm buttons in the same row. */
+.wallet-adapter-button-start-icon,
+.wallet-adapter-button-start-icon img,
+.wallet-adapter-button-end-icon,
+.wallet-adapter-button-end-icon img {
+  width: 16px !important;
+  height: 16px !important;
 }
 
 .wallet-adapter-modal-wrapper {

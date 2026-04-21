@@ -25,7 +25,7 @@ export default function Home() {
 				</Link>
 				<div className="flex items-center gap-3">
 					{connected && (
-						<Link href="/dashboard" className="btn btn-primary">
+						<Link href="/dashboard" className="btn btn-primary btn-sm">
 							Open Dashboard
 						</Link>
 					)}
