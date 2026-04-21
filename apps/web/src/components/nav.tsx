@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
+import { LogoAscii } from "./logo-ascii";
 
 const navItems = [
 	{ href: "/dashboard", label: "Dashboard" },
@@ -19,7 +20,7 @@ export function Nav() {
 		<nav className="nav">
 			<div className="nav-inner">
 				<Link href="/dashboard" className="nav-logo">
-					<span className="text-accent">L</span>Pay
+					<LogoAscii size="nav" />
 				</Link>
 
 				<div className="nav-tabs">
