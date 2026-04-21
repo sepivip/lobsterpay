@@ -5,6 +5,71 @@
       "source": "ColosseumOrg/colosseum-copilot",
       "sourceType": "github",
       "computedHash": "7859139478a5276c63a6114f0c3f9899ca4a30b5e4239825d16b92e8744e9e07"
+    },
+    "dev-workflow": {
+      "source": "sepivip/seekerclaw-skills",
+      "sourceType": "github",
+      "computedHash": "1cedc9bfb72bc3fb0ff601f70d10d98306554749a0d135088c1c8c654a5b0135"
+    },
+    "good-morning": {
+      "source": "sepivip/seekerclaw-skills",
+      "sourceType": "github",
+      "computedHash": "559051852ec6d2959bc68712a61cf0a527dbc394625cc6f8a2aa34fa4ec6d832"
+    },
+    "google-material-design": {
+      "source": "sepivip/seekerclaw-skills",
+      "sourceType": "github",
+      "computedHash": "2400dcd12a2d98abef76a0dd47417a39c9a938a6a818c2827e3ee5b448f540be"
+    },
+    "jetpack-compose-ui": {
+      "source": "sepivip/seekerclaw-skills",
+      "sourceType": "github",
+      "computedHash": "bc9b611d35301814f47e896108c0034d90ca735b92134b1aae79e6d0c0d14355"
+    },
+    "js-worker": {
+      "source": "sepivip/seekerclaw-skills",
+      "sourceType": "github",
+      "computedHash": "ea38c4bb12c38028c6e34f6cbce66f64b45a8087773d30521d14eb241730ac15"
+    },
+    "kt-worker": {
+      "source": "sepivip/seekerclaw-skills",
+      "sourceType": "github",
+      "computedHash": "ba6bf87db9185b84dc6cce5fd4fbb78cf36045a5216848bee8a53ffdf58e41a5"
+    },
+    "linear-ops": {
+      "source": "sepivip/seekerclaw-skills",
+      "sourceType": "github",
+      "computedHash": "f2510ee271b5578e363fceff9e315dc3a980f5e63f207323fe22c2492dca7e23"
+    },
+    "parity-check": {
+      "source": "sepivip/seekerclaw-skills",
+      "sourceType": "github",
+      "computedHash": "09d55998354f0b57a3f672b57f6a4359eb9664a9bf5c57714f26b03de4016f6f"
+    },
+    "pr-ops": {
+      "source": "sepivip/seekerclaw-skills",
+      "sourceType": "github",
+      "computedHash": "f99d2545c39c84dfd25fe5c4e9499c9c92452e4ed29f62c104814aa738d825ef"
+    },
+    "release": {
+      "source": "sepivip/seekerclaw-skills",
+      "sourceType": "github",
+      "computedHash": "bf81f826258ac9ceb0d1a11d1ef7f2cf72943dc9c68ef5c82337fb250a07b77f"
+    },
+    "sab-audit": {
+      "source": "sepivip/seekerclaw-skills",
+      "sourceType": "github",
+      "computedHash": "f940dd01a37cae3527e149780deb3aea25d80b0ce49c6524cf09363df6998510"
+    },
+    "smoke-test": {
+      "source": "sepivip/seekerclaw-skills",
+      "sourceType": "github",
+      "computedHash": "b858096d0ea587bffce40077b0db310f9d60ce6ec6de8f719bb8361978697447"
+    },
+    "version-tracker": {
+      "source": "sepivip/seekerclaw-skills",
+      "sourceType": "github",
+      "computedHash": "f89b29dc7f905e447dd43a48b720de4f006126f48715036e2d3404e2e526685c"
     }
   }
 }
