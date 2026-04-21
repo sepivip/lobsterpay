@@ -40,7 +40,24 @@ async function fetchVaultBalances(connection: Connection, vaultPda: string) {
     return [];
   }
 }
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
+
+/**
+ * A prior request with this idempotency key was persisted as approved but
+ * never produced a tx signature (the submit/sign step crashed or hung). If
+ * the record is older than this many ms, we treat it as a "zombie" and
+ * allow a fresh retry instead of echoing the stuck state back to the agent.
+ */
+const STUCK_CREATED_TTL_MS = 90_000;
+
+function isStuckCreated(existing: { tx_status?: string | null; tx_signature?: string | null; created_at?: string | Date | null }): boolean {
+  if (!existing) return false;
+  if (existing.tx_status !== "created") return false;
+  if (existing.tx_signature) return false; // real tx landed or was submitted
+  if (!existing.created_at) return true;
+  const createdAt = typeof existing.created_at === "string" ? Date.parse(existing.created_at) : existing.created_at.getTime();
+  return Date.now() - createdAt > STUCK_CREATED_TTL_MS;
+}
 import {
   buildExecutePayExactIx,
   buildEnsureVaultTokenAccountIx,
@@ -107,11 +124,18 @@ export function agentRoutes(app: FastifyInstance, db: Db, config: Config) {
       return reply.status(400).send({ code: "invalid_request", message: parsed.error.message });
     }
 
-    const { mint, amountAtomic, destinationOwner, destinationTokenAccount, idempotencyKey, memo } = parsed.data;
+    const { mint, amountAtomic, destinationOwner, destinationTokenAccount, memo } = parsed.data;
+    // Auto-generate an idempotency key if the agent didn't supply one. Makes
+    // the field truly optional from the caller's perspective while still
+    // giving us a per-request identifier for dedup + logging.
+    const idempotencyKey = parsed.data.idempotencyKey ?? `auto-${randomUUID()}`;
 
-    // 1. Idempotency check
+    // 1. Idempotency check — return the cached result unless the prior record
+    // is a "zombie" (approved + persisted but no tx signature after 90s),
+    // in which case let the retry through instead of silently echoing a
+    // stuck status.
     const existing = await txService.checkIdempotency(vaultId, idempotencyKey);
-    if (existing) {
+    if (existing && !isStuckCreated(existing)) {
       return { requestId: existing.id, txSignature: existing.tx_signature, status: existing.tx_status, error: existing.rejection_reason };
     }
 
@@ -381,7 +405,8 @@ export function agentRoutes(app: FastifyInstance, db: Db, config: Config) {
       return reply.status(400).send({ code: "invalid_request", message: parsed.error.message });
     }
 
-    const { fromMint, toMint, amountAtomic, maxSlippageBps, idempotencyKey } = parsed.data;
+    const { fromMint, toMint, amountAtomic, maxSlippageBps } = parsed.data;
+    const idempotencyKey = parsed.data.idempotencyKey ?? `auto-${randomUUID()}`;
 
     // Load vault PDA
     const [vault] = await db`SELECT vault_pda FROM vaults WHERE id = ${vaultId}`;
@@ -432,7 +457,8 @@ export function agentRoutes(app: FastifyInstance, db: Db, config: Config) {
       return reply.status(400).send({ code: "invalid_request", message: parsed.error.message });
     }
 
-    const { paymentRequirements, originalRequestUrl, idempotencyKey } = parsed.data;
+    const { paymentRequirements, originalRequestUrl } = parsed.data;
+    const idempotencyKey = parsed.data.idempotencyKey ?? `auto-${randomUUID()}`;
 
     const [vault] = await db`SELECT vault_pda FROM vaults WHERE id = ${vaultId}`;
 
