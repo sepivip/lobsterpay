@@ -1,8 +1,8 @@
 {
   "$schema": "https://railway.com/railway.schema.json",
   "build": {
-    "builder": "RAILPACK",
-    "buildCommand": "pnpm install --frozen-lockfile --filter @lobsterpay/api... && pnpm --filter @lobsterpay/shared build && pnpm --filter @lobsterpay/api build"
+    "builder": "NIXPACKS",
+    "buildCommand": "corepack enable && pnpm install --frozen-lockfile --filter @lobsterpay/api... && pnpm --filter @lobsterpay/shared build && pnpm --filter @lobsterpay/api build"
   },
   "deploy": {
     "startCommand": "pnpm --filter @lobsterpay/api release && pnpm --filter @lobsterpay/api start",
