@@ -2,32 +2,45 @@
 
 import { useWallet } from "@solana/wallet-adapter-react";
 import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
-import { useRouter } from "next/navigation";
-import { useEffect } from "react";
-import { LogoAscii } from "@/components/logo-ascii";
+import Image from "next/image";
+import Link from "next/link";
 
 export default function Home() {
 	const { connected } = useWallet();
-	const router = useRouter();
-
-	useEffect(() => {
-		if (connected) {
-			router.push("/dashboard");
-		}
-	}, [connected, router]);
 
 	return (
 		<main className="hero-gradient flex flex-col" style={{ minHeight: "100vh" }}>
-			{/* Top bar */}
+			{/* Top bar — logo always links home; no redirect on connect */}
 			<header className="flex items-center justify-between" style={{ padding: "20px 32px" }}>
-				<LogoAscii size="nav" />
-				<WalletMultiButton />
+				<Link href="/" aria-label="LobsterPay home" style={{ display: "inline-flex", alignItems: "center" }}>
+					<Image
+						src="/logo-wordmark.svg"
+						alt="LobsterPay"
+						width={1187}
+						height={214}
+						priority
+						style={{ height: 28, width: "auto" }}
+					/>
+				</Link>
+				{connected ? (
+					<Link href="/dashboard" className="btn btn-primary btn-sm">
+						Open Dashboard
+					</Link>
+				) : (
+					<WalletMultiButton />
+				)}
 			</header>
 
 			{/* Hero */}
 			<div className="landing-hero">
-				<div className="animate-in">
-					<LogoAscii size="hero" />
+				<div className="animate-in hero-wordmark">
+					<Image
+						src="/logo-wordmark.svg"
+						alt="LobsterPay"
+						width={1187}
+						height={214}
+						priority
+					/>
 				</div>
 
 				<div className="animate-in mb-4">
@@ -58,7 +71,13 @@ export default function Home() {
 				</p>
 
 				<div className="animate-in animate-delay-3 flex gap-3 items-center">
-					<WalletMultiButton />
+					{connected ? (
+						<Link href="/dashboard" className="btn btn-primary">
+							Open Dashboard
+						</Link>
+					) : (
+						<WalletMultiButton />
+					)}
 				</div>
 
 				{/* Feature pills */}

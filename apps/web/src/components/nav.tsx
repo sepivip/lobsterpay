@@ -1,9 +1,9 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
-import { LogoAscii } from "./logo-ascii";
 
 const navItems = [
 	{ href: "/dashboard", label: "Dashboard" },
@@ -19,8 +19,16 @@ export function Nav() {
 	return (
 		<nav className="nav">
 			<div className="nav-inner">
-				<Link href="/dashboard" className="nav-logo">
-					<LogoAscii size="nav" />
+				{/* Logo always goes to the marketing home — industry standard. */}
+				<Link href="/" className="nav-logo" aria-label="LobsterPay home">
+					<Image
+						src="/logo-wordmark.svg"
+						alt="LobsterPay"
+						width={1187}
+						height={214}
+						priority
+						style={{ height: 22, width: "auto" }}
+					/>
 				</Link>
 
 				<div className="nav-tabs">
