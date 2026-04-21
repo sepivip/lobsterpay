@@ -404,13 +404,14 @@ body {
 
 .wallet-adapter-button {
   font-family: var(--font-mono) !important;
-  font-size: 0.75rem !important;
+  font-size: 0.875rem !important;
   font-weight: 400 !important;
   text-transform: uppercase !important;
   letter-spacing: var(--tracking-button) !important;
   border-radius: 0 !important;
-  height: 40px !important;
-  padding: 0 20px !important;
+  height: auto !important;
+  line-height: 1.43 !important;
+  padding: 12px 24px !important;
   background-color: transparent !important;
   border: 1px solid var(--border-strong) !important;
   transition: all 0.15s ease !important;
