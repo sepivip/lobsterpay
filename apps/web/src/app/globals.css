@@ -1035,15 +1035,15 @@ a.text-accent { text-decoration: underline; text-underline-offset: 3px; }
   margin: 0 auto;
 }
 
-/* Hero wordmark — scales with viewport, capped on desktop.  */
-.hero-wordmark {
-  margin-bottom: 24px;
+/* Hero symbol — just the lobster/claw mark, centered. */
+.hero-symbol {
+  margin-bottom: 32px;
   display: flex;
   justify-content: center;
 }
 
-.hero-wordmark img {
-  width: min(520px, 70vw);
+.hero-symbol img {
+  width: clamp(80px, 14vw, 140px);
   height: auto;
   display: block;
 }
