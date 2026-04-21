@@ -10,7 +10,8 @@ export default function Home() {
 
 	return (
 		<main className="hero-gradient flex flex-col" style={{ minHeight: "100vh" }}>
-			{/* Top bar — logo always links home; no redirect on connect */}
+			{/* Top bar — logo always links home; wallet button always present so
+				users can disconnect or switch wallets. */}
 			<header className="flex items-center justify-between" style={{ padding: "20px 32px" }}>
 				<Link href="/" aria-label="LobsterPay home" style={{ display: "inline-flex", alignItems: "center" }}>
 					<Image
@@ -22,29 +23,26 @@ export default function Home() {
 						style={{ height: 28, width: "auto" }}
 					/>
 				</Link>
-				{connected ? (
-					<Link href="/dashboard" className="btn btn-primary btn-sm">
-						Open Dashboard
-					</Link>
-				) : (
+				<div className="flex items-center gap-3">
+					{connected && (
+						<Link href="/dashboard" className="btn btn-primary btn-sm">
+							Open Dashboard
+						</Link>
+					)}
 					<WalletMultiButton />
-				)}
+				</div>
 			</header>
 
 			{/* Hero */}
 			<div className="landing-hero">
-				<div className="animate-in hero-wordmark">
+				<div className="animate-in hero-symbol">
 					<Image
-						src="/logo-wordmark.svg"
+						src="/logo.svg"
 						alt="LobsterPay"
-						width={1187}
+						width={201}
 						height={214}
 						priority
 					/>
-				</div>
-
-				<div className="animate-in mb-4">
-					<span className="label-mono">🦞 KEYS STAY HOME. AGENTS GO OUT.</span>
 				</div>
 
 				<h1 className="text-display animate-in animate-delay-1 mb-5">
