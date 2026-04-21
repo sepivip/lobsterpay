@@ -45,6 +45,10 @@ export default function Home() {
 					/>
 				</div>
 
+				<div className="animate-in mb-4">
+					<span className="label-mono">KEYS STAY HOME. AGENTS GO OUT.</span>
+				</div>
+
 				<h1 className="text-display animate-in animate-delay-1 mb-5">
 					Give agents limits,
 					<br />
