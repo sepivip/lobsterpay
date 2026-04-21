@@ -82,8 +82,8 @@ export default function Home() {
 					)}
 				</div>
 
-				{/* Feature pills */}
-				<div className="animate-in animate-delay-4 flex flex-wrap gap-2 justify-center mt-5" style={{ marginTop: 48 }}>
+				{/* Feature pills — 3 × 2 grid so every row has equal weight. */}
+				<div className="animate-in animate-delay-4 feature-pill-grid">
 					{[
 						"PDA-Controlled Vaults",
 						"Per-TX Limits",
