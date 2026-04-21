@@ -268,6 +268,7 @@ curl https://lobsterpayapi-production.up.railway.app/v1/config/relayer
 
 ## Related project files
 
+- **[apps/web/DESIGN.md](./apps/web/DESIGN.md)** — **source of truth for all frontend styling**. Read this BEFORE any CSS, button, spacing, typography, or color change. Contains exact specs for buttons (12px 24px padding, 14px GeistMono, 1.4px letter-spacing, 0 radius), colors (monochrome #1f2228 + #fff palette), spacing scale, elevation philosophy ("no shadows, ever"), and do's/don'ts.
 - [HANDOFF.md](./HANDOFF.md) — deploy session notes (can be deleted once Phase 4 smoke test passes on mainnet)
 - [DEPLOY.md](./DEPLOY.md) — Railway deploy walkthrough
 - [README.md](./README.md) — public overview
