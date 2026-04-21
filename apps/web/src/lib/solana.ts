@@ -215,6 +215,87 @@ export async function buildUpdatePolicyTx(
   return { transaction: tx };
 }
 
+// ── read on-chain Policy account ────────────────────────────────────────
+
+/**
+ * Current on-chain state of a Policy account. Source of truth for allowlists
+ * since those arrays are NOT stored in the backend DB. Offsets match the
+ * Rust Policy struct layout (post-discriminator, so +8 for account prefix).
+ */
+export interface OnChainPolicy {
+  vault: PublicKey;
+  owner: PublicKey;
+  authorizedAgent: PublicKey;
+  paused: boolean;
+  allowedActions: number;
+  maxPerTxAmountAtomic: bigint;
+  dailyLimitAmountAtomic: bigint;
+  dailySpentAmountAtomic: bigint;
+  maxSlippageBps: number;
+  allowedMints: PublicKey[];
+  allowedDestinations: PublicKey[];
+  allowedExternalPrograms: PublicKey[];
+}
+
+/**
+ * Fetch + parse the Policy PDA account. Returns null if it doesn't exist.
+ * Use this whenever the UI needs to display the *actual* on-chain state
+ * (especially allowlists, which the DB doesn't cache).
+ */
+export async function readPolicyOnChain(
+  connection: Connection,
+  policyPda: PublicKey
+): Promise<OnChainPolicy | null> {
+  const info = await connection.getAccountInfo(policyPda);
+  if (!info) return null;
+  const d = info.data;
+
+  // Offsets (all after the 8-byte Anchor discriminator):
+  //   vault                32   @   8
+  //   owner                32   @  40
+  //   authorized_agent     32   @  72
+  //   paused               1    @ 104
+  //   allowed_actions      8    @ 105
+  //   max_per_tx           8    @ 113
+  //   daily_limit          8    @ 121
+  //   daily_spent          8    @ 129
+  //   daily_window_start   8    @ 137
+  //   max_slippage_bps     2    @ 145
+  //   allowed_mints        256  @ 147  ([Pubkey; 8])
+  //   allowed_mint_count   1    @ 403
+  //   allowed_destinations 256  @ 404  ([Pubkey; 8])
+  //   allowed_dest_count   1    @ 660
+  //   allowed_ext_programs 128  @ 661  ([Pubkey; 4])
+  //   allowed_ext_count    1    @ 789
+
+  const mintCount = d[403];
+  const destCount = d[660];
+  const extCount = d[789];
+
+  const readPubkeyArray = (baseOffset: number, count: number): PublicKey[] => {
+    const out: PublicKey[] = [];
+    for (let i = 0; i < count; i++) {
+      out.push(new PublicKey(d.subarray(baseOffset + i * 32, baseOffset + (i + 1) * 32)));
+    }
+    return out;
+  };
+
+  return {
+    vault: new PublicKey(d.subarray(8, 40)),
+    owner: new PublicKey(d.subarray(40, 72)),
+    authorizedAgent: new PublicKey(d.subarray(72, 104)),
+    paused: d[104] === 1,
+    allowedActions: Number(d.readBigUInt64LE(105)),
+    maxPerTxAmountAtomic: d.readBigUInt64LE(113),
+    dailyLimitAmountAtomic: d.readBigUInt64LE(121),
+    dailySpentAmountAtomic: d.readBigUInt64LE(129),
+    maxSlippageBps: d.readUInt16LE(145),
+    allowedMints: readPubkeyArray(147, mintCount),
+    allowedDestinations: readPubkeyArray(404, destCount),
+    allowedExternalPrograms: readPubkeyArray(661, extCount),
+  };
+}
+
 // ── initialize_fee_vault ────────────────────────────────────────────────
 
 export async function buildInitializeFeeVaultTx(

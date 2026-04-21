@@ -15,6 +15,7 @@ import {
 	buildEmergencyPauseTx,
 	deriveVaultPda,
 	derivePolicyPda,
+	readPolicyOnChain,
 } from "@/lib/solana";
 import toast from "react-hot-toast";
 
@@ -99,8 +100,13 @@ export default function PolicyPage() {
 	const [allowedDestinations, setAllowedDestinations] = useState("");
 	const [authorizedAgent, setAuthorizedAgent] = useState("");
 	const [showAdvanced, setShowAdvanced] = useState(false);
+	// True once we've successfully read the Policy account on-chain. Lets the
+	// save handler distinguish "user cleared the textarea intentionally" (send
+	// empty array = revoke all) from "we don't know what's on-chain" (send
+	// undefined = don't change).
+	const [onChainLoaded, setOnChainLoaded] = useState(false);
 
-	// Populate from vault policy
+	// Populate from vault policy (scalar fields come from DB cache)
 	useEffect(() => {
 		if (vault?.policy) {
 			const p = vault.policy;
@@ -110,11 +116,36 @@ export default function PolicyPage() {
 			setMaxPerTx(p.maxPerTxUsdc != null ? String(p.maxPerTxUsdc) : "");
 			setDailyLimit(p.dailyLimitUsdc != null ? String(p.dailyLimitUsdc) : "");
 			setMaxSlippage(p.maxSlippageBps != null ? String(p.maxSlippageBps) : "");
-			setAllowedMints(Array.isArray(p.allowedMints) ? p.allowedMints.join("\n") : "");
-			setAllowedDestinations(Array.isArray(p.allowedDestinations) ? p.allowedDestinations.join("\n") : "");
 			setAuthorizedAgent(p.authorizedAgent ?? "");
 		}
 	}, [vault?.policy]);
+
+	// Allowlists live ONLY on-chain (not cached in DB). Fetch them directly
+	// from the Policy account so users can see and revoke current entries.
+	// Also refreshes current paused state + authorized_agent from chain so the
+	// page reflects reality even if the DB cache is stale.
+	useEffect(() => {
+		if (!publicKey || !vault?.vault_pda) return;
+		let cancelled = false;
+		(async () => {
+			try {
+				const [, ] = deriveVaultPda(publicKey); // ensure deps tracked
+				const [policyPda] = derivePolicyPda(new PublicKey(vault.vault_pda));
+				const onChain = await readPolicyOnChain(connection, policyPda);
+				if (!onChain || cancelled) return;
+				setAllowedMints(onChain.allowedMints.map((k) => k.toBase58()).join("\n"));
+				setAllowedDestinations(onChain.allowedDestinations.map((k) => k.toBase58()).join("\n"));
+				// Also override authorized_agent from chain (source of truth)
+				setAuthorizedAgent(onChain.authorizedAgent.toBase58());
+				setOnChainLoaded(true);
+			} catch (err) {
+				console.warn("Failed to read on-chain policy:", err);
+			}
+		})();
+		return () => {
+			cancelled = true;
+		};
+	}, [publicKey, vault?.vault_pda, connection]);
 
 	const handleSave = async () => {
 		if (!vault?.id || !publicKey || !sendTransaction) {
@@ -134,6 +165,22 @@ export default function PolicyPage() {
 			const [vaultPda] = deriveVaultPda(publicKey);
 			const [policyPda] = derivePolicyPda(vaultPda);
 
+			// Allowlist sends: if we've loaded on-chain state, always send the
+			// textarea's current contents (Some([...]), even when empty — so users
+			// can revoke). If we never loaded, fall back to the old "undefined = no
+			// change" semantics so we don't accidentally nuke an allowlist we
+			// never read.
+			const mintsParam = onChainLoaded
+				? mintsArr.map((m) => new PublicKey(m))
+				: mintsArr.length > 0
+					? mintsArr.map((m) => new PublicKey(m))
+					: undefined;
+			const destsParam = onChainLoaded
+				? destsArr.map((d) => new PublicKey(d))
+				: destsArr.length > 0
+					? destsArr.map((d) => new PublicKey(d))
+					: undefined;
+
 			// Build and sign onchain transaction
 			const { transaction } = await buildUpdatePolicyTx(
 				publicKey,
@@ -145,12 +192,8 @@ export default function PolicyPage() {
 					maxPerTxAmountAtomic: maxPerTx ? BigInt(maxPerTx) : undefined,
 					dailyLimitAmountAtomic: dailyLimit ? BigInt(dailyLimit) : undefined,
 					maxSlippageBps: maxSlippage ? Number(maxSlippage) : undefined,
-					allowedMints: mintsArr.length > 0
-						? mintsArr.map((m) => new PublicKey(m))
-						: undefined,
-					allowedDestinations: destsArr.length > 0
-						? destsArr.map((d) => new PublicKey(d))
-						: undefined,
+					allowedMints: mintsParam,
+					allowedDestinations: destsParam,
 				}
 			);
 
@@ -393,13 +436,16 @@ export default function PolicyPage() {
 
 								{/* Allowlists */}
 								<div className="card p-5 animate-in animate-delay-4">
-									<div className="label-mono mb-5" style={{ marginBottom: 20 }}>
-										Allowlists
+									<div className="flex items-baseline justify-between mb-5" style={{ marginBottom: 20 }}>
+										<div className="label-mono">Allowlists</div>
+										<span className="text-sm text-tertiary">
+											{onChainLoaded ? "live from on-chain" : "loading on-chain…"}
+										</span>
 									</div>
 									<div className="flex flex-col gap-4">
 										<div>
 											<label className="form-label">
-												Allowed Mints (one per line, max 8)
+												Allowed Mints (one per line, max 8 — empty = allow all)
 											</label>
 											<textarea
 												className="input"
@@ -409,10 +455,13 @@ export default function PolicyPage() {
 												value={allowedMints}
 												onChange={(e) => setAllowedMints(e.target.value)}
 											/>
+											<div className="text-sm text-tertiary" style={{ marginTop: 6 }}>
+												Delete a line and save to revoke that mint. Clear the whole field to allow all mints again.
+											</div>
 										</div>
 										<div>
 											<label className="form-label">
-												Allowed Destinations (one per line, max 8)
+												Allowed Destinations (one per line, max 8 — empty = allow all)
 											</label>
 											<textarea
 												className="input"
