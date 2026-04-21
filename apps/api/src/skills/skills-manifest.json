@@ -1,7 +1,12 @@
 {
-  "version": "0.3.2",
+  "version": "0.3.3",
   "updated": "2026-04-21",
   "changelog": [
+    {
+      "version": "0.3.3",
+      "date": "2026-04-21",
+      "notes": "Fixed execute_pay_exact failing with ConstraintMut (anchor error 2000): the backend instruction builder was passing the authority and fee_vault accounts as non-writable, but the on-chain program declares both as mut (authority receives reimbursement lamports, fee_vault has lamports debited). Also corrected the anchor error label map — 2000 is constraint_mut, not invalid_program_id."
+    },
     {
       "version": "0.3.2",
       "date": "2026-04-21",

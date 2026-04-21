@@ -70,20 +70,34 @@ function isStuckCreated(existing: { tx_status?: string | null; tx_signature?: st
  * in declaration order.
  */
 const PAY_ANCHOR_ERRORS: Record<number, string> = {
-  // Anchor framework errors (0-3999) — the subset that can surface from our ix.
-  // Full list: https://github.com/coral-xyz/anchor/blob/master/lang/src/error.rs
-  2000: "invalid_program_id",
-  2001: "invalid_program_executable",
-  2003: "constraint_has_one",
+  // Anchor framework errors (2000-4100 range) — the subset that can surface from our ix.
+  // Source: https://github.com/coral-xyz/anchor/blob/master/lang/src/error.rs
+  2000: "constraint_mut",
+  2001: "constraint_has_one",
+  2002: "constraint_signer",
+  2003: "constraint_raw",
+  2004: "constraint_owner",
+  2005: "constraint_rent_exempt",
   2006: "constraint_seeds",
+  2007: "constraint_executable",
+  2008: "constraint_state",
+  2009: "constraint_associated",
+  2010: "constraint_associated_init",
+  2011: "constraint_close",
+  2012: "constraint_address",
+  2013: "constraint_zero",
+  2014: "constraint_token_mint",
+  2015: "constraint_token_owner",
+  2016: "constraint_mint_mint_authority",
+  2017: "constraint_mint_freeze_authority",
+  2018: "constraint_mint_decimals",
+  2019: "constraint_space",
   3002: "account_discriminator_mismatch",
   3004: "account_not_system_owned",
-  3005: "account_not_initialized",
   3007: "account_owned_by_wrong_program",
   3012: "account_not_initialized",
   3013: "account_owned_by_wrong_program",
   3014: "invalid_program_id",
-  4100: "constraint_mut",
   // LobsterPay user errors (errors.rs — Anchor starts these at 6000).
   6000: "unauthorized",
   6001: "vault_paused",
