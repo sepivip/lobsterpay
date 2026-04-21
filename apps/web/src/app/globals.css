@@ -623,7 +623,7 @@ body {
 .grid-cards {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 1px;
+  gap: 16px;
 }
 
 /* ── Section header inside cards ── */
