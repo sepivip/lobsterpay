@@ -1,7 +1,12 @@
 {
-  "version": "0.3.1",
+  "version": "0.3.2",
   "updated": "2026-04-21",
   "changelog": [
+    {
+      "version": "0.3.2",
+      "date": "2026-04-21",
+      "notes": "make_payment now pre-creates the destination and treasury associated token accounts (ATAs) inside the same tx when they don't exist yet. Previously paying a wallet that had never held the mint failed with anchor_error_3012 (AccountNotInitialized). Uses the idempotent ATA-create variant so it's a no-op when accounts already exist. Also: agent error responses now map a wider range of anchor framework codes (2000–4100) to human-readable reason slugs, so agents see 'account_not_initialized' or 'constraint_seeds' instead of a bare number."
+    },
     {
       "version": "0.3.1",
       "date": "2026-04-21",
