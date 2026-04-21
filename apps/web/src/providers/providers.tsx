@@ -6,7 +6,8 @@ import { WalletModalProvider } from "@solana/wallet-adapter-react-ui";
 import { PhantomWalletAdapter, SolflareWalletAdapter } from "@solana/wallet-adapter-wallets";
 import { Toaster } from "react-hot-toast";
 import { setWalletAddress } from "@/lib/api";
-import "@solana/wallet-adapter-react-ui/styles.css";
+// NOTE: wallet-adapter-react-ui/styles.css is imported from globals.css so
+// our overrides in that file naturally cascade after the library defaults.
 
 const RPC_URL = process.env.NEXT_PUBLIC_SOLANA_RPC_URL || "https://api.devnet.solana.com";
 
