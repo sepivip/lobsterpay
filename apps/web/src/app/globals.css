@@ -431,18 +431,18 @@ body {
   transition: all 0.15s ease !important;
 }
 
-.wallet-adapter-button:hover {
-  background-color: rgba(255, 255, 255, 0.05) !important;
-}
-
+/* Trigger variant (top-bar pill) — matches .btn.btn-primary exactly:
+   white fill, dark text, 90% opacity on hover. DESIGN.md §4 Buttons. */
 .wallet-adapter-button-trigger {
   background-color: #ffffff !important;
   color: #1f2228 !important;
   border-color: transparent !important;
 }
 
-.wallet-adapter-button-trigger:hover {
-  opacity: 0.9 !important;
+.wallet-adapter-button-trigger:hover,
+.wallet-adapter-button:not([disabled]):hover.wallet-adapter-button-trigger {
+  background-color: rgba(255, 255, 255, 0.9) !important;
+  opacity: 1 !important;
 }
 
 /* Shrink the wallet adapter's built-in icon + kill its extra margins so
@@ -1046,6 +1046,30 @@ a.text-accent { text-decoration: underline; text-underline-offset: 3px; }
   border: 1px solid rgba(255, 255, 255, 0.2);
   background: transparent;
   color: var(--text-primary);
+  text-align: center;
+  white-space: nowrap;
+}
+
+/* 3 × 2 arrangement for the landing feature pills — always balanced rows.
+   Collapses to 2 columns at tablet and 1 at mobile. */
+.feature-pill-grid {
+  display: grid;
+  grid-template-columns: repeat(3, auto);
+  gap: 8px;
+  justify-content: center;
+  margin-top: 48px;
+}
+
+@media (max-width: 768px) {
+  .feature-pill-grid {
+    grid-template-columns: repeat(2, auto);
+  }
+}
+
+@media (max-width: 480px) {
+  .feature-pill-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* ── Landing hero layout ── */
