@@ -999,8 +999,11 @@ a.text-accent { text-decoration: underline; text-underline-offset: 3px; }
   padding: 12px 24px;
   margin: 0;
   overflow-x: auto;
-  white-space: pre;
+  white-space: pre-wrap;
+  word-break: break-all;
   letter-spacing: 0;
+  line-height: 1.5;
+  max-height: 320px;
 }
 
 /* ── Landing feature pill — monospace tag ──────────────────────────────── */

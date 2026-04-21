@@ -52,6 +52,90 @@ function buildExplorerUrl(signature: string, cluster: string): string {
 }
 
 /**
+ * Older INSERTs wrote JSON.stringify(payload) into the JSONB column, which
+ * round-trips as a JSON-encoded STRING when read back. Iterating that string
+ * with Object.keys() yields character indices ("0", "1", ...) instead of
+ * real field names, which used to surface as the infamous
+ * "Policy updated: 0, 1, 2, ..." bug. Parse defensively on read so both the
+ * legacy rows and any newly-written proper-JSON rows render correctly.
+ */
+function parsePayload(raw: any): Record<string, any> {
+  if (raw == null) return {};
+  if (typeof raw === "string") {
+    try {
+      const parsed = JSON.parse(raw);
+      return typeof parsed === "object" && parsed !== null ? parsed : {};
+    } catch {
+      return {};
+    }
+  }
+  return typeof raw === "object" ? (raw as Record<string, any>) : {};
+}
+
+/**
+ * Render a single policy_update field as a human-readable line. Covers the
+ * snake_case DB-style keys (allowed_mints) and the camelCase frontend-style
+ * keys (allowedMints) because both shapes have been written historically.
+ */
+function describePolicyField(key: string, value: any): string {
+  if (value == null) return `${key}: null`;
+  switch (key) {
+    case "paused":
+      return value ? "Paused" : "Unpaused";
+    case "allowedActions":
+    case "allowed_actions": {
+      const bits = Number(value);
+      const labels: string[] = [];
+      if (bits & 1) labels.push("swap");
+      if (bits & 2) labels.push("pay");
+      if (bits & 4) labels.push("x402");
+      return `Actions: ${labels.length ? labels.join(", ") : "none"}`;
+    }
+    case "maxPerTxAmountAtomic":
+    case "max_per_tx_amount_atomic": {
+      const usdc = formatAtomic(value, "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
+      return `Max per tx: ${usdc?.amount ?? value} USDC`;
+    }
+    case "dailyLimitAmountAtomic":
+    case "daily_limit_amount_atomic": {
+      const usdc = formatAtomic(value, "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
+      return `Daily limit: ${usdc?.amount ?? value} USDC`;
+    }
+    case "maxSlippageBps":
+    case "max_slippage_bps":
+      return `Max slippage: ${(Number(value) / 100).toFixed(2)}%`;
+    case "allowedMints":
+    case "allowed_mints":
+      if (Array.isArray(value)) {
+        return `Allowed mints (${value.length}): ${value.slice(0, 3).map(shortAddr).join(", ")}${value.length > 3 ? "…" : ""}`;
+      }
+      return `Allowed mints: ${String(value).slice(0, 60)}`;
+    case "allowedDestinations":
+    case "allowed_destinations":
+      if (Array.isArray(value)) {
+        return `Allowed destinations (${value.length}): ${value.slice(0, 3).map(shortAddr).join(", ")}${value.length > 3 ? "…" : ""}`;
+      }
+      return `Allowed destinations: ${String(value).slice(0, 60)}`;
+    case "allowedExternalPrograms":
+    case "allowed_external_programs":
+      if (Array.isArray(value)) {
+        return `Allowed programs (${value.length}): ${value.slice(0, 3).map(shortAddr).join(", ")}${value.length > 3 ? "…" : ""}`;
+      }
+      return `Allowed programs: ${String(value).slice(0, 60)}`;
+    case "authorizedAgent":
+    case "authorized_agent":
+      return `Authorized agent: ${shortAddr(String(value))}`;
+    case "vaultId":
+    case "vault_id":
+      return ""; // redundant; the row already belongs to this vault
+    default:
+      if (Array.isArray(value)) return `${key} (${value.length})`;
+      if (typeof value === "object") return `${key}: ${JSON.stringify(value).slice(0, 80)}`;
+      return `${key}: ${String(value).slice(0, 80)}`;
+  }
+}
+
+/**
  * Turn a raw activity row into a rich shape the UI can render without
  * guessing at payload keys. Returns description, amount, tx link, etc.
  */
@@ -60,7 +144,7 @@ function transformActivity(
   cluster: string,
   requestByRefId: Map<string, { tx_status: string | null; tx_signature: string | null; rejection_reason: string | null; amount_atomic: string | null; mint: string | null }>,
 ): any {
-  const payload = row.payload_json ?? {};
+  const payload = parsePayload(row.payload_json);
   const refRequest = row.reference_request_id ? requestByRefId.get(row.reference_request_id) : undefined;
 
   // Prefer the row's tx_signature; fall back to the linked request (e.g.
@@ -124,16 +208,16 @@ function transformActivity(
       break;
     }
     case "policy_update": {
-      const fields = Object.keys(payload).filter((k) => k !== "vaultId");
-      title = fields.length ? `Policy updated: ${fields.join(", ")}` : "Policy updated";
-      for (const k of fields) {
-        const v = payload[k];
-        if (Array.isArray(v)) {
-          metaLines.push(`${k} (${v.length}): ${v.slice(0, 3).map(shortAddr).join(", ")}${v.length > 3 ? "…" : ""}`);
-        } else if (typeof v === "object" && v != null) {
-          metaLines.push(`${k}: ${JSON.stringify(v).slice(0, 120)}`);
-        } else {
-          metaLines.push(`${k}: ${v}`);
+      const entries = Object.entries(payload).filter(([k]) => k !== "vaultId" && k !== "vault_id");
+      if (entries.length === 0) {
+        title = "Policy updated";
+      } else if (entries.length === 1) {
+        title = `Policy updated · ${describePolicyField(entries[0][0], entries[0][1])}`;
+      } else {
+        title = `Policy updated (${entries.length} fields)`;
+        for (const [k, v] of entries) {
+          const line = describePolicyField(k, v);
+          if (line) metaLines.push(line);
         }
       }
       break;
