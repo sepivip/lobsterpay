@@ -40,8 +40,9 @@
   --danger: #f87171;
   --danger-dim: rgba(248, 113, 113, 0.10);
 
-  /* Typography — Geist fonts loaded via next/font in layout.tsx */
-  --font-sans: var(--font-geist-sans), system-ui, -apple-system, sans-serif;
+  /* Typography — TASA Orbiter (Google Fonts) for body/headings,
+     GeistMono for display, buttons, ASCII logo. Both loaded via next/font. */
+  --font-sans: var(--font-tasa-orbiter), system-ui, -apple-system, sans-serif;
   --font-mono: var(--font-geist-mono), ui-monospace, 'SFMono-Regular', 'Roboto Mono', monospace;
 
   --tracking-tight: -0.02em;
