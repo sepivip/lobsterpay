@@ -7,7 +7,12 @@ import { createSwapService } from "../services/swap.service.js";
 import { createX402Service } from "../services/x402.service.js";
 import { payRequestSchema, swapRequestSchema, x402RequestSchema } from "@lobsterpay/shared";
 import { Connection, PublicKey } from "@solana/web3.js";
-import { TOKEN_PROGRAM_ID, getAssociatedTokenAddressSync, getOrCreateAssociatedTokenAccount } from "@solana/spl-token";
+import {
+  TOKEN_PROGRAM_ID,
+  getAssociatedTokenAddressSync,
+  getOrCreateAssociatedTokenAccount,
+  createAssociatedTokenAccountIdempotentInstruction,
+} from "@solana/spl-token";
 
 // Known SPL mints — used to decorate balances with human-readable symbols.
 const KNOWN_MINTS: Record<string, string> = {
@@ -65,6 +70,21 @@ function isStuckCreated(existing: { tx_status?: string | null; tx_signature?: st
  * in declaration order.
  */
 const PAY_ANCHOR_ERRORS: Record<number, string> = {
+  // Anchor framework errors (0-3999) — the subset that can surface from our ix.
+  // Full list: https://github.com/coral-xyz/anchor/blob/master/lang/src/error.rs
+  2000: "invalid_program_id",
+  2001: "invalid_program_executable",
+  2003: "constraint_has_one",
+  2006: "constraint_seeds",
+  3002: "account_discriminator_mismatch",
+  3004: "account_not_system_owned",
+  3005: "account_not_initialized",
+  3007: "account_owned_by_wrong_program",
+  3012: "account_not_initialized",
+  3013: "account_owned_by_wrong_program",
+  3014: "invalid_program_id",
+  4100: "constraint_mut",
+  // LobsterPay user errors (errors.rs — Anchor starts these at 6000).
   6000: "unauthorized",
   6001: "vault_paused",
   6002: "action_not_allowed",
@@ -340,16 +360,61 @@ export function agentRoutes(app: FastifyInstance, db: Db, config: Config) {
 
       // Resolve destination token account
       let destTokenAcct: PublicKey;
+      let derivedDestOwner: PublicKey | null = null;
       if (destinationTokenAccount) {
         destTokenAcct = new PublicKey(destinationTokenAccount);
       } else if (destinationOwner) {
-        destTokenAcct = getAssociatedTokenAddressSync(mintPubkey, new PublicKey(destinationOwner));
+        derivedDestOwner = new PublicKey(destinationOwner);
+        destTokenAcct = getAssociatedTokenAddressSync(mintPubkey, derivedDestOwner);
       } else {
         return reply.status(400).send({ code: "invalid_request", message: "destinationOwner or destinationTokenAccount required" });
       }
 
       // Treasury ATA for the service fee.
       const treasuryTokenAcct = getTreasuryTokenAccount(mintPubkey, TOKEN_PROGRAM_ID);
+
+      // Pre-create destination + treasury ATAs when missing. execute_pay_exact
+      // does a transfer_checked CPI that anchor rejects with error 3012
+      // (AccountNotInitialized) if either account has never been touched.
+      // createAssociatedTokenAccountIdempotentInstruction is a no-op when the
+      // account already exists, so it's always safe to prepend.
+      const preIxs = [];
+      try {
+        // Treasury ATA — the treasury pubkey is fixed in program constants,
+        // its ATA for arbitrary mints may not exist on devnet yet.
+        const treasuryAcctInfo = await txService.connection.getAccountInfo(treasuryTokenAcct);
+        if (!treasuryAcctInfo) {
+          const { TREASURY_PUBKEY } = await import("../solana/instructions.js");
+          preIxs.push(
+            createAssociatedTokenAccountIdempotentInstruction(
+              txService.feePayer.publicKey,
+              treasuryTokenAcct,
+              TREASURY_PUBKEY,
+              mintPubkey,
+              TOKEN_PROGRAM_ID,
+            ),
+          );
+        }
+        // Destination ATA — only pre-create if we derived it from a wallet
+        // owner. If the caller supplied a raw destinationTokenAccount, trust
+        // them (might be a non-ATA token account).
+        if (derivedDestOwner) {
+          const destAcctInfo = await txService.connection.getAccountInfo(destTokenAcct);
+          if (!destAcctInfo) {
+            preIxs.push(
+              createAssociatedTokenAccountIdempotentInstruction(
+                txService.feePayer.publicKey,
+                destTokenAcct,
+                derivedDestOwner,
+                mintPubkey,
+                TOKEN_PROGRAM_ID,
+              ),
+            );
+          }
+        }
+      } catch (preErr) {
+        app.log.warn({ err: preErr }, "ATA pre-flight check failed, continuing without pre-create");
+      }
 
       // Build request hash from idempotency key
       const requestHash = createHash("sha256").update(idempotencyKey).digest();
@@ -371,8 +436,8 @@ export function agentRoutes(app: FastifyInstance, db: Db, config: Config) {
         },
       });
 
-      // Build and send transaction
-      const tx = await buildTransaction([payIx], txService.feePayer.publicKey, txService.connection);
+      // Build and send transaction (ATA creates, if any, run before the pay ix)
+      const tx = await buildTransaction([...preIxs, payIx], txService.feePayer.publicKey, txService.connection);
       const signature = await txService.sendAndConfirm(tx, [txService.feePayer]);
 
       // Update request with signature — usage was already reserved atomically

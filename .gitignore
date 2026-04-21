@@ -47,9 +47,11 @@ coverage/
 claude-session.jsonl
 *.session.jsonl
 
-# Installed third-party CLI skills (not part of project source)
+# Installed third-party CLI skills (not part of project source).
+# The leading slash on /skills/ anchors to repo root so apps/api/src/skills
+# (project source) is NOT ignored.
 .claude/skills/
 .agents/skills/
-skills/
+/skills/
 .continue/
 .windsurf/
