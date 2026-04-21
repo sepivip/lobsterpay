@@ -57,8 +57,8 @@
         {
           "name": "idempotencyKey",
           "type": "string",
-          "required": true,
-          "description": "Unique identifier for this payment. Use a descriptive string like 'invoice-123' or 'service-2026-04-10'. Prevents duplicate payments on retry."
+          "required": false,
+          "description": "Optional. Provide a unique string (e.g. 'invoice-123') only if you want to make retries safe — sending the same key with the same body won't double-charge. If omitted, the server generates a fresh identifier per request. Most agents don't need to set this."
         },
         {
           "name": "memo",
@@ -146,8 +146,8 @@
         {
           "name": "idempotencyKey",
           "type": "string",
-          "required": true,
-          "description": "Unique key to prevent duplicate swaps"
+          "required": false,
+          "description": "Optional. Provide a unique string only if you want safe retries. If omitted, the server generates a fresh identifier per request. Most agents don't need to set this."
         }
       ],
       "response": {
@@ -178,8 +178,8 @@
         {
           "name": "idempotencyKey",
           "type": "string",
-          "required": true,
-          "description": "Unique key to prevent duplicate payments"
+          "required": false,
+          "description": "Optional. Provide a unique string only if you want safe retries. If omitted, the server generates a fresh identifier per request. Most agents don't need to set this."
         }
       ],
       "response": {
@@ -199,7 +199,7 @@
   "usage_notes": [
     "Always call check_vault first to understand your permissions and remaining budget",
     "All amounts are in atomic units (smallest denomination). USDC has 6 decimals: 1 USDC = 1000000",
-    "Always provide a unique idempotencyKey for payment actions. Safe to retry with the same key.",
+    "idempotencyKey is optional — omit it and the server auto-generates one. Only set it when you specifically want to retry the same action safely.",
     "Payments are only allowed to destinations on the vault's allowlist",
     "If a payment is rejected, check the error — it will tell you if it's a limit, allowlist, or pause issue",
     "The vault owner can revoke your API key at any time. Handle 401 errors gracefully."

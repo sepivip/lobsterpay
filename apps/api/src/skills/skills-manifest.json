@@ -1,7 +1,12 @@
 {
-  "version": "0.3.0",
-  "updated": "2026-04-16",
+  "version": "0.3.1",
+  "updated": "2026-04-21",
   "changelog": [
+    {
+      "version": "0.3.1",
+      "date": "2026-04-21",
+      "notes": "idempotencyKey is now optional on make_payment, execute_swap, and pay_x402 — the server auto-generates one per request. Most agents should simply omit the field. Provide an explicit key only when you want client-side retry safety (same key + same body = same outcome). Also: the backend now recovers from 'zombie' idempotency records (approved + persisted but no tx signature after 90s) — retries are no longer silently echoed a stuck 'created' status from a prior crashed attempt."
+    },
     {
       "version": "0.3.0",
       "date": "2026-04-16",

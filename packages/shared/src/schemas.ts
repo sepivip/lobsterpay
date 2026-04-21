@@ -13,13 +13,19 @@ const positiveAmountSchema = z.string().regex(/^\d+$/, "Must be a numeric string
 
 // --- Request schemas ---
 
+// idempotencyKey is OPTIONAL — agents don't have to generate / track one.
+// When omitted, the backend generates a fresh UUID per request. Provide
+// one explicitly only if you need client-side retry safety (same key +
+// same body = same outcome, never double-spent).
+const optionalIdempotencyKey = z.string().min(1).max(128).optional();
+
 export const payRequestSchema = z.object({
   mint: solanaPublicKeySchema,
   amountAtomic: positiveAmountSchema,
   destinationOwner: solanaPublicKeySchema.optional(),
   destinationTokenAccount: solanaPublicKeySchema.optional(),
   memo: z.string().max(256).optional(),
-  idempotencyKey: z.string().min(1).max(128),
+  idempotencyKey: optionalIdempotencyKey,
   metadata: z.record(z.unknown()).optional(),
 });
 
@@ -28,13 +34,13 @@ export const swapRequestSchema = z.object({
   toMint: solanaPublicKeySchema,
   amountAtomic: positiveAmountSchema,
   maxSlippageBps: z.number().min(0).max(10000),
-  idempotencyKey: z.string().min(1).max(128),
+  idempotencyKey: optionalIdempotencyKey,
 });
 
 export const x402RequestSchema = z.object({
   paymentRequirements: z.unknown(),
   originalRequestUrl: z.string().url(),
-  idempotencyKey: z.string().min(1).max(128),
+  idempotencyKey: optionalIdempotencyKey,
 });
 
 // --- API key schemas ---
