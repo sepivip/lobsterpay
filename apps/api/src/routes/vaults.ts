@@ -12,6 +12,172 @@ import {
 } from "@lobsterpay/shared";
 import { FEE_VAULT_MIN_BALANCE } from "../solana/instructions.js";
 
+// Known SPL mints → display info. Used to turn atomic amounts into human
+// strings ("0.10 USDC") on the activity feed.
+const MINT_META: Record<string, { symbol: string; decimals: number }> = {
+  EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v: { symbol: "USDC", decimals: 6 },
+  "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU": { symbol: "USDC", decimals: 6 },
+  Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB: { symbol: "USDT", decimals: 6 },
+  So11111111111111111111111111111111111111112: { symbol: "SOL", decimals: 9 },
+};
+
+function formatAtomic(atomic: string | number | null | undefined, mint?: string | null): { amount: string; symbol: string } | null {
+  if (atomic == null) return null;
+  const meta = mint ? MINT_META[mint] : undefined;
+  const symbol = meta?.symbol ?? (mint ? `${mint.slice(0, 4)}…${mint.slice(-4)}` : "");
+  const decimals = meta?.decimals ?? 0;
+  try {
+    const atomicStr = String(atomic);
+    if (decimals === 0) return { amount: atomicStr, symbol };
+    const big = BigInt(atomicStr);
+    const divisor = 10n ** BigInt(decimals);
+    const whole = big / divisor;
+    const frac = big % divisor;
+    const fracStr = frac.toString().padStart(decimals, "0").replace(/0+$/, "");
+    const amount = fracStr ? `${whole}.${fracStr}` : whole.toString();
+    return { amount, symbol };
+  } catch {
+    return { amount: String(atomic), symbol };
+  }
+}
+
+function shortAddr(addr: string | null | undefined): string {
+  if (!addr) return "";
+  return addr.length > 12 ? `${addr.slice(0, 4)}…${addr.slice(-4)}` : addr;
+}
+
+function buildExplorerUrl(signature: string, cluster: string): string {
+  const suffix = cluster === "mainnet-beta" || cluster === "mainnet" ? "" : `?cluster=${cluster}`;
+  return `https://explorer.solana.com/tx/${signature}${suffix}`;
+}
+
+/**
+ * Turn a raw activity row into a rich shape the UI can render without
+ * guessing at payload keys. Returns description, amount, tx link, etc.
+ */
+function transformActivity(
+  row: any,
+  cluster: string,
+  requestByRefId: Map<string, { tx_status: string | null; tx_signature: string | null; rejection_reason: string | null; amount_atomic: string | null; mint: string | null }>,
+): any {
+  const payload = row.payload_json ?? {};
+  const refRequest = row.reference_request_id ? requestByRefId.get(row.reference_request_id) : undefined;
+
+  // Prefer the row's tx_signature; fall back to the linked request (e.g.
+  // swap rows store signature in the payload/request, not on the row).
+  const txSignature: string | null = row.tx_signature ?? refRequest?.tx_signature ?? payload.txSignature ?? null;
+  const explorerUrl = txSignature ? buildExplorerUrl(txSignature, cluster) : null;
+
+  const rawStatus = refRequest?.tx_status ?? null;
+  const status = rawStatus === "created" ? null : rawStatus;
+
+  let title = row.type;
+  const metaLines: string[] = [];
+  let amountDisplay: { amount: string; symbol: string } | null = null;
+
+  switch (row.type) {
+    case "payment": {
+      const mint = payload.mint ?? refRequest?.mint ?? null;
+      const gross = payload.grossAmount ?? payload.amountAtomic ?? refRequest?.amount_atomic;
+      amountDisplay = formatAtomic(gross, mint);
+      const dest = payload.destination ? shortAddr(payload.destination) : null;
+      title = dest ? `Paid ${amountDisplay?.amount ?? ""} ${amountDisplay?.symbol ?? ""} to ${dest}`.trim() : "Payment";
+      if (payload.netAmount && payload.serviceFee) {
+        const net = formatAtomic(payload.netAmount, mint);
+        const fee = formatAtomic(payload.serviceFee, mint);
+        if (net && fee) metaLines.push(`net ${net.amount} · fee ${fee.amount} ${fee.symbol}`);
+      }
+      if (payload.memo) metaLines.push(`memo: ${payload.memo}`);
+      break;
+    }
+    case "payment_failed": {
+      const mint = payload.mint ?? refRequest?.mint ?? null;
+      amountDisplay = formatAtomic(payload.amountAtomic ?? refRequest?.amount_atomic, mint);
+      const reason = payload.reason ?? refRequest?.rejection_reason ?? "unknown_error";
+      title = `Payment failed: ${reason}`;
+      if (payload.anchorCode != null) metaLines.push(`anchor error ${payload.anchorCode}`);
+      if (payload.error) metaLines.push(String(payload.error).slice(0, 200));
+      break;
+    }
+    case "swap": {
+      const fromMint = payload.fromMint ?? null;
+      const toMint = payload.toMint ?? null;
+      const fromAmt = formatAtomic(payload.amountIn, fromMint);
+      const outAmt = formatAtomic(payload.expectedOut, toMint);
+      if (payload.error) {
+        title = `Swap failed: ${String(payload.error).slice(0, 120)}`;
+      } else if (fromAmt && outAmt) {
+        title = `Swapped ${fromAmt.amount} ${fromAmt.symbol} → ${outAmt.amount} ${outAmt.symbol}`;
+      } else {
+        title = "Swap";
+      }
+      if (payload.routeSummary) metaLines.push(`route: ${payload.routeSummary}`);
+      amountDisplay = fromAmt;
+      break;
+    }
+    case "x402": {
+      const mint = payload.asset ?? null;
+      amountDisplay = formatAtomic(payload.amount, mint);
+      const domain = payload.domain ?? "endpoint";
+      title = `x402 paid ${amountDisplay?.amount ?? ""} ${amountDisplay?.symbol ?? ""} to ${domain}`.trim();
+      if (payload.recipient) metaLines.push(`to ${shortAddr(payload.recipient)}`);
+      break;
+    }
+    case "policy_update": {
+      const fields = Object.keys(payload).filter((k) => k !== "vaultId");
+      title = fields.length ? `Policy updated: ${fields.join(", ")}` : "Policy updated";
+      for (const k of fields) {
+        const v = payload[k];
+        if (Array.isArray(v)) {
+          metaLines.push(`${k} (${v.length}): ${v.slice(0, 3).map(shortAddr).join(", ")}${v.length > 3 ? "…" : ""}`);
+        } else if (typeof v === "object" && v != null) {
+          metaLines.push(`${k}: ${JSON.stringify(v).slice(0, 120)}`);
+        } else {
+          metaLines.push(`${k}: ${v}`);
+        }
+      }
+      break;
+    }
+    case "key_created":
+      title = `API key created: ${payload.label ?? "(unlabeled)"}`;
+      if (payload.prefix) metaLines.push(`prefix ${payload.prefix}…`);
+      break;
+    case "key_revoked":
+      title = `API key revoked: ${payload.label ?? payload.prefix ?? payload.keyId}`;
+      break;
+    case "vault_created":
+      title = "Vault created";
+      if (payload.vaultPda) metaLines.push(`vault ${shortAddr(payload.vaultPda)}`);
+      break;
+    case "fee_vault_initialize_intent":
+      title = "Fee vault initialized";
+      break;
+    case "fee_vault_deposit_intent":
+      title = `Fee vault deposit ${payload.amount ?? ""} SOL`.trim();
+      break;
+    case "fee_vault_withdraw_intent":
+      title = `Fee vault withdraw ${payload.amount ?? ""} SOL`.trim();
+      break;
+    default:
+      title = row.type;
+  }
+
+  return {
+    id: row.id,
+    type: row.type,
+    title,
+    description: title, // legacy alias for older UI copies
+    metaLines,
+    amount: amountDisplay?.amount ?? null,
+    mint: amountDisplay?.symbol ?? null,
+    txSignature,
+    explorerUrl,
+    status,
+    createdAt: row.created_at instanceof Date ? row.created_at.toISOString() : String(row.created_at),
+    payload,
+  };
+}
+
 // TODO: Replace with proper wallet signature verification (e.g. verify ed25519 signed message)
 function ownerAuth(db: Db) {
   return async (request: FastifyRequest, reply: FastifyReply) => {
@@ -299,8 +465,24 @@ export function vaultRoutes(app: FastifyInstance, db: Db, config: Config) {
       ? await db`SELECT * FROM activities WHERE vault_id = ${vaultId} AND created_at < ${cursor} ORDER BY created_at DESC LIMIT ${pageLimit}`
       : await db`SELECT * FROM activities WHERE vault_id = ${vaultId} ORDER BY created_at DESC LIMIT ${pageLimit}`;
 
+    // Batch-load the referenced requests so payment/swap rows show the
+    // authoritative on-chain status + signature instead of whatever was
+    // captured at log time.
+    const refIds = rows.map((r: any) => r.reference_request_id).filter(Boolean) as string[];
+    const requestByRefId = new Map<string, any>();
+    if (refIds.length > 0) {
+      const reqRows = await db`
+        SELECT id, tx_status, tx_signature, rejection_reason, amount_atomic, mint
+        FROM requests
+        WHERE id IN ${db(refIds)}
+      `;
+      for (const r of reqRows) requestByRefId.set(r.id, r);
+    }
+
+    const items = rows.map((row: any) => transformActivity(row, config.SOLANA_CLUSTER, requestByRefId));
+
     return {
-      items: rows,
+      items,
       nextCursor: rows.length === pageLimit ? rows[rows.length - 1].created_at : null,
     };
   });

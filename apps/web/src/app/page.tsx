@@ -4,6 +4,7 @@ import { useWallet } from "@solana/wallet-adapter-react";
 import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
+import { LogoAscii } from "@/components/logo-ascii";
 
 export default function Home() {
 	const { connected } = useWallet();
@@ -19,15 +20,16 @@ export default function Home() {
 		<main className="hero-gradient flex flex-col" style={{ minHeight: "100vh" }}>
 			{/* Top bar */}
 			<header className="flex items-center justify-between" style={{ padding: "20px 32px" }}>
-				<div style={{ fontSize: "1.125rem", fontWeight: 600, letterSpacing: "-0.02em" }}>
-					<span className="text-accent">Lobster</span>
-					<span>Pay</span>
-				</div>
+				<LogoAscii size="nav" />
 				<WalletMultiButton />
 			</header>
 
 			{/* Hero */}
 			<div className="landing-hero">
+				<div className="animate-in">
+					<LogoAscii size="hero" />
+				</div>
+
 				<div className="animate-in mb-4">
 					<span className="label-mono">Solana Colosseum Hackathon</span>
 				</div>
