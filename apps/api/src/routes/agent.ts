@@ -58,6 +58,73 @@ function isStuckCreated(existing: { tx_status?: string | null; tx_signature?: st
   const createdAt = typeof existing.created_at === "string" ? Date.parse(existing.created_at) : existing.created_at.getTime();
   return Date.now() - createdAt > STUCK_CREATED_TTL_MS;
 }
+
+/**
+ * Map Anchor custom error codes from `execute_pay_exact` (programs/lobsterpay/src/errors.rs)
+ * to human-readable reasons. Anchor starts user errors at 6000 and increments
+ * in declaration order.
+ */
+const PAY_ANCHOR_ERRORS: Record<number, string> = {
+  6000: "unauthorized",
+  6001: "vault_paused",
+  6002: "action_not_allowed",
+  6003: "mint_not_in_allowlist",
+  6004: "destination_not_in_allowlist",
+  6005: "program_not_in_allowlist",
+  6006: "amount_exceeds_per_tx_limit",
+  6007: "amount_exceeds_daily_limit",
+  6008: "invalid_amount",
+  6009: "invalid_route",
+  6010: "invalid_slippage",
+  6011: "invalid_token_program",
+  6012: "arithmetic_overflow",
+  6013: "stale_window_state",
+  6014: "unsupported_feature",
+  6015: "mint_allowlist_full",
+  6016: "destination_allowlist_full",
+  6017: "external_program_allowlist_full",
+  6018: "duplicate_allowlist_entry",
+  6019: "fee_vault_insufficient_sol",
+  6020: "invalid_treasury",
+  6021: "invalid_fee_treasury_mint",
+  6022: "duplicate_account_aliasing",
+};
+
+/**
+ * Extract a human-readable reason from a sendAndConfirmTransaction rejection.
+ * Checks `logs` for "Error Code: Name. Error Number: N" or "custom program error: 0xN",
+ * falling back to the raw message.
+ */
+function diagnoseTxError(err: any): { reason: string; anchorCode?: number; logs?: string[]; raw: string } {
+  const raw = err?.message || String(err);
+  const logs: string[] | undefined = err?.logs || err?.transactionLogs;
+
+  // Anchor emits "Error Code: FooBar. Error Number: 6004" in tx logs.
+  if (Array.isArray(logs)) {
+    for (const line of logs) {
+      const anchorMatch = /Error Number:\s*(\d+)/.exec(line);
+      if (anchorMatch) {
+        const code = Number(anchorMatch[1]);
+        const label = PAY_ANCHOR_ERRORS[code];
+        return { reason: label ?? `anchor_error_${code}`, anchorCode: code, logs, raw };
+      }
+    }
+  }
+
+  // Fallback: "custom program error: 0x1774"
+  const hexMatch = /custom program error:\s*0x([0-9a-fA-F]+)/.exec(raw);
+  if (hexMatch) {
+    const code = parseInt(hexMatch[1], 16);
+    const label = PAY_ANCHOR_ERRORS[code];
+    return { reason: label ?? `anchor_error_${code}`, anchorCode: code, logs, raw };
+  }
+
+  if (/timeout|expired|not confirmed/i.test(raw)) {
+    return { reason: "timeout", logs, raw };
+  }
+
+  return { reason: raw.slice(0, 180), logs, raw };
+}
 import {
   buildExecutePayExactIx,
   buildEnsureVaultTokenAccountIx,
@@ -329,9 +396,9 @@ export function agentRoutes(app: FastifyInstance, db: Db, config: Config) {
         error: null,
       };
     } catch (err: any) {
-      // Determine if this is a timeout (uncertain) vs definitive failure
-      const isTimeout = err.message?.includes('timeout') || err.message?.includes('expired');
-      const status = isTimeout ? 'pending_confirmation' : 'failed';
+      const diag = diagnoseTxError(err);
+      const isTimeout = diag.reason === "timeout";
+      const status = isTimeout ? "pending_confirmation" : "failed";
       await txService.updateRequestTx(req.id, "", status);
 
       // Release usage reservation on definitive failure
@@ -339,16 +406,28 @@ export function agentRoutes(app: FastifyInstance, db: Db, config: Config) {
         await txService.releaseUsage(vaultId, apiKey.id, amount);
       }
 
-      app.log.error({ err, requestId: req.id, vaultId }, "Pay transaction failed");
-      await txService.logActivity(vaultId, "payment", {
-        requestId: req.id, mint, amountAtomic, error: err.message,
+      app.log.error(
+        { err, requestId: req.id, vaultId, reason: diag.reason, anchorCode: diag.anchorCode, logs: diag.logs },
+        "Pay transaction failed",
+      );
+      // Use a distinct activity type so failed attempts don't masquerade as
+      // successful payments in the owner's activity feed.
+      await txService.logActivity(vaultId, "payment_failed", {
+        requestId: req.id, mint, amountAtomic,
+        reason: diag.reason,
+        anchorCode: diag.anchorCode,
+        error: diag.raw,
       }, undefined, req.id);
 
       return reply.status(500).send({
         requestId: req.id,
         txSignature: null,
         status,
-        error: isTimeout ? "Transaction confirmation timed out, status uncertain" : "Transaction failed",
+        reason: diag.reason,
+        anchorCode: diag.anchorCode,
+        error: isTimeout
+          ? "Transaction confirmation timed out, status uncertain"
+          : `Transaction failed: ${diag.reason}`,
       });
     }
   });
