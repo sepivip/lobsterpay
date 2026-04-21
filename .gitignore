@@ -46,3 +46,10 @@ coverage/
 # Claude Code session transcripts (may contain pasted secrets)
 claude-session.jsonl
 *.session.jsonl
+
+# Installed third-party CLI skills (not part of project source)
+.claude/skills/
+.agents/skills/
+skills/
+.continue/
+.windsurf/
