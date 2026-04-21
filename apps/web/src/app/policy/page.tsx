@@ -106,24 +106,32 @@ export default function PolicyPage() {
 	// undefined = don't change).
 	const [onChainLoaded, setOnChainLoaded] = useState(false);
 
-	// Populate from vault policy (scalar fields come from DB cache)
-	useEffect(() => {
-		if (vault?.policy) {
-			const p = vault.policy;
-			setAllowPay(p.allowPay ?? true);
-			setAllowSwap(p.allowSwap ?? true);
-			setAllowX402(p.allowX402 ?? false);
-			setMaxPerTx(p.maxPerTxUsdc != null ? String(p.maxPerTxUsdc) : "");
-			setDailyLimit(p.dailyLimitUsdc != null ? String(p.dailyLimitUsdc) : "");
-			setMaxSlippage(p.maxSlippageBps != null ? String(p.maxSlippageBps) : "");
-			setAuthorizedAgent(p.authorizedAgent ?? "");
-		}
-	}, [vault?.policy]);
+	// USDC has 6 decimals — 1 USDC = 1_000_000 atomic units. All user-facing
+	// spending-limit inputs are in USDC; convert to/from atomic at the
+	// save/load boundary so users never see "atomic units" in the UI.
+	const USDC_DECIMALS = 6;
+	const atomicToUsdc = (atomic: bigint | number | string): string => {
+		const b = typeof atomic === "bigint" ? atomic : BigInt(atomic);
+		if (b === 0n) return "";
+		const divisor = 10n ** BigInt(USDC_DECIMALS);
+		const whole = b / divisor;
+		const frac = b % divisor;
+		if (frac === 0n) return whole.toString();
+		const fracStr = frac.toString().padStart(USDC_DECIMALS, "0").replace(/0+$/, "");
+		return `${whole}.${fracStr}`;
+	};
+	const usdcToAtomic = (usdc: string): bigint => {
+		if (!usdc.trim()) return 0n;
+		const [whole = "0", frac = ""] = usdc.trim().split(".");
+		const fracPadded = (frac + "0".repeat(USDC_DECIMALS)).slice(0, USDC_DECIMALS);
+		return BigInt(whole) * 10n ** BigInt(USDC_DECIMALS) + BigInt(fracPadded || "0");
+	};
 
-	// Allowlists live ONLY on-chain (not cached in DB). Fetch them directly
-	// from the Policy account so users can see and revoke current entries.
-	// Also refreshes current paused state + authorized_agent from chain so the
-	// page reflects reality even if the DB cache is stale.
+	// Read everything from on-chain Policy account — source of truth. Populates
+	// both the scalar limits (converted atomic→USDC, bps→%) and the allowlists.
+	// DB cache for scalars is secondary; we skip the old vault.policy useEffect
+	// entirely since it was reading fields the API never returned anyway
+	// (maxPerTxUsdc etc don't exist in the backend response).
 	useEffect(() => {
 		if (!publicKey || !vault?.vault_pda) return;
 		let cancelled = false;
@@ -133,9 +141,18 @@ export default function PolicyPage() {
 				const [policyPda] = derivePolicyPda(new PublicKey(vault.vault_pda));
 				const onChain = await readPolicyOnChain(connection, policyPda);
 				if (!onChain || cancelled) return;
+				// Scalars
+				setAllowPay((onChain.allowedActions & 2) !== 0);
+				setAllowSwap((onChain.allowedActions & 1) !== 0);
+				setAllowX402((onChain.allowedActions & 4) !== 0);
+				setMaxPerTx(atomicToUsdc(onChain.maxPerTxAmountAtomic));
+				setDailyLimit(atomicToUsdc(onChain.dailyLimitAmountAtomic));
+				// Slippage: bps → % (100 bps = 1%)
+				setMaxSlippage(onChain.maxSlippageBps === 0 ? "" : String(onChain.maxSlippageBps / 100));
+				// Allowlists
 				setAllowedMints(onChain.allowedMints.map((k) => k.toBase58()).join("\n"));
 				setAllowedDestinations(onChain.allowedDestinations.map((k) => k.toBase58()).join("\n"));
-				// Also override authorized_agent from chain (source of truth)
+				// Authorized agent (source of truth)
 				setAuthorizedAgent(onChain.authorizedAgent.toBase58());
 				setOnChainLoaded(true);
 			} catch (err) {
@@ -181,7 +198,16 @@ export default function PolicyPage() {
 					? destsArr.map((d) => new PublicKey(d))
 					: undefined;
 
-			// Build and sign onchain transaction
+			// Build and sign onchain transaction — convert user-facing units
+			// (USDC for amounts, % for slippage) to on-chain units (atomic
+			// for amounts, bps for slippage). maxPerTx/dailyLimit=0 means
+			// "no limit" on-chain; only send if the user typed something.
+			const maxPerTxAtomic = maxPerTx.trim() ? usdcToAtomic(maxPerTx) : undefined;
+			const dailyLimitAtomic = dailyLimit.trim() ? usdcToAtomic(dailyLimit) : undefined;
+			const maxSlippageBpsVal = maxSlippage.trim()
+				? Math.round(Number(maxSlippage) * 100)
+				: undefined;
+
 			const { transaction } = await buildUpdatePolicyTx(
 				publicKey,
 				vaultPda,
@@ -189,9 +215,9 @@ export default function PolicyPage() {
 				connection,
 				{
 					allowedActions,
-					maxPerTxAmountAtomic: maxPerTx ? BigInt(maxPerTx) : undefined,
-					dailyLimitAmountAtomic: dailyLimit ? BigInt(dailyLimit) : undefined,
-					maxSlippageBps: maxSlippage ? Number(maxSlippage) : undefined,
+					maxPerTxAmountAtomic: maxPerTxAtomic,
+					dailyLimitAmountAtomic: dailyLimitAtomic,
+					maxSlippageBps: maxSlippageBpsVal,
 					allowedMints: mintsParam,
 					allowedDestinations: destsParam,
 				}
@@ -229,9 +255,10 @@ export default function PolicyPage() {
 				allowPay,
 				allowSwap,
 				allowX402,
-				maxPerTxUsdc: maxPerTx ? Number(maxPerTx) : undefined,
-				dailyLimitUsdc: dailyLimit ? Number(dailyLimit) : undefined,
-				maxSlippageBps: maxSlippage ? Number(maxSlippage) : undefined,
+				allowedActions,
+				maxPerTxAmountAtomic: maxPerTxAtomic?.toString(),
+				dailyLimitAmountAtomic: dailyLimitAtomic?.toString(),
+				maxSlippageBps: maxSlippageBpsVal,
 				allowedMints: mintsArr.length > 0 ? mintsArr : undefined,
 				allowedDestinations: destsArr.length > 0 ? destsArr : undefined,
 				authorizedAgent: agentUpdated ? trimmedAgent : undefined,
@@ -410,27 +437,31 @@ export default function PolicyPage() {
 									<div className="flex flex-col gap-4">
 										<FieldRow
 											label="Max Per Transaction"
-											mono="Atomic Units"
-											placeholder="1000000"
+											mono="per payment"
+											placeholder="e.g. 1 or 0.5"
 											suffix="USDC"
 											value={maxPerTx}
 											onChange={setMaxPerTx}
 										/>
 										<FieldRow
 											label="Daily Limit"
-											mono="Atomic Units"
-											placeholder="10000000"
+											mono="rolling 24h"
+											placeholder="e.g. 10 or 50"
 											suffix="USDC"
 											value={dailyLimit}
 											onChange={setDailyLimit}
 										/>
 										<FieldRow
 											label="Max Slippage"
-											placeholder="100"
-											suffix="BPS"
+											mono="percent"
+											placeholder="e.g. 1 or 0.5"
+											suffix="%"
 											value={maxSlippage}
 											onChange={setMaxSlippage}
 										/>
+										<div className="text-sm text-tertiary" style={{ marginTop: -4, lineHeight: 1.5 }}>
+											Leave a field empty to disable that limit (no cap). Values shown are live from on-chain — edit and save to update.
+										</div>
 									</div>
 								</div>
 
