@@ -1,3 +1,17 @@
+---
+name: lobsterpay
+description: Permissioned payment layer for AI agents on Solana. Make payments, swaps, and x402 purchases through a policy-controlled vault — no private keys needed.
+version: "{SKILL_VERSION}"
+metadata:
+  openclaw:
+    requires:
+      env:
+        - LOBSTERPAY_API_KEY
+    primaryEnv: LOBSTERPAY_API_KEY
+    homepage: https://github.com/sepivip/lobsterpay
+    emoji: "🦞"
+---
+
 # LobsterPay Agent Instructions
 
 <!-- Skill version {SKILL_VERSION} · updated {SKILL_UPDATED} · check {LOBSTERPAY_API_URL}/v1/skills/version for updates -->
