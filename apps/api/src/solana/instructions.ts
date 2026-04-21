@@ -376,10 +376,14 @@ export function buildExecutePayExactIx(args: {
 
   return new TransactionInstruction({
     keys: [
-      { pubkey: args.authority, isSigner: true, isWritable: false },
+      // authority is marked #[account(mut)] in the program — it receives
+      // reimbursement lamports from fee_vault, so must be writable.
+      { pubkey: args.authority, isSigner: true, isWritable: true },
       { pubkey: args.vault, isSigner: false, isWritable: false },
       { pubkey: args.policy, isSigner: false, isWritable: true },
-      { pubkey: args.feeVault, isSigner: false, isWritable: false },
+      // fee_vault is #[account(mut)] — lamports are debited to reimburse
+      // the authority. Must be writable.
+      { pubkey: args.feeVault, isSigner: false, isWritable: true },
       { pubkey: args.mint, isSigner: false, isWritable: false },
       { pubkey: args.vaultTokenAccount, isSigner: false, isWritable: true },
       { pubkey: args.destinationTokenAccount, isSigner: false, isWritable: true },
