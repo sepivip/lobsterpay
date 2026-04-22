@@ -4,6 +4,15 @@ import { useWallet } from "@solana/wallet-adapter-react";
 import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
 import Image from "next/image";
 import Link from "next/link";
+import { HowItWorks } from "@/components/landing/how-it-works";
+import { TerminalDemo } from "@/components/landing/terminal-demo";
+import { WorksWith } from "@/components/landing/works-with";
+import { UseCases } from "@/components/landing/use-cases";
+import { SecurityPillars } from "@/components/landing/security-pillars";
+import { DevQuickstart } from "@/components/landing/dev-quickstart";
+import { Pricing } from "@/components/landing/pricing";
+import { FAQ } from "@/components/landing/faq";
+import { SiteFooter } from "@/components/landing/site-footer";
 
 export default function Home() {
 	const { connected } = useWallet();
@@ -12,7 +21,7 @@ export default function Home() {
 		<main className="hero-gradient flex flex-col" style={{ minHeight: "100vh" }}>
 			{/* Top bar — logo always links home; wallet button always present so
 				users can disconnect or switch wallets. */}
-			<header className="flex items-center justify-between" style={{ padding: "20px 32px" }}>
+			<header className="landing-topbar">
 				<Link href="/" aria-label="LobsterPay home" style={{ display: "inline-flex", alignItems: "center" }}>
 					<Image
 						src="/logo-wordmark.svg"
@@ -23,6 +32,11 @@ export default function Home() {
 						style={{ height: 28, width: "auto" }}
 					/>
 				</Link>
+				<nav className="landing-topbar-nav">
+					<a href="#how-it-works" className="landing-topbar-link">How it works</a>
+					<a href="#quickstart" className="landing-topbar-link">Quickstart</a>
+					<a href="#faq" className="landing-topbar-link">FAQ</a>
+				</nav>
 				<div className="flex items-center gap-3">
 					{connected && (
 						<Link href="/dashboard" className="btn btn-primary btn-sm">
@@ -55,21 +69,10 @@ export default function Home() {
 					<span className="text-accent">not seed phrases.</span>
 				</h1>
 
-				<p
-					className="animate-in animate-delay-2"
-					style={{
-						fontSize: "1.125rem",
-						fontWeight: 350,
-						letterSpacing: "-0.01em",
-						lineHeight: 1.6,
-						color: "var(--text-secondary)",
-						maxWidth: 560,
-						marginBottom: 40,
-					}}
-				>
-					Program-controlled vaults on Solana. Issue API keys with granular
-					permissions. AI agents spend within approved limits — your private
-					keys never leave your wallet.
+				<p className="animate-in animate-delay-2 hero-sub">
+					A permissioned payment layer for AI agents on Solana. Issue API keys
+					scoped to a program-controlled vault — agents pay for services,
+					x402-gated APIs, and swaps, without ever holding a private key.
 				</p>
 
 				<div className="animate-in animate-delay-3 flex gap-3 items-center">
@@ -80,6 +83,9 @@ export default function Home() {
 					) : (
 						<WalletMultiButton />
 					)}
+					<a href="#quickstart" className="btn btn-secondary">
+						View Quickstart
+					</a>
 				</div>
 
 				{/* Feature pills — 3 × 2 grid so every row has equal weight. */}
@@ -99,12 +105,33 @@ export default function Home() {
 				</div>
 			</div>
 
-			{/* Bottom tagline */}
-			<footer className="animate-in animate-delay-5 text-center" style={{ padding: "24px 32px" }}>
-				<span className="label-mono">
-					Built on Solana &middot; Anchor &middot; Open Source
-				</span>
-			</footer>
+			{/* Live terminal demo — shows what an agent call actually looks like */}
+			<section className="landing-section landing-section-flush">
+				<div className="landing-section-inner">
+					<div className="landing-section-head">
+						<span className="label-mono">LIVE · DEVNET</span>
+						<h2 className="landing-section-title">
+							A real agent call, live on devnet
+						</h2>
+						<p className="landing-section-blurb">
+							Every LobsterPay endpoint returns JSON. Agents use Bearer auth, the server
+							enforces your policy, and the response tells them exactly what happened —
+							on-chain signature, net amount, service fee.
+						</p>
+					</div>
+					<TerminalDemo />
+				</div>
+			</section>
+
+			<HowItWorks />
+			<WorksWith />
+			<UseCases />
+			<SecurityPillars />
+			<DevQuickstart />
+			<Pricing />
+			<FAQ />
+
+			<SiteFooter />
 		</main>
 	);
 }
