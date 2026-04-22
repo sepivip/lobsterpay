@@ -7,7 +7,7 @@ const SCRIPT = [
 	{
 		type: "cmd",
 		text:
-			"curl -H \"Authorization: Bearer lp_live_xxx\" \\\n  https://lobsterpayapi-production.up.railway.app/v1/agent/vault",
+			"curl -H \"Authorization: Bearer lp_live_xxx\" \\\n  https://api.lobsterpay.xyz/v1/agent/vault",
 	},
 	{
 		type: "resp",
@@ -29,7 +29,7 @@ const SCRIPT = [
 	{
 		type: "cmd",
 		text:
-			"curl -X POST -H \"Authorization: Bearer lp_live_xxx\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\"mint\":\"EPjFWdd…\",\"amountAtomic\":\"100000\",\"destinationOwner\":\"ByPC…Nkxa\"}' \\\n  https://lobsterpayapi-production.up.railway.app/v1/agent/actions/pay",
+			"curl -X POST -H \"Authorization: Bearer lp_live_xxx\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\"mint\":\"EPjFWdd…\",\"amountAtomic\":\"100000\",\"destinationOwner\":\"ByPC…Nkxa\"}' \\\n  https://api.lobsterpay.xyz/v1/agent/actions/pay",
 	},
 	{
 		type: "resp",
