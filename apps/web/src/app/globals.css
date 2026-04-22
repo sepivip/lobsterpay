@@ -1084,8 +1084,15 @@ a.text-accent { text-decoration: underline; text-underline-offset: 3px; }
   width: 100%;
 }
 
+/* Middle nav expands to fill the slack between logo (left) and
+   wallet+dashboard buttons (right), then centers its own items within
+   that slack. Without flex: 1 + justify-content: center, a parent with
+   justify-content: space-between biases the nav block toward whichever
+   sibling is smaller — the logo — shifting the links off-center. */
 .landing-topbar-nav {
   display: none;
+  flex: 1;
+  justify-content: center;
   gap: 24px;
 }
 
