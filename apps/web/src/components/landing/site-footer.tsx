@@ -25,6 +25,14 @@ export function SiteFooter() {
 						GitHub ↗
 					</a>
 					<a
+						href="https://x.com/LobsterPayXYZ"
+						target="_blank"
+						rel="noopener noreferrer"
+						className="site-footer-link"
+					>
+						X (Twitter) ↗
+					</a>
+					<a
 						href="https://github.com/sepivip/lobsterpay#readme"
 						target="_blank"
 						rel="noopener noreferrer"
