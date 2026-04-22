@@ -1,7 +1,12 @@
 {
-  "version": "0.3.3",
-  "updated": "2026-04-21",
+  "version": "0.3.4",
+  "updated": "2026-04-22",
   "changelog": [
+    {
+      "version": "0.3.4",
+      "date": "2026-04-22",
+      "notes": "pay_x402 is now fully on-chain. Previous versions only recorded x402 payment intents — the actual SPL transfer never submitted, so upstream API providers never got paid. The service now builds + submits an execute_pay_exact tx mirroring make_payment (pre-creates destination + treasury ATAs, enforces the policy on-chain, collects the 1.5% service fee, reimburses relayer gas from the vault's fee_vault PDA). Response shape gained xPaymentHeader — a base64-encoded JSON proof the agent SHOULD set as the X-PAYMENT header when retrying the original paywalled URL so the upstream API releases the content. Also added pending_confirmation status for tx-timeout cases (previously only confirmed/failed/duplicate)."
+    },
     {
       "version": "0.3.3",
       "date": "2026-04-21",
