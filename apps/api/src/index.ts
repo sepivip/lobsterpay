@@ -7,6 +7,7 @@ import { vaultRoutes } from "./routes/vaults.js";
 import { agentRoutes } from "./routes/agent.js";
 import { skillRoutes } from "./routes/skills.js";
 import { configRoutes } from "./routes/config.js";
+import { demoRoutes } from "./routes/demo.js";
 
 async function main() {
   const config = loadConfig();
@@ -31,6 +32,7 @@ async function main() {
   agentRoutes(app, db, config);
   skillRoutes(app, config);
   configRoutes(app, txService, config);
+  demoRoutes(app, config);
 
   await app.listen({ port: config.API_PORT, host: config.API_HOST });
   console.log(`LobsterPay API running on ${config.API_HOST}:${config.API_PORT}`);
