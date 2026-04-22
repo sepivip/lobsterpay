@@ -159,7 +159,7 @@
     },
     {
       "name": "pay_x402",
-      "description": "Pay a 402-gated HTTP endpoint. When you receive a 402 Payment Required response, extract the payment requirements and pass them here. LobsterPay validates against vault policy and executes the payment.",
+      "description": "Pay a 402-gated HTTP endpoint. When you get a 402 Payment Required, pass the paymentRequirements here; we validate against vault policy, settle the SPL transfer on-chain, and return a Solana tx signature plus an xPaymentHeader you can attach to the retry against originalRequestUrl so the upstream API releases the content.",
       "method": "POST",
       "path": "/v1/agent/actions/x402",
       "parameters": [
@@ -167,13 +167,13 @@
           "name": "paymentRequirements",
           "type": "object",
           "required": true,
-          "description": "Payment requirements from the 402 response. Must include: scheme ('exact'), network ('solana'), asset (mint address), amount (atomic units), recipient (destination address). Optional: paymentId for dedup."
+          "description": "Payment requirements from the 402 response. Must include: scheme ('exact'), network ('solana'), asset (mint address), amount (atomic units), recipient (destination wallet). Optional: paymentId for upstream dedup, expiresAt as an ISO string."
         },
         {
           "name": "originalRequestUrl",
           "type": "string",
           "required": true,
-          "description": "The URL that returned the 402 response"
+          "description": "The URL that returned the 402 response. Used for domain-based policy checks + audit trail."
         },
         {
           "name": "idempotencyKey",
@@ -184,11 +184,21 @@
       ],
       "response": {
         "requestId": "Internal request tracking ID",
-        "txSignature": "Solana transaction signature",
-        "status": "confirmed | failed | duplicate",
-        "paymentId": "Payment identifier for verification",
+        "txSignature": "Solana transaction signature (null until tx confirms)",
+        "status": "confirmed | failed | duplicate | pending_confirmation",
+        "paymentId": "The upstream paymentId if the 402 included one",
+        "xPaymentHeader": "Base64-encoded JSON proof the agent SHOULD set as the X-PAYMENT header when retrying originalRequestUrl. Shape: { scheme, network, txSignature, amount, asset, recipient, paymentId }.",
+        "grossAmount": "Amount paid in atomic units (same as paymentRequirements.amount)",
+        "netAmount": "Amount the recipient actually received (gross minus the 1.5% service fee, enforced on-chain)",
+        "serviceFee": "1.5% service fee in atomic units, routed to the LobsterPay treasury",
         "error": "Error message if failed"
-      }
+      },
+      "x402_retry_flow": [
+        "1. Agent GETs the paywalled URL, gets a 402 with paymentRequirements in the body.",
+        "2. Agent calls pay_x402 with { paymentRequirements, originalRequestUrl }.",
+        "3. On status: confirmed, agent retries the original URL with header 'X-PAYMENT: <xPaymentHeader>'.",
+        "4. Upstream API verifies the Solana tx, returns 200 + content."
+      ]
     }
   ],
   "common_mints": {
