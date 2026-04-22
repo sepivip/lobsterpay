@@ -629,10 +629,32 @@ export function agentRoutes(app: FastifyInstance, db: Db, config: Config) {
       vaultPda: vault.vault_pda,
     });
 
-    if (result.error) {
-      return reply.status(result.status === "duplicate" ? 409 : 403).send(result);
-    }
+    // Status mapping:
+    //  confirmed              → 200 (on-chain tx landed, agent has xPaymentHeader)
+    //  pending_confirmation   → 202 (tx submitted, confirmation timed out)
+    //  duplicate              → 409 (payment_id or concurrent retry)
+    //  failed (policy reject) → 403 (paused, over-limit, action disallowed)
+    //  failed (tx / infra)    → 500
+    if (result.status === "confirmed") return reply.status(200).send(result);
+    if (result.status === "pending_confirmation") return reply.status(202).send(result);
+    if (result.status === "duplicate") return reply.status(409).send(result);
 
-    return result;
+    // Treat a failure as a policy rejection if the reason is one of our
+    // known offchain-rejection slugs; otherwise it's an on-chain / infra
+    // error and should surface as 500.
+    const rejectionSlugs = [
+      "Vault is paused",
+      "x402 action not allowed",
+      "Amount exceeds per-tx limit",
+      "Amount exceeds daily limit",
+      "Insufficient vault balance",
+      "Fee payer not configured",
+      "Invalid originalRequestUrl",
+    ];
+    const err = String(result.error ?? "");
+    const isPolicyReject = rejectionSlugs.some((slug) => err.startsWith(slug)) ||
+      err.startsWith("Invalid payment requirements") ||
+      err.startsWith("Fee vault below minimum balance");
+    return reply.status(isPolicyReject ? 403 : 500).send(result);
   });
 }
