@@ -1,257 +1,348 @@
-# Design System Inspired by xAI
+---
+version: alpha
+name: LobsterPay
+description: Dark-first brutalist minimalism — monospace display + TASA Orbiter body on a warm near-black canvas. Inspired by x.ai.
 
-## 1. Visual Theme & Atmosphere
+# ── Colors ─────────────────────────────────────────────────────────────
+# Tokens expose the SOLID base palette only. Opacity-based hierarchy
+# (text/border/surface steps, hover dims) is implemented at runtime via
+# rgba() in src/app/globals.css — see the prose Colors section below for
+# the exact opacity ladder. The alpha-spec linter only accepts 6-digit
+# hex, so any attempt to tokenize rgba values fails validation.
+colors:
+  background: "#1f2228"
+  primary: "#ffffff"            # text + accent; every white foreground
+  success: "#34d399"
+  warning: "#fbbf24"
+  danger: "#f87171"
+  focus-ring: "#3b82f6"         # rendered at 50% alpha by CSS
 
-xAI's website is a masterclass in dark-first, monospace-driven brutalist minimalism -- a design system that feels like it was built by engineers who understand that restraint is the ultimate form of sophistication. The entire experience is anchored to an almost-black background (`#1f2228`) with pure white text (`#ffffff`), creating a high-contrast, terminal-inspired aesthetic that signals deep technical credibility. There are no gradients, no decorative illustrations, no color accents competing for attention. This is a site that communicates through absence.
+# ── Typography ─────────────────────────────────────────────────────────
+# Two roles with zero overlap:
+#   mono = GeistMono → display, buttons, monospace labels, tx signatures
+#   sans = TASA Orbiter → body, headings, forms, descriptions
+typography:
+  display-hero:
+    fontFamily: GeistMono
+    fontSize: 20rem
+    fontWeight: 300
+    lineHeight: 1.5
+  section-heading:
+    fontFamily: TASA Orbiter
+    fontSize: 1.875rem
+    fontWeight: 400
+    lineHeight: 1.2
+  body:
+    fontFamily: TASA Orbiter
+    fontSize: 1rem
+    fontWeight: 400
+    lineHeight: 1.5
+  label:
+    fontFamily: TASA Orbiter
+    fontSize: 0.875rem
+    fontWeight: 400
+    lineHeight: 1.5
+  small:
+    fontFamily: TASA Orbiter
+    fontSize: 0.75rem
+    fontWeight: 400
+    lineHeight: 1.5
+  button:
+    fontFamily: GeistMono
+    fontSize: 0.875rem
+    fontWeight: 400
+    lineHeight: 1.43
+    letterSpacing: 0.09em
+  button-sm:
+    fontFamily: GeistMono
+    fontSize: 0.75rem
+    fontWeight: 400
+    lineHeight: 1.43
+    letterSpacing: 0.09em
+  label-mono:
+    fontFamily: GeistMono
+    fontSize: 0.625rem
+    fontWeight: 400
+    lineHeight: 1.5
+    letterSpacing: 0.08em
 
-The typographic system is split between two carefully chosen typefaces. `GeistMono` (Vercel's monospace font) handles display-level headlines at an extraordinary 320px with weight 300, and also serves as the button typeface in uppercase with tracked-out letter-spacing (1.4px). `universalSans` handles all body and secondary heading text with a clean, geometric sans-serif voice. The monospace-as-display-font choice is the defining aesthetic decision -- it positions xAI not as a consumer product but as infrastructure, as something built by people who live in terminals.
+# ── Rounded (radius scale) ─────────────────────────────────────────────
+# Sharp corners are the brand. 0px everywhere; `subtle` at 4px is an
+# escape hatch for rare secondary containers.
+rounded:
+  sharp: 0px
+  sm: 0px
+  md: 0px
+  lg: 0px
+  subtle: 4px
 
-The spacing system operates on an 8px base grid with values concentrated at the small end (4px, 8px, 24px, 48px), reflecting a dense, information-focused layout philosophy. Border radius is minimal -- the site barely rounds anything, maintaining sharp, architectural edges. There are no decorative shadows, no gradients, no layered elevation. Depth is communicated purely through contrast and whitespace.
+# ── Spacing (8px grid, sparse scale) ───────────────────────────────────
+spacing:
+  xs: 4px
+  sm: 8px
+  md: 16px
+  lg: 24px
+  xl: 48px
+  xxl: 96px
 
-**Key Characteristics:**
-- Pure dark theme: `#1f2228` background with `#ffffff` text -- no gray middle ground
-- GeistMono at extreme display sizes (320px, weight 300) -- monospace as luxury
-- Uppercase monospace buttons with 1.4px letter-spacing -- technical, commanding
-- universalSans for body text at 16px/1.5 and headings at 30px/1.2 -- clean contrast
-- Zero decorative elements: no shadows, no gradients, no colored accents
-- 8px spacing grid with a sparse, deliberate scale
-- Heroicons SVG icon system -- minimal, functional
-- Tailwind CSS with arbitrary values -- utility-first engineering approach
+# ── Components ─────────────────────────────────────────────────────────
+# Each variant (hover, ghost, danger, sm) is a separate entry. Hover
+# states that only differ by opacity are omitted from the tokens — see
+# the CSS for the runtime dim values (documented in the prose below).
+components:
+  button-primary:
+    backgroundColor: "{colors.primary}"
+    textColor: "{colors.background}"
+    typography: "{typography.button}"
+    rounded: "{rounded.sharp}"
+    padding: 12px 24px
+  button-primary-sm:
+    backgroundColor: "{colors.primary}"
+    textColor: "{colors.background}"
+    typography: "{typography.button-sm}"
+    rounded: "{rounded.sharp}"
+    padding: 8px 16px
 
-## 2. Color Palette & Roles
+  button-secondary:
+    backgroundColor: "transparent"
+    textColor: "{colors.primary}"
+    typography: "{typography.button}"
+    rounded: "{rounded.sharp}"
+    padding: 12px 24px
 
-### Primary
-- **Pure White** (`#ffffff`): The singular text color, link color, and all foreground elements. In xAI's system, white is not a background -- it is the voice.
-- **Dark Background** (`#1f2228`): The canvas. A warm near-black with a subtle blue undertone (not pure black, not neutral gray). This specific hue prevents the harsh eye strain of `#000000` while maintaining deep darkness.
+  button-ghost:
+    backgroundColor: "transparent"
+    textColor: "{colors.primary}"
+    typography: "{typography.button}"
+    rounded: "{rounded.sharp}"
+    padding: 12px 24px
 
-### Interactive
-- **White Default** (`#ffffff`): Link and interactive element color in default state.
-- **White Muted** (`rgba(255, 255, 255, 0.5)`): Hover state for links -- a deliberate dimming rather than brightening, which is unusual and distinctive.
-- **White Subtle** (`rgba(255, 255, 255, 0.2)`): Borders, dividers, and subtle surface treatments.
-- **Ring Blue** (`rgb(59, 130, 246) / 0.5`): Tailwind's default focus ring color (`--tw-ring-color`), used for keyboard accessibility focus states.
+  button-danger:
+    backgroundColor: "{colors.danger}"
+    textColor: "{colors.danger}"
+    typography: "{typography.button}"
+    rounded: "{rounded.sharp}"
+    padding: 12px 24px
 
-### Surface & Borders
-- **Surface Elevated** (`rgba(255, 255, 255, 0.05)`): Subtle card backgrounds and hover surfaces -- barely visible lift.
-- **Surface Hover** (`rgba(255, 255, 255, 0.08)`): Slightly more visible hover state for interactive containers.
-- **Border Default** (`rgba(255, 255, 255, 0.1)`): Standard border for cards, dividers, and containers.
-- **Border Strong** (`rgba(255, 255, 255, 0.2)`): Emphasized borders for active states and button outlines.
+  link:
+    textColor: "{colors.primary}"
+    typography: "{typography.body}"
 
-### Functional
-- **Text Primary** (`#ffffff`): All headings, body text, labels.
-- **Text Secondary** (`rgba(255, 255, 255, 0.7)`): Descriptions, captions, supporting text.
-- **Text Tertiary** (`rgba(255, 255, 255, 0.5)`): Muted labels, placeholder text, timestamps.
-- **Text Quaternary** (`rgba(255, 255, 255, 0.3)`): Disabled text, very subtle annotations.
+  card:
+    backgroundColor: "{colors.background}"
+    rounded: "{rounded.sharp}"
+    padding: 24px
 
-## 3. Typography Rules
+  input:
+    backgroundColor: "transparent"
+    textColor: "{colors.primary}"
+    typography: "{typography.body}"
+    rounded: "{rounded.sharp}"
+    padding: 8px 12px
 
-### Font Family
-- **Display / Buttons**: `GeistMono`, with fallback: `ui-monospace, SFMono-Regular, Roboto Mono, Menlo, Monaco, Liberation Mono, DejaVu Sans Mono, Courier New`
-- **Body / Headings**: `universalSans`, with fallback: `universalSans Fallback`
+  badge:
+    backgroundColor: "transparent"
+    textColor: "{colors.primary}"
+    typography: "{typography.small}"
+    rounded: "{rounded.sharp}"
+    padding: 4px 8px
 
-### Hierarchy
+  # Status badges used in activity feed, payment states, form banners.
+  # The CSS adds a 10%-alpha fill of the status color behind the solid
+  # text color — that can't be expressed in the token schema, so the
+  # background is left transparent at the token layer.
+  badge-success:
+    backgroundColor: "transparent"
+    textColor: "{colors.success}"
+    typography: "{typography.label-mono}"
+    rounded: "{rounded.sharp}"
+    padding: 3px 8px
+  badge-warning:
+    backgroundColor: "transparent"
+    textColor: "{colors.warning}"
+    typography: "{typography.label-mono}"
+    rounded: "{rounded.sharp}"
+    padding: 3px 8px
+  badge-danger:
+    backgroundColor: "transparent"
+    textColor: "{colors.danger}"
+    typography: "{typography.label-mono}"
+    rounded: "{rounded.sharp}"
+    padding: 3px 8px
 
-| Role | Font | Size | Weight | Line Height | Letter Spacing | Transform | Notes |
-|------|------|------|--------|-------------|----------------|-----------|-------|
-| Display Hero | GeistMono | 320px (20rem) | 300 | 1.50 | normal | none | Extreme scale, monospace luxury |
-| Section Heading | universalSans | 30px (1.88rem) | 400 | 1.20 (tight) | normal | none | Clean sans-serif contrast |
-| Body | universalSans | 16px (1rem) | 400 | 1.50 | normal | none | Standard reading text |
-| Button | GeistMono | 14px (0.88rem) | 400 | 1.43 | 1.4px | uppercase | Tracked monospace, commanding |
-| Label / Caption | universalSans | 14px (0.88rem) | 400 | 1.50 | normal | none | Supporting text |
-| Small / Meta | universalSans | 12px (0.75rem) | 400 | 1.50 | normal | none | Timestamps, footnotes |
+  nav:
+    backgroundColor: "{colors.background}"
+    height: 56px
 
-### Principles
-- **Monospace as display**: GeistMono at 320px is not a gimmick -- it is the brand statement. The fixed-width characters at extreme scale create a rhythmic, architectural quality that no proportional font can achieve.
-- **Light weight at scale**: Weight 300 for the 320px headline prevents the monospace from feeling heavy or brutish at extreme sizes. It reads as precise, not overwhelming.
-- **Uppercase buttons**: All button text is uppercase GeistMono with 1.4px letter-spacing. This creates a distinctly technical, almost command-line aesthetic for interactive elements.
-- **Sans-serif for reading**: universalSans at 16px/1.5 provides excellent readability for body content, creating a clean contrast against the monospace display elements.
-- **Two-font clarity**: The system uses exactly two typefaces with clear roles -- monospace for impact and interaction, sans-serif for information and reading. No overlap, no ambiguity.
+  # Focus ring spec — applied globally to :focus-visible in CSS, not to
+  # a specific element. Lives here so the focus-ring color is referenced.
+  focus-indicator:
+    backgroundColor: "transparent"
+    textColor: "{colors.focus-ring}"
+    rounded: "{rounded.sharp}"
+---
 
-## 4. Component Stylings
+# LobsterPay Design System
 
-### Buttons
+> Format: [google-labs-code/design.md](https://github.com/google-labs-code/design.md) (YAML tokens + prose).
+> Lint: `node node_modules/@google/design.md/dist/index.js lint apps/web/DESIGN.md` (the CLI's stdout streams through the Windows `npx` wrapper silently; invoking via node works everywhere).
+>
+> The YAML frontmatter is authoritative for solid colors, typography,
+> and component box-model. The **opacity ladder** (text hierarchy,
+> borders, surfaces, hover dims) is intentionally outside the token
+> layer — the alpha-spec linter rejects 8-digit hex / rgba, and alpha
+> steps for white text don't blend cleanly to solid hex because text
+> lives over varied surfaces. Opacity values are documented below and
+> implemented in [`src/app/globals.css`](src/app/globals.css).
+>
+> When a token value here conflicts with the CSS, the CSS is the bug.
 
-**Primary (White on Dark)**
-- Background: `#ffffff`
-- Text: `#1f2228`
-- Padding: 12px 24px
-- Radius: 0px (sharp corners)
-- Font: GeistMono 14px weight 400, uppercase, letter-spacing 1.4px
-- Hover: `rgba(255, 255, 255, 0.9)` background
-- Use: Primary CTA ("TRY GROK", "GET STARTED")
+## Overview
 
-**Ghost / Outlined**
-- Background: transparent
-- Text: `#ffffff`
-- Padding: 12px 24px
-- Radius: 0px
-- Border: `1px solid rgba(255, 255, 255, 0.2)`
-- Font: GeistMono 14px weight 400, uppercase, letter-spacing 1.4px
-- Hover: `rgba(255, 255, 255, 0.05)` background
-- Use: Secondary actions ("LEARN MORE", "VIEW API")
+Dark-first, monospace-driven brutalist minimalism. Inspired by x.ai.
+The site anchors to a warm near-black (`#1f2228`) with pure white text.
+No gradients, no decorative illustrations, no chromatic brand color.
+Restraint is the point.
 
-**Text Link**
-- Background: none
-- Text: `#ffffff`
-- Font: universalSans 16px weight 400
-- Hover: `rgba(255, 255, 255, 0.5)` -- dims on hover
-- Use: Inline links, navigation items
+**Two typefaces.** Zero role overlap.
 
-### Cards & Containers
-- Background: `rgba(255, 255, 255, 0.03)` or transparent
-- Border: `1px solid rgba(255, 255, 255, 0.1)`
-- Radius: 0px (sharp) or 4px (subtle)
-- Shadow: none -- xAI does not use box shadows
-- Hover: border shifts to `rgba(255, 255, 255, 0.2)`
+- **GeistMono** — display hero (weight 300, extreme scale), all button
+  text, monospace labels, tx signatures, timestamps, anything that
+  relies on fixed-width rhythm.
+- **TASA Orbiter** (variable sans, self-hosted via `next/font/local`) —
+  body, section headings, forms, descriptions.
 
-### Navigation
-- Dark background matching page (`#1f2228`)
-- Brand logotype: white text, left-aligned
-- Links: universalSans 14px weight 400, `#ffffff` text
-- Hover: `rgba(255, 255, 255, 0.5)` text color
-- CTA: white primary button, right-aligned
-- Mobile: hamburger toggle
+**Depth through opacity, not shadow.** There are no `box-shadow`
+elevations anywhere except the 2px blue focus ring (accessibility). Depth
+is layered through opacity-based borders (`12%` → `22%` on hover),
+surface opacity steps (`4%` → `8%`), and extreme type-scale contrast.
 
-### Badges / Tags
-**Monospace Tag**
-- Background: transparent
-- Text: `#ffffff`
-- Padding: 4px 8px
-- Border: `1px solid rgba(255, 255, 255, 0.2)`
-- Radius: 0px
-- Font: GeistMono 12px uppercase, letter-spacing 1px
+## Colors
 
-### Inputs & Forms
-- Background: transparent or `rgba(255, 255, 255, 0.05)`
-- Border: `1px solid rgba(255, 255, 255, 0.2)`
-- Radius: 0px
-- Focus: ring with `rgb(59, 130, 246) / 0.5`
-- Text: `#ffffff`
-- Placeholder: `rgba(255, 255, 255, 0.3)`
-- Label: `rgba(255, 255, 255, 0.7)`, universalSans 14px
+The token layer has six solid colors:
 
-## 5. Layout Principles
+| Token | Role |
+|---|---|
+| `background` `#1f2228` | Canvas, nav, card bodies |
+| `primary` `#ffffff` | Every white foreground + the accent |
+| `success` `#34d399` | Confirmed tx, healthy status |
+| `warning` `#fbbf24` | Pending, partial |
+| `danger` `#f87171` | Failed, revoked |
+| `focus-ring` `#3b82f6` | `:focus-visible` ring (rendered at 50% alpha) |
 
-### Spacing System
-- Base unit: 8px
-- Scale: 4px, 8px, 24px, 48px
-- The scale is deliberately sparse -- xAI avoids granular spacing distinctions, preferring large jumps that create clear visual hierarchy through whitespace alone
+**Opacity ladder** (NOT tokenized — implemented in globals.css):
 
-### Grid & Container
-- Max content width: approximately 1200px
-- Hero: full-viewport height with massive centered monospace headline
-- Feature sections: simple vertical stacking with generous section padding (48px-96px)
-- Two-column layouts for feature descriptions at desktop
-- Full-width dark sections maintain the single dark background throughout
+| Level | rgba value | CSS var | Used for |
+|---|---|---|---|
+| text primary | `#ffffff` 100% | `--text-primary` | Body, headings |
+| text secondary | `rgba(255,255,255,0.7)` | `--text-secondary` | Descriptions, caption |
+| text tertiary | `rgba(255,255,255,0.5)` | `--text-tertiary` | Placeholders, timestamps |
+| text ghost | `rgba(255,255,255,0.3)` | `--text-ghost` | Disabled, very muted |
+| border subtle | `rgba(255,255,255,0.12)` | `--border-subtle` | Cards, dividers |
+| border strong | `rgba(255,255,255,0.22)` | `--border-strong` | Active, hover emphasis |
+| surface subtle | `rgba(255,255,255,0.04)` | `--bg-raised` | Barely-visible lift |
+| surface card | `rgba(255,255,255,0.05)` | `--bg-card` | Card fills |
+| surface hover | `rgba(255,255,255,0.08)` | `--bg-card-hover` | Card hover |
+| status dim | status color @ ~10% | `--success-dim` etc. | Badge backgrounds |
+| accent hover | `rgba(255,255,255,0.9)` | `--accent-hover` | Primary button hover |
 
-### Whitespace Philosophy
-- **Extreme generosity**: xAI uses vast amounts of whitespace. The 320px headline with 48px+ surrounding padding creates a sense of emptiness that is itself a design statement -- the content is so important it needs room to breathe.
-- **Vertical rhythm over horizontal density**: Content stacks vertically with large gaps between sections rather than packing horizontally. This creates a scroll-driven experience that feels deliberate and cinematic.
-- **No visual noise**: The absence of decorative elements, borders between sections, and color variety means whitespace is the primary structural tool.
+**The accent is pure white.** Intentional — no chromatic brand color.
+Interaction **dims to 90%** rather than brightens, which inverts the
+usual hover convention.
 
-### Breakpoints
-- 2000px, 1536px, 1280px, 1024px, 1000px, 768px, 640px
-- Tailwind responsive modifiers drive breakpoint behavior
+## Typography
 
-### Border Radius Scale
-- Sharp (0px): Primary treatment for buttons, cards, inputs -- the default
-- Subtle (4px): Occasional softening on secondary containers
-- The near-zero radius philosophy is core to the brand's brutalist identity
+See `typography.*`. Two families, eight named scales:
 
-## 6. Depth & Elevation
+| Token | Role |
+|---|---|
+| `display-hero` | 20rem weight 300 — the one place monospace goes big |
+| `section-heading` | 30px TASA Orbiter weight 400 |
+| `body` | 16px TASA Orbiter weight 400, line-height 1.5 |
+| `label` | 14px TASA Orbiter |
+| `small` | 12px TASA Orbiter — meta, timestamps |
+| `button` | 14px GeistMono uppercase, tracked +0.09em |
+| `button-sm` | 12px variant for nav / toolbar buttons |
+| `label-mono` | 10px GeistMono uppercase, heavily tracked — badges |
 
-| Level | Treatment | Use |
-|-------|-----------|-----|
-| Flat (Level 0) | No shadow, no border | Page background, body content |
-| Surface (Level 1) | `rgba(255,255,255,0.03)` background | Subtle card surfaces |
-| Bordered (Level 2) | `1px solid rgba(255,255,255,0.1)` border | Cards, containers, dividers |
-| Active (Level 3) | `1px solid rgba(255,255,255,0.2)` border | Hover states, active elements |
-| Focus (Accessibility) | `ring` with `rgb(59,130,246)/0.5` | Keyboard focus indicator |
+**Non-negotiables.** Buttons are always uppercase GeistMono with the
+button letter-spacing. Body text is always TASA Orbiter. Display
+headlines use weight 300 — weight 400+ feels heavy at extreme sizes.
+Never mix proportional fonts into buttons or monospace into body.
 
-**Elevation Philosophy**: xAI rejects the conventional shadow-based elevation system entirely. There are no box-shadows anywhere on the site. Instead, depth is communicated through three mechanisms: (1) opacity-based borders that brighten on interaction, creating a sense of elements "activating" rather than lifting; (2) extremely subtle background opacity shifts (`0.03` to `0.08`) that create barely-perceptible surface differentiation; and (3) the massive scale contrast between the 320px display type and 16px body text, which creates typographic depth. This is elevation through contrast and opacity, not through simulated light and shadow.
+## Layout & Spacing
 
-## 7. Do's and Don'ts
+8px base grid with a deliberately sparse scale (`xs 4` / `sm 8` / `md
+16` / `lg 24` / `xl 48` / `xxl 96`). Big jumps; no granular 10/12/14px
+tweaks. Whitespace is the primary structural tool.
+
+Max content width ~1200px. Hero takes full viewport height. Section
+padding steps 96px desktop → 48px tablet → 24px mobile. Vertical
+rhythm over horizontal density.
+
+## Elevation & Depth
+
+**Zero box-shadow for elevation.** Depth layers through:
+
+1. **Opacity-based borders** — 12% → 22% on hover / active.
+2. **Surface opacity steps** — transparent → 5% → 8%.
+3. **Type-scale contrast** — the 320px display headline against 16px
+   body creates typographic depth shadow-based systems can't match.
+
+The only permitted shadow-like effect is the 2px blue focus ring, used
+exclusively for `:focus-visible` accessibility.
+
+## Shapes
+
+`rounded.sharp` / `.sm` / `.md` / `.lg` are all **0px**. The
+`rounded.subtle` escape hatch at 4px has no live consumers — sharp
+corners are the brand.
+
+## Components
+
+See `components.*` tokens. Implemented one-to-one in
+[`src/app/globals.css`](src/app/globals.css) under `.btn`, `.btn-*`,
+`.card`, `.input`, `.nav`, `.feature-pill`, `.type-badge`,
+`.badge-success` / `.badge-warning` / `.badge-danger`.
+
+**Hover rule.** Primary dims background to 90% (`accent-hover`).
+Ghost/secondary shifts surface to 5–8%. Links dim text to 50%. All
+transitions are `0.15s ease`.
+
+**Wallet adapter parity.** Solana's `WalletMultiButton` renders its own
+base styles; `.wallet-adapter-button` is overridden in globals.css to
+inherit `button-sm` box-model and `button-primary`-hover treatment so
+the connected-wallet pill is visually indistinguishable from an
+adjacent `.btn.btn-primary.btn-sm`.
+
+## Do's and Don'ts
 
 ### Do
-- Use `#1f2228` as the universal background -- never pure black `#000000`
-- Use GeistMono for all display headlines and button text -- monospace IS the brand
-- Apply uppercase + 1.4px letter-spacing to all button labels
-- Use weight 300 for the massive display headline (320px)
-- Keep borders at `rgba(255, 255, 255, 0.1)` -- barely visible, not absent
-- Dim interactive elements on hover to `rgba(255, 255, 255, 0.5)` -- the reverse of convention
-- Maintain sharp corners (0px radius) as the default -- brutalist precision
-- Use universalSans for all body and reading text at 16px/1.5
+- Use `#1f2228` as the universal background — never pure `#000`.
+- Apply `typography.button` to every interactive pill — GeistMono
+  uppercase is the brand's voice of interaction.
+- Express hierarchy through opacity, not through gray ramps.
+- Dim to 0.9 (primary) or 0.5 (links) on hover — **reverse of the
+  usual brighten-on-hover convention**.
+- Keep corners sharp. `rounded.sharp` is the only default.
+- Let whitespace do the layout work; avoid dividers inside generous
+  sections.
 
 ### Don't
-- Don't use box-shadows -- xAI has zero shadow elevation
-- Don't introduce color accents beyond white and the dark background -- the monochromatic palette is sacred
-- Don't use large border-radius (8px+, pill shapes) -- the sharp edge is intentional
-- Don't use bold weights (600-700) for headlines -- weight 300-400 only
-- Don't brighten elements on hover -- xAI dims to `0.5` opacity instead
-- Don't add decorative gradients, illustrations, or color blocks
-- Don't use proportional fonts for buttons -- GeistMono uppercase is mandatory
-- Don't use colored status indicators unless absolutely necessary -- keep everything in the white/dark spectrum
+- Don't introduce `box-shadow` for elevation.
+- Don't add chromatic brand colors beyond white + the three status
+  slots.
+- Don't use `font-weight` ≥ 600 for display text — weight 300–400
+  only.
+- Don't round corners past 4px.
+- Don't brighten elements on hover.
+- Don't mix proportional fonts into buttons or monospace into body
+  copy.
+- Don't hard-code hex values in components — reference `colors.*` so
+  theming stays centralized.
 
-## 8. Responsive Behavior
+## Responsive Behavior
 
-### Breakpoints
-| Name | Width | Key Changes |
-|------|-------|-------------|
-| Mobile | <640px | Single column, hero headline scales dramatically down |
-| Small Tablet | 640-768px | Slight increase in padding |
-| Tablet | 768-1024px | Two-column layouts begin, heading sizes increase |
-| Desktop | 1024-1280px | Full layout, generous whitespace |
-| Large | 1280-1536px | Wider containers, more breathing room |
-| Extra Large | 1536-2000px | Maximum content width, centered |
-| Ultra | >2000px | Content stays centered, extreme margins |
-
-### Touch Targets
-- Buttons use 12px 24px padding for comfortable touch
-- Navigation links spaced with 24px gaps
-- Minimum tap target: 44px height
-- Mobile: full-width buttons for easy thumb reach
-
-### Collapsing Strategy
-- Hero: 320px monospace headline scales down dramatically (to ~48px-64px on mobile)
-- Navigation: horizontal links collapse to hamburger menu
-- Feature sections: two-column to single-column stacking
-- Section padding: 96px -> 48px -> 24px across breakpoints
-- Massive display type is the first thing to resize -- it must remain impactful but not overflow
-
-### Image Behavior
-- Minimal imagery -- the site relies on typography and whitespace
-- Any product screenshots maintain sharp corners
-- Full-width media scales proportionally with viewport
-
-## 9. Agent Prompt Guide
-
-### Quick Color Reference
-- Background: Dark (`#1f2228`)
-- Text Primary: White (`#ffffff`)
-- Text Secondary: White 70% (`rgba(255, 255, 255, 0.7)`)
-- Text Muted: White 50% (`rgba(255, 255, 255, 0.5)`)
-- Text Disabled: White 30% (`rgba(255, 255, 255, 0.3)`)
-- Border Default: White 10% (`rgba(255, 255, 255, 0.1)`)
-- Border Strong: White 20% (`rgba(255, 255, 255, 0.2)`)
-- Surface Subtle: White 3% (`rgba(255, 255, 255, 0.03)`)
-- Surface Hover: White 8% (`rgba(255, 255, 255, 0.08)`)
-- Focus Ring: Blue (`rgb(59, 130, 246)` at 50% opacity)
-- Button Primary BG: White (`#ffffff`), text Dark (`#1f2228`)
-
-### Example Component Prompts
-- "Create a hero section on #1f2228 background. Headline in GeistMono at 72px weight 300, color #ffffff, centered. Subtitle in universalSans 18px weight 400, rgba(255,255,255,0.7), max-width 600px centered. Two buttons: primary (white bg, #1f2228 text, 0px radius, GeistMono 14px uppercase, 1.4px letter-spacing, 12px 24px padding) and ghost (transparent bg, 1px solid rgba(255,255,255,0.2), white text, same font treatment)."
-- "Design a card: transparent or rgba(255,255,255,0.03) background, 1px solid rgba(255,255,255,0.1) border, 0px radius, 24px padding. No shadow. Title in universalSans 22px weight 400, #ffffff. Body in universalSans 16px weight 400, rgba(255,255,255,0.7), line-height 1.5. Hover: border changes to rgba(255,255,255,0.2)."
-- "Build navigation: #1f2228 background, full-width. Brand text left (GeistMono 14px uppercase). Links in universalSans 14px #ffffff with hover to rgba(255,255,255,0.5). White primary button right-aligned (GeistMono 14px uppercase, 1.4px letter-spacing)."
-- "Create a form: dark background #1f2228. Label in universalSans 14px rgba(255,255,255,0.7). Input with transparent bg, 1px solid rgba(255,255,255,0.2) border, 0px radius, white text 16px universalSans. Focus: blue ring rgb(59,130,246)/0.5. Placeholder: rgba(255,255,255,0.3)."
-- "Design a monospace tag/badge: transparent bg, 1px solid rgba(255,255,255,0.2), 0px radius, GeistMono 12px uppercase, 1px letter-spacing, white text, 4px 8px padding."
-
-### Iteration Guide
-1. Always start with `#1f2228` background -- never use pure black or gray backgrounds
-2. GeistMono for display and buttons, universalSans for everything else -- never mix these roles
-3. All buttons must be GeistMono uppercase with 1.4px letter-spacing -- this is non-negotiable
-4. No shadows, ever -- depth comes from border opacity and background opacity only
-5. Borders are always white with low opacity (0.1 default, 0.2 for emphasis)
-6. Hover behavior dims to 0.5 opacity rather than brightening -- the reverse of most systems
-7. Sharp corners (0px) by default -- only use 4px for specific secondary containers
-8. Body text at 16px universalSans with 1.5 line-height for comfortable reading
-9. Generous section padding (48px-96px) -- let content breathe in the darkness
-10. The monochromatic white-on-dark palette is absolute -- resist adding color unless critical for function
+Breakpoints: 480, 640, 768, 1024, 1280, 1536, 2000. The display hero
+scales from 20rem desktop down to 3rem mobile. Nav tabs collapse to a
+hamburger below 768px. Section padding steps 96px → 48px → 24px.
