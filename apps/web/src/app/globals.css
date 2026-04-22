@@ -1073,17 +1073,21 @@ a.text-accent { text-decoration: underline; text-underline-offset: 3px; }
 
 /* ── Landing top-bar ─────────────────────────────────────────────────── */
 
-/* 3-column grid — 1fr auto 1fr — forces the side columns to be EQUAL
-   width. That's the only reliable way to put the nav block at the true
-   geometric center of the bar when the logo (narrow) and the right-side
-   wallet+dashboard cluster (wide) have very different widths.
-   Flex-based approaches (space-between, flex: 1 + justify-content:
-   center) center the nav within the REMAINING slack, which is biased
-   toward the smaller sibling — looks off-center. */
+/* Bulletproof "logo left + perfectly centered nav + buttons right" with
+   asymmetric sibling widths. The nav is removed from the layout flow
+   entirely (position: absolute) and pinned to the BAR'S geometric
+   center via left: 50% + translate(-50%). That way the wallet button
+   widening when connected — or the Open Dashboard CTA appearing —
+   can never push the nav off-center, because the nav doesn't share
+   layout with them.
+   Container is position: relative so the absolute child anchors to
+   the bar (not the page). Logo + button cluster keep flex space-between
+   on the remaining axes. */
 .landing-topbar {
-  display: grid;
-  grid-template-columns: 1fr auto 1fr;
+  position: relative;
+  display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 24px;
   padding: 20px 32px;
   max-width: 1200px;
@@ -1091,23 +1095,32 @@ a.text-accent { text-decoration: underline; text-underline-offset: 3px; }
   width: 100%;
 }
 
-.landing-topbar > :first-child {
-  justify-self: start;
-}
-
-.landing-topbar > :last-child {
-  justify-self: end;
-}
-
 .landing-topbar-nav {
   display: none;
-  justify-self: center;
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
   gap: 24px;
+  /* z-index isn't needed (siblings can't overlap because they have
+     room) but set explicitly so any future siblings don't paint over. */
+  z-index: 1;
+  pointer-events: auto;
 }
 
 @media (min-width: 768px) {
   .landing-topbar-nav {
     display: flex;
+  }
+}
+
+/* On narrower viewports where logo + buttons would overlap an
+   absolutely-centered nav, hide the nav before that happens. 1024px is
+   roughly where logo (145px) + nav (~250px) + buttons (~370px) + gaps
+   stop fitting on a centered axis. */
+@media (max-width: 1024px) {
+  .landing-topbar-nav {
+    display: none !important;
   }
 }
 
