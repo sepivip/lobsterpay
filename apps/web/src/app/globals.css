@@ -50,7 +50,7 @@
 
   --tracking-tight: -0.02em;
   --tracking-normal: -0.01em;
-  --tracking-mono: 0.06em;
+  --tracking-mono: 0.08em;
   --tracking-button: 0.09em;
 
   /* Radius — sharp by default, brutalist precision */
@@ -125,7 +125,7 @@ body {
 
 .label-mono {
   font-family: var(--font-mono);
-  font-size: 0.6875rem;
+  font-size: 0.625rem;
   font-weight: 400;
   text-transform: uppercase;
   letter-spacing: var(--tracking-mono);
@@ -191,7 +191,7 @@ body {
 }
 
 .btn-primary:hover {
-  opacity: 0.9;
+  background: rgba(255, 255, 255, 0.9);
 }
 
 .btn-secondary {
@@ -206,12 +206,11 @@ body {
 
 .btn-ghost {
   background: transparent;
-  color: var(--text-secondary);
+  color: var(--text-primary);
 }
 
 .btn-ghost:hover {
-  color: var(--text-primary);
-  opacity: 0.5;
+  color: var(--text-tertiary);
 }
 
 .btn-danger {
