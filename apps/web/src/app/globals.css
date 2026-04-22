@@ -1073,10 +1073,17 @@ a.text-accent { text-decoration: underline; text-underline-offset: 3px; }
 
 /* ── Landing top-bar ─────────────────────────────────────────────────── */
 
+/* 3-column grid — 1fr auto 1fr — forces the side columns to be EQUAL
+   width. That's the only reliable way to put the nav block at the true
+   geometric center of the bar when the logo (narrow) and the right-side
+   wallet+dashboard cluster (wide) have very different widths.
+   Flex-based approaches (space-between, flex: 1 + justify-content:
+   center) center the nav within the REMAINING slack, which is biased
+   toward the smaller sibling — looks off-center. */
 .landing-topbar {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  justify-content: space-between;
   gap: 24px;
   padding: 20px 32px;
   max-width: 1200px;
@@ -1084,15 +1091,17 @@ a.text-accent { text-decoration: underline; text-underline-offset: 3px; }
   width: 100%;
 }
 
-/* Middle nav expands to fill the slack between logo (left) and
-   wallet+dashboard buttons (right), then centers its own items within
-   that slack. Without flex: 1 + justify-content: center, a parent with
-   justify-content: space-between biases the nav block toward whichever
-   sibling is smaller — the logo — shifting the links off-center. */
+.landing-topbar > :first-child {
+  justify-self: start;
+}
+
+.landing-topbar > :last-child {
+  justify-self: end;
+}
+
 .landing-topbar-nav {
   display: none;
-  flex: 1;
-  justify-content: center;
+  justify-self: center;
   gap: 24px;
 }
 
