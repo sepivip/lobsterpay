@@ -22,11 +22,15 @@ colors:
 #   mono = GeistMono → display, buttons, monospace labels, tx signatures
 #   sans = TASA Orbiter → body, headings, forms, descriptions
 typography:
+  # display-hero: GeistMono weight 300 at max 4.5rem. CSS uses clamp()
+  # (2.5rem mobile → 4.5rem desktop) because the hero is multi-word
+  # ("Give agents limits, not seed phrases.") — xAI's aspirational
+  # 20rem only works for single-word heroes.
   display-hero:
     fontFamily: GeistMono
-    fontSize: 20rem
+    fontSize: 4.5rem
     fontWeight: 300
-    lineHeight: 1.5
+    lineHeight: 1.1
   section-heading:
     fontFamily: TASA Orbiter
     fontSize: 1.875rem
