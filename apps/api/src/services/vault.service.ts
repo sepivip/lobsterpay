@@ -101,7 +101,7 @@ export function createVaultService(db: Db, config: Config) {
       const rows = await db`
         SELECT v.*, vp.paused, vp.allowed_actions, vp.max_per_tx_amount_atomic,
                vp.daily_limit_amount_atomic, vp.max_slippage_bps, vp.config_json,
-               o.wallet_address
+               vp.authorized_agent, o.wallet_address
         FROM vaults v
         JOIN vault_policies vp ON vp.vault_id = v.id
         JOIN owners o ON o.id = v.owner_id
@@ -114,14 +114,58 @@ export function createVaultService(db: Db, config: Config) {
       const rows = await db`
         SELECT v.*, vp.paused, vp.allowed_actions, vp.max_per_tx_amount_atomic,
                vp.daily_limit_amount_atomic, vp.max_slippage_bps, vp.config_json,
-               o.wallet_address
+               vp.authorized_agent, o.wallet_address
         FROM vaults v
         JOIN vault_policies vp ON vp.vault_id = v.id
         JOIN owners o ON o.id = v.owner_id
         WHERE o.wallet_address = ${walletAddress}
         LIMIT 1
       `;
-      return rows[0] || null;
+      const row = rows[0];
+      if (!row) return null;
+
+      // Aggregate today's spend across every API key for this vault. Mirrors
+      // the window-start logic the agent tx service uses so owner-facing
+      // totals match what policy enforcement sees.
+      const windowStart = new Date();
+      windowStart.setUTCHours(0, 0, 0, 0);
+      const usageRows = await db`
+        SELECT COALESCE(SUM(amount_spent_atomic), 0) AS total
+        FROM usage_windows
+        WHERE vault_id = ${row.id} AND window_start = ${windowStart}
+      `;
+      const dailySpentAtomic = BigInt((usageRows[0]?.total ?? 0).toString());
+      const maxPerTxAtomic = BigInt((row.max_per_tx_amount_atomic ?? 0).toString());
+      const dailyLimitAtomic = BigInt((row.daily_limit_amount_atomic ?? 0).toString());
+
+      // Decoded allowedActions bitmask — 1 swap, 2 pay, 4 x402.
+      const actions = Number(row.allowed_actions ?? 0);
+
+      // USDC-denominated convenience values for the dashboard + policy page.
+      // Safe because USDC is the only spend mint the UI currently surfaces;
+      // atomic values stay on the payload too for anything multi-mint.
+      const toUsdc = (atomic: bigint) => Number(atomic) / 1_000_000;
+
+      return {
+        ...row,
+        policy: {
+          paused: row.paused,
+          allowedActions: actions,
+          allowSwap: (actions & 1) !== 0,
+          allowPay: (actions & 2) !== 0,
+          allowX402: (actions & 4) !== 0,
+          maxPerTxAmountAtomic: maxPerTxAtomic.toString(),
+          dailyLimitAmountAtomic: dailyLimitAtomic.toString(),
+          maxSlippageBps: Number(row.max_slippage_bps ?? 0),
+          authorizedAgent: row.authorized_agent ?? null,
+          // USDC decimals (6 decimals). Rounded to 2 places so the dashboard
+          // shows "5.00 / 10.00 USDC" rather than "4.999999".
+          maxPerTxUsdc: Number(toUsdc(maxPerTxAtomic).toFixed(2)),
+          dailyLimitUsdc: Number(toUsdc(dailyLimitAtomic).toFixed(2)),
+          dailySpentAmountAtomic: dailySpentAtomic.toString(),
+          dailySpent: Number(toUsdc(dailySpentAtomic).toFixed(2)),
+        },
+      };
     },
 
     async updatePolicy(vaultId: string, updates: Record<string, any>) {
