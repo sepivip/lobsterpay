@@ -33,7 +33,7 @@ export function SiteFooter() {
 						Docs ↗
 					</a>
 					<a
-						href="https://lobsterpayapi-production.up.railway.app/health"
+						href="https://api.lobsterpay.xyz/health"
 						target="_blank"
 						rel="noopener noreferrer"
 						className="site-footer-link"

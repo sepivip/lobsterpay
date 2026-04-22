@@ -30,7 +30,7 @@
 >
 > **The solution:** LobsterPay introduces a third path. A Solana Anchor program creates owner-controlled vault PDAs with onchain policy enforcement: per-tx limits, daily limits, allowlisted mints, allowlisted destinations, action bitmasks, and a delegated `authorized_agent` pubkey. Owners deposit SPL tokens once, configure their policy in the dashboard, and issue scoped API keys. Agents then call a Fastify backend that validates against policy offchain and signs transactions onchain via the authorized agent. The vault PDA is the only entity that can move funds — enforced by `transfer_checked` CPIs with hardcoded 1.5% service-fee splits and self-sustaining fee-payer reimbursement (10,000 lamports per agent tx, paid from the user's onchain FeeVault).
 >
-> **What's shipped end-to-end:** 11 Anchor instructions, 25 passing integration tests, B+ security audit grade (Solana-specific `review-and-iterate` rubric), full Next.js 15 dashboard, TypeScript SDK, MCP server with 6 tools for Claude agents, and downloadable agent skill files in 4 formats (Skill JSON, Agent Prompt MD, OpenAPI 3.0, MCP Config). Everything is live on Railway and Solana devnet right now: program `A184DBQaCM6qWETbEDJUtr25bSuuTH72sTTixsyoZbtS`, frontend `lobsterpayweb-production.up.railway.app`, API `lobsterpayapi-production.up.railway.app`. The revenue model is wired in code — every agent payment splits 98.5% to the destination, 1.5% to the LobsterPay treasury.
+> **What's shipped end-to-end:** 11 Anchor instructions, 25 passing integration tests, B+ security audit grade (Solana-specific `review-and-iterate` rubric), full Next.js 15 dashboard, TypeScript SDK, MCP server with 6 tools for Claude agents, and downloadable agent skill files in 4 formats (Skill JSON, Agent Prompt MD, OpenAPI 3.0, MCP Config). Everything is live on Railway and Solana devnet right now: program `A184DBQaCM6qWETbEDJUtr25bSuuTH72sTTixsyoZbtS`, frontend `https://lobsterpay.xyz`, API `https://api.lobsterpay.xyz`. The revenue model is wired in code — every agent payment splits 98.5% to the destination, 1.5% to the LobsterPay treasury.
 >
 > **Why this is agentic engineering:** The entire codebase was built through Claude Code with iterative skill invocations — brainstorming, frontend-design, code-review, security audits via the `review-and-iterate` Solana skill, and this grant application via `apply-grant`. The session transcript (`claude-session.jsonl`, attached) captures the full development arc from empty repo to production deployment in a single hackathon cycle. LobsterPay is both built by an agentic engineer and built **for** agentic engineers — the MCP server lets Claude itself become a paying customer.
 
@@ -43,8 +43,8 @@
 > **GitHub repository:** https://github.com/sepivip/lobsterpay (public, MIT licensed, 33 commits)
 >
 > **Live deployment:**
-> - Frontend: https://lobsterpayweb-production.up.railway.app
-> - API: https://lobsterpayapi-production.up.railway.app
+> - Frontend: https://lobsterpay.xyz
+> - API: https://api.lobsterpay.xyz
 > - Anchor program (Solana devnet): `A184DBQaCM6qWETbEDJUtr25bSuuTH72sTTixsyoZbtS`
 > - Solana Explorer: https://explorer.solana.com/address/A184DBQaCM6qWETbEDJUtr25bSuuTH72sTTixsyoZbtS?cluster=devnet
 >

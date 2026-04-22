@@ -2,7 +2,7 @@ import { Section } from "./section";
 import { CodeBlock } from "./code-block";
 
 const CURL = `curl -H "Authorization: Bearer lp_live_xxx" \\
-  https://lobsterpayapi-production.up.railway.app/v1/agent/vault
+  https://api.lobsterpay.xyz/v1/agent/vault
 # → { vaultPda, balances, permissions: { maxPerTxAmountAtomic, ... } }`;
 
 const SDK_TS = `import { LobsterPay } from "@lobsterpay/sdk";

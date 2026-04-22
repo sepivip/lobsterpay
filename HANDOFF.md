@@ -28,8 +28,8 @@ After that lands, you'll do two small follow-ups (Railway env var + one Phantom 
 | Program ID (unchanged) | `A184DBQaCM6qWETbEDJUtr25bSuuTH72sTTixsyoZbtS` |
 | Deployer address (also unchanged, same upgrade authority) | `2ALtGZpteopcZgKCcW6eHcSiwvLGkoqrnEGidsJe5Lq3` |
 | **New: Service relayer address** | `8cSZsHi17gjtiBrccZK5JzqNzi4v1md7GzBG1twuKKgb` |
-| API URL | `https://lobsterpayapi-production.up.railway.app` |
-| Web URL | `https://lobsterpayweb-production.up.railway.app` |
+| API URL | `https://api.lobsterpay.xyz` |
+| Web URL | `https://lobsterpay.xyz` |
 | User's Phantom wallet (owner) | `EVfTBY7prqCDMU3LYHAe1LBDpHfjughceYmicBLB8atF` |
 | User's existing vault ID | `a502cb4a-7ff9-474e-aebb-172879decee5` |
 
@@ -163,7 +163,7 @@ FEE_PAYER_SECRET_KEY=<value of FEE_PAYER_KEYPAIR from .env.deploy>
 Save. Railway auto-redeploys the API (~2 min). After it comes up, verify:
 
 ```bash
-curl https://lobsterpayapi-production.up.railway.app/v1/config/relayer
+curl https://api.lobsterpay.xyz/v1/config/relayer
 # Expected:
 # {"configured":true,"pubkey":"8cSZsHi17gjtiBrccZK5JzqNzi4v1md7GzBG1twuKKgb"}
 ```
@@ -184,7 +184,7 @@ Faucet: https://faucet.solana.com/
 
 Your current vault (`a502cb4a-...`) was born with `authorized_agent = your Phantom wallet`. The upgrade doesn't auto-migrate existing vaults; one Phantom-signed tx fixes it.
 
-1. Open https://lobsterpayweb-production.up.railway.app/policy
+1. Open https://lobsterpay.xyz/policy
 2. Scroll to **Advanced → Authorized Agent**
 3. Paste: `8cSZsHi17gjtiBrccZK5JzqNzi4v1md7GzBG1twuKKgb`
 4. Save

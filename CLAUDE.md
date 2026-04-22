@@ -16,8 +16,8 @@ Built for the **Solana Colosseum hackathon**.
 
 | Service | URL | Status |
 |---|---|---|
-| **Frontend** (Next.js) | https://lobsterpayweb-production.up.railway.app | 🟢 Live |
-| **API** (Fastify) | https://lobsterpayapi-production.up.railway.app | 🟢 Live, `/health` OK |
+| **Frontend** (Next.js) | https://lobsterpay.xyz | 🟢 Live (Railway + Cloudflare DNS) |
+| **API** (Fastify) | https://api.lobsterpay.xyz | 🟢 Live, `/health` OK |
 | **Postgres** | (Railway internal) | 🟢 9 migrations applied |
 | **Anchor program** | `A184DBQaCM6qWETbEDJUtr25bSuuTH72sTTixsyoZbtS` | 🟢 Deployed on Solana **devnet** |
 | **Program authority** | `2ALtGZpteopcZgKCcW6eHcSiwvLGkoqrnEGidsJe5Lq3` | 12.20 SOL remaining |
@@ -225,15 +225,15 @@ rm /tmp/lobsterpay-deployer.json
 - `SOLANA_RPC_URL` = `https://api.devnet.solana.com`
 - `SOLANA_CLUSTER` = `devnet`
 - `LOBSTERPAY_PROGRAM_ID` = `A184DBQaCM6qWETbEDJUtr25bSuuTH72sTTixsyoZbtS`
-- `PUBLIC_API_URL` = `https://lobsterpayapi-production.up.railway.app`
+- `PUBLIC_API_URL` = `https://api.lobsterpay.xyz`
 - `API_PORT` = `8080`  ← literal number, not `${{PORT}}`
 - `API_HOST` = `0.0.0.0`
 - `LOG_LEVEL` = `info`
 - `FEE_PAYER_SECRET_KEY` = **NOT SET YET** ← critical gap
-- `ALLOWED_ORIGIN` = `https://lobsterpayweb-production.up.railway.app`
+- `ALLOWED_ORIGIN` = `https://lobsterpay.xyz`
 
 **Web service** (`@lobsterpay/web`):
-- `NEXT_PUBLIC_API_URL` = `https://lobsterpayapi-production.up.railway.app`
+- `NEXT_PUBLIC_API_URL` = `https://api.lobsterpay.xyz`
 - `NEXT_PUBLIC_SOLANA_RPC_URL` = `https://api.devnet.solana.com`
 - `NEXT_PUBLIC_SOLANA_CLUSTER` = `devnet`
 - `NEXT_PUBLIC_LOBSTERPAY_PROGRAM_ID` = `A184DBQaCM6qWETbEDJUtr25bSuuTH72sTTixsyoZbtS`
@@ -262,7 +262,7 @@ solana airdrop 1 $(solana-keygen pubkey /tmp/lp-relayer.json) --url devnet
 rm /tmp/lp-relayer.json
 
 # 7. Verify
-curl https://lobsterpayapi-production.up.railway.app/v1/config/relayer
+curl https://api.lobsterpay.xyz/v1/config/relayer
 # Should return { configured: true, pubkey: "..." }
 ```
 
