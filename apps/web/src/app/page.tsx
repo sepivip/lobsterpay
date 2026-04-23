@@ -20,7 +20,7 @@ export default function Home() {
 
 	return (
 		<main className="hero-gradient flex flex-col" style={{ minHeight: "100vh" }}>
-			{/* Top bar — logo always links home; wallet button always present so
+			{/* Top bar - logo always links home; wallet button always present so
 				users can disconnect or switch wallets. */}
 			<header className="landing-topbar">
 				<Link href="/" aria-label="LobsterPay home" style={{ display: "inline-flex", alignItems: "center" }}>
@@ -48,7 +48,7 @@ export default function Home() {
 				</div>
 			</header>
 
-			{/* Hero — 2-column on desktop: copy on the left, animated lobster
+			{/* Hero - 2-column on desktop: copy on the left, animated lobster
 				on the right. Stacks vertically below 1024px. */}
 			<div className="landing-hero landing-hero-split">
 				<div className="landing-hero-content">
@@ -64,11 +64,11 @@ export default function Home() {
 
 					<p className="animate-in animate-delay-2 hero-sub">
 						A permissioned payment layer for AI agents on Solana. Issue API keys
-						scoped to a program-controlled vault — agents pay for services,
+						scoped to a program-controlled vault - agents pay for services,
 						x402-gated APIs, and swaps, without ever holding a private key.
 					</p>
 
-					<div className="animate-in animate-delay-3 flex gap-3 items-center">
+					<div className="landing-hero-cta-row animate-in animate-delay-3 flex gap-3 items-center">
 						{connected ? (
 							<Link href="/dashboard" className="btn btn-primary">
 								Open Dashboard
@@ -81,7 +81,7 @@ export default function Home() {
 						</a>
 					</div>
 
-					{/* Feature pills — 3 × 2 grid so every row has equal weight. */}
+					{/* Feature pills - 3 × 2 grid so every row has equal weight. */}
 					<div className="animate-in animate-delay-4 feature-pill-grid feature-pill-grid-left">
 						{[
 							"PDA-Controlled Vaults",
@@ -99,7 +99,7 @@ export default function Home() {
 				</div>
 
 				<div className="landing-hero-visual animate-in animate-delay-1">
-					{/* respectReducedMotion=false — the spin IS the brand
+					{/* respectReducedMotion=false - the spin IS the brand
 						visual, not decorative motion; we'd rather everyone
 						see it than respect a system setting that would hide
 						our hero's centerpiece. */}
@@ -113,7 +113,7 @@ export default function Home() {
 				</div>
 			</div>
 
-			{/* Live terminal demo — shows what an agent call actually looks like */}
+			{/* Live terminal demo - shows what an agent call actually looks like */}
 			<section className="landing-section landing-section-flush">
 				<div className="landing-section-inner">
 					<div className="landing-section-head">
@@ -123,7 +123,7 @@ export default function Home() {
 						</h2>
 						<p className="landing-section-blurb">
 							Every LobsterPay endpoint returns JSON. Agents use Bearer auth, the server
-							enforces your policy, and the response tells them exactly what happened —
+							enforces your policy, and the response tells them exactly what happened -
 							on-chain signature, net amount, service fee.
 						</p>
 					</div>

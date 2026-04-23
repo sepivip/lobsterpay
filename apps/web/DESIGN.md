@@ -1,12 +1,12 @@
 ---
 version: alpha
 name: LobsterPay
-description: Dark-first brutalist minimalism — monospace display + TASA Orbiter body on a warm near-black canvas. Inspired by x.ai.
+description: Dark-first brutalist minimalism - monospace display + TASA Orbiter body on a warm near-black canvas. Inspired by x.ai.
 
 # ── Colors ─────────────────────────────────────────────────────────────
 # Tokens expose the SOLID base palette only. Opacity-based hierarchy
 # (text/border/surface steps, hover dims) is implemented at runtime via
-# rgba() in src/app/globals.css — see the prose Colors section below for
+# rgba() in src/app/globals.css - see the prose Colors section below for
 # the exact opacity ladder. The alpha-spec linter only accepts 6-digit
 # hex, so any attempt to tokenize rgba values fails validation.
 colors:
@@ -22,14 +22,16 @@ colors:
 #   mono = GeistMono → display, buttons, monospace labels, tx signatures
 #   sans = TASA Orbiter → body, headings, forms, descriptions
 typography:
-  # display-hero: GeistMono weight 300 at max 4.5rem. CSS uses clamp()
-  # (2.5rem mobile → 4.5rem desktop) because the hero is multi-word
-  # ("Give agents limits, not seed phrases.") — xAI's aspirational
-  # 20rem only works for single-word heroes.
+  # display-hero: TASA Orbiter weight 500 at max 2.875rem. CSS uses
+  # clamp() (1.875rem mobile -> 2.875rem desktop) so the multi-word
+  # headline ("Give agents limits, not seed phrases.") lands cleanly
+  # on two lines inside the ~576px hero column at the 1200px max-width.
+  # Earlier iterations used GeistMono at 4.5rem; that read as visually
+  # heavy and overflowed the 2-column hero into 4 lines.
   display-hero:
-    fontFamily: GeistMono
-    fontSize: 4.5rem
-    fontWeight: 300
+    fontFamily: TASA Orbiter
+    fontSize: 2.875rem
+    fontWeight: 500
     lineHeight: 1.1
   section-heading:
     fontFamily: TASA Orbiter
@@ -91,7 +93,7 @@ spacing:
 
 # ── Components ─────────────────────────────────────────────────────────
 # Each variant (hover, ghost, danger, sm) is a separate entry. Hover
-# states that only differ by opacity are omitted from the tokens — see
+# states that only differ by opacity are omitted from the tokens - see
 # the CSS for the runtime dim values (documented in the prose below).
 components:
   button-primary:
@@ -153,7 +155,7 @@ components:
 
   # Status badges used in activity feed, payment states, form banners.
   # The CSS adds a 10%-alpha fill of the status color behind the solid
-  # text color — that can't be expressed in the token schema, so the
+  # text color - that can't be expressed in the token schema, so the
   # background is left transparent at the token layer.
   badge-success:
     backgroundColor: "transparent"
@@ -178,7 +180,7 @@ components:
     backgroundColor: "{colors.background}"
     height: 56px
 
-  # Focus ring spec — applied globally to :focus-visible in CSS, not to
+  # Focus ring spec - applied globally to :focus-visible in CSS, not to
   # a specific element. Lives here so the focus-ring color is referenced.
   focus-indicator:
     backgroundColor: "transparent"
@@ -194,7 +196,7 @@ components:
 > The YAML frontmatter is authoritative for solid colors, typography,
 > and component box-model. The **opacity ladder** (text hierarchy,
 > borders, surfaces, hover dims) is intentionally outside the token
-> layer — the alpha-spec linter rejects 8-digit hex / rgba, and alpha
+> layer - the alpha-spec linter rejects 8-digit hex / rgba, and alpha
 > steps for white text don't blend cleanly to solid hex because text
 > lives over varied surfaces. Opacity values are documented below and
 > implemented in [`src/app/globals.css`](src/app/globals.css).
@@ -210,10 +212,10 @@ Restraint is the point.
 
 **Two typefaces.** Zero role overlap.
 
-- **GeistMono** — display hero (weight 300, extreme scale), all button
+- **GeistMono** - display hero (weight 300, extreme scale), all button
   text, monospace labels, tx signatures, timestamps, anything that
   relies on fixed-width rhythm.
-- **TASA Orbiter** (variable sans, self-hosted via `next/font/local`) —
+- **TASA Orbiter** (variable sans, self-hosted via `next/font/local`) -
   body, section headings, forms, descriptions.
 
 **Depth through opacity, not shadow.** There are no `box-shadow`
@@ -234,7 +236,7 @@ The token layer has six solid colors:
 | `danger` `#f87171` | Failed, revoked |
 | `focus-ring` `#3b82f6` | `:focus-visible` ring (rendered at 50% alpha) |
 
-**Opacity ladder** (NOT tokenized — implemented in globals.css):
+**Opacity ladder** (NOT tokenized - implemented in globals.css):
 
 | Level | rgba value | CSS var | Used for |
 |---|---|---|---|
@@ -250,7 +252,7 @@ The token layer has six solid colors:
 | status dim | status color @ ~10% | `--success-dim` etc. | Badge backgrounds |
 | accent hover | `rgba(255,255,255,0.9)` | `--accent-hover` | Primary button hover |
 
-**The accent is pure white.** Intentional — no chromatic brand color.
+**The accent is pure white.** Intentional - no chromatic brand color.
 Interaction **dims to 90%** rather than brightens, which inverts the
 usual hover convention.
 
@@ -260,18 +262,18 @@ See `typography.*`. Two families, eight named scales:
 
 | Token | Role |
 |---|---|
-| `display-hero` | 20rem weight 300 — the one place monospace goes big |
+| `display-hero` | 20rem weight 300 - the one place monospace goes big |
 | `section-heading` | 30px TASA Orbiter weight 400 |
 | `body` | 16px TASA Orbiter weight 400, line-height 1.5 |
 | `label` | 14px TASA Orbiter |
-| `small` | 12px TASA Orbiter — meta, timestamps |
+| `small` | 12px TASA Orbiter - meta, timestamps |
 | `button` | 14px GeistMono uppercase, tracked +0.09em |
 | `button-sm` | 12px variant for nav / toolbar buttons |
-| `label-mono` | 10px GeistMono uppercase, heavily tracked — badges |
+| `label-mono` | 10px GeistMono uppercase, heavily tracked - badges |
 
 **Non-negotiables.** Buttons are always uppercase GeistMono with the
 button letter-spacing. Body text is always TASA Orbiter. Display
-headlines use weight 300 — weight 400+ feels heavy at extreme sizes.
+headlines use weight 300 - weight 400+ feels heavy at extreme sizes.
 Never mix proportional fonts into buttons or monospace into body.
 
 ## Layout & Spacing
@@ -288,9 +290,9 @@ rhythm over horizontal density.
 
 **Zero box-shadow for elevation.** Depth layers through:
 
-1. **Opacity-based borders** — 12% → 22% on hover / active.
-2. **Surface opacity steps** — transparent → 5% → 8%.
-3. **Type-scale contrast** — the 320px display headline against 16px
+1. **Opacity-based borders** - 12% → 22% on hover / active.
+2. **Surface opacity steps** - transparent → 5% → 8%.
+3. **Type-scale contrast** - the 320px display headline against 16px
    body creates typographic depth shadow-based systems can't match.
 
 The only permitted shadow-like effect is the 2px blue focus ring, used
@@ -299,7 +301,7 @@ exclusively for `:focus-visible` accessibility.
 ## Shapes
 
 `rounded.sharp` / `.sm` / `.md` / `.lg` are all **0px**. The
-`rounded.subtle` escape hatch at 4px has no live consumers — sharp
+`rounded.subtle` escape hatch at 4px has no live consumers - sharp
 corners are the brand.
 
 ## Components
@@ -322,11 +324,11 @@ adjacent `.btn.btn-primary.btn-sm`.
 ## Do's and Don'ts
 
 ### Do
-- Use `#1f2228` as the universal background — never pure `#000`.
-- Apply `typography.button` to every interactive pill — GeistMono
+- Use `#1f2228` as the universal background - never pure `#000`.
+- Apply `typography.button` to every interactive pill - GeistMono
   uppercase is the brand's voice of interaction.
 - Express hierarchy through opacity, not through gray ramps.
-- Dim to 0.9 (primary) or 0.5 (links) on hover — **reverse of the
+- Dim to 0.9 (primary) or 0.5 (links) on hover - **reverse of the
   usual brighten-on-hover convention**.
 - Keep corners sharp. `rounded.sharp` is the only default.
 - Let whitespace do the layout work; avoid dividers inside generous
@@ -336,13 +338,13 @@ adjacent `.btn.btn-primary.btn-sm`.
 - Don't introduce `box-shadow` for elevation.
 - Don't add chromatic brand colors beyond white + the three status
   slots.
-- Don't use `font-weight` ≥ 600 for display text — weight 300–400
+- Don't use `font-weight` ≥ 600 for display text - weight 300–400
   only.
 - Don't round corners past 4px.
 - Don't brighten elements on hover.
 - Don't mix proportional fonts into buttons or monospace into body
   copy.
-- Don't hard-code hex values in components — reference `colors.*` so
+- Don't hard-code hex values in components - reference `colors.*` so
   theming stays centralized.
 
 ## Responsive Behavior

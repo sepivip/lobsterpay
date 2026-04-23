@@ -23,7 +23,7 @@ import { useEffect, useRef } from "react";
 /**
  * Ghostty-style text-symbol ramp. Order is light → dense; we use the
  * dense end (~80% along) for the solid silhouette and the lighter end
- * for the optional edge halo. No block-drawing chars — this is
+ * for the optional edge halo. No block-drawing chars - this is
  * monospace-typewriter ASCII art, not pixel art.
  */
 const RAMP = " .'\",:;~+=*oxX&%$@";
@@ -33,7 +33,7 @@ const HOVER_RADIUS_CELLS = 8; // radius in output cells (≈ 72px at cellPx=9)
 
 // Shimmer-45 pacing. Spin is continuous (velocity eased so the silhouette
 // lingers longer at the wide views and accelerates through the edge-on
-// flip — never actually stops). Shimmer bar sweeps concurrently on its
+// flip - never actually stops). Shimmer bar sweeps concurrently on its
 // own wall-clock schedule so the two effects never fully align.
 const SS45_SHIMMER_PERIOD = 5.5; // seconds for one full sweep cycle
 const SS45_SHIMMER_DUTY = 0.75; // fraction of period the bar is on-canvas
@@ -47,17 +47,17 @@ const SS45_SHIMMER_DUTY = 0.75; // fraction of period the bar is on-canvas
 const HALO_CHARS = "+*=~.";
 
 /**
- * Animation modes — each one re-uses the same mask-rasterize pipeline
+ * Animation modes - each one re-uses the same mask-rasterize pipeline
  * but warps the (u, v) → (ox, oy) projection differently per frame.
  *
- *   spin     — Y-axis rotation. Silhouette compresses on X as it turns.
- *   tumble   — Y + X rotation simultaneously. Lobster pitches and yaws.
- *   pulse    — No rotation. Scale breathes between ~0.85 and 1.05.
- *   glitch   — Mostly static; periodically corrupts ~3% of body cells
+ *   spin     - Y-axis rotation. Silhouette compresses on X as it turns.
+ *   tumble   - Y + X rotation simultaneously. Lobster pitches and yaws.
+ *   pulse    - No rotation. Scale breathes between ~0.85 and 1.05.
+ *   glitch   - Mostly static; periodically corrupts ~3% of body cells
  *              with random ramp chars for ~120 ms then snaps back.
- *   wave     — No rotation. Each row is sine-displaced horizontally for
+ *   wave     - No rotation. Each row is sine-displaced horizontally for
  *              an underwater-current feel.
- *   shimmer  — No rotation. A vertical bar of brighter chars sweeps
+ *   shimmer  - No rotation. A vertical bar of brighter chars sweeps
  *              left→right; cells outside the bar stay at base brightness.
  */
 export type HeroVisualMode =
@@ -83,7 +83,7 @@ interface Props {
   src?: string;
   /** When false, animate even if the user has reduced-motion enabled. */
   respectReducedMotion?: boolean;
-  /** Animation style — see HeroVisualMode docstring. Default: spin. */
+  /** Animation style - see HeroVisualMode docstring. Default: spin. */
   mode?: HeroVisualMode;
 }
 
@@ -131,7 +131,7 @@ export function HeroVisual({
      */
     let occupancy = new Uint8Array(0);
     let haloIdxGrid = new Uint8Array(0);
-    // Z-buffer (per output cell) — for the spinning modes we treat the
+    // Z-buffer (per output cell) - for the spinning modes we treat the
     // mask as a thin slab being rotated around Y, then draw only the
     // FRONT-most cell at each output pixel and shade by depth. Without
     // this the silhouette reads as a flat 2D scale instead of a 3D spin.
@@ -150,7 +150,7 @@ export function HeroVisual({
         img.onload = () => resolve();
         img.onerror = () => reject(new Error(`Failed to load ${src}`));
       });
-      // ~120 cells tall — fine enough for the lobster's claws and legs to
+      // ~120 cells tall - fine enough for the lobster's claws and legs to
       // read at hero size, coarse enough to render in <2ms per frame.
       const targetH = 120;
       const aspect = img.width / img.height;
@@ -217,7 +217,7 @@ export function HeroVisual({
           return { sx: cos, sy: cosX, rowSineAmp: 0, rowSineFreq: 0 };
         }
         case "pulse": {
-          // Scale 0.85 → 1.05 via cos(a) — slow breathing.
+          // Scale 0.85 → 1.05 via cos(a) - slow breathing.
           const s = 0.95 + Math.cos(a) * 0.1;
           return { sx: s, sy: s, rowSineAmp: 0, rowSineFreq: 0 };
         }
@@ -232,7 +232,7 @@ export function HeroVisual({
           };
         }
         case "galaxy": {
-          // Static silhouette — animation comes from per-cell char
+          // Static silhouette - animation comes from per-cell char
           // cycling, not geometric warp.
           return { sx: 1, sy: 1, rowSineAmp: 0, rowSineFreq: 0 };
         }
@@ -303,7 +303,7 @@ export function HeroVisual({
       //   - perspective foreshortening (closer half projects wider, far
       //     half projects narrower)
       //   - z-buffer self-occlusion (front cells hide back cells at the
-      //     same projected pixel — naturally cuts the silhouette in half
+      //     same projected pixel - naturally cuts the silhouette in half
       //     during the spin instead of double-painting through)
       //   - depth-shaded alpha at render time (front bright, back dim)
       const cosA = Math.cos(a);
@@ -313,7 +313,7 @@ export function HeroVisual({
       // grotesquely. Tune up for more drama, down for flatter.
       const perspK = 0.0045;
 
-      // Halo pass — flat projection (no depth), runs first so body can
+      // Halo pass - flat projection (no depth), runs first so body can
       // paint over.
       for (let v = 0; v < maskH; v++) {
         const rowOff = rowOffsets[v] ?? 0;
@@ -333,7 +333,7 @@ export function HeroVisual({
         }
       }
 
-      // Body pass — z-buffered for spinning modes (so the visible half
+      // Body pass - z-buffered for spinning modes (so the visible half
       // is always the front-most), flat for the rest (pulse, wave,
       // shimmer, glitch).
       for (let v = 0; v < maskH; v++) {
@@ -371,7 +371,7 @@ export function HeroVisual({
       // shimmer (vertical bar): position is a 0..outCols x value; band
       // distance is |c - center|.
       //
-      // spin-shimmer-45: concurrent with the (eased) spin — the bar
+      // spin-shimmer-45: concurrent with the (eased) spin - the bar
       // sweeps the full diagonal once every SS45_SHIMMER_PERIOD seconds
       // on its own wall-clock timer, pauses off-canvas during the rest
       // of the duty cycle, then re-enters. Driven by wallTime so it's
@@ -390,7 +390,7 @@ export function HeroVisual({
         }
       }
       // Glitch only applies to glitch / spin-glitch modes. spin-shimmer-45
-      // deliberately has NO glitch — the sequence should feel clean.
+      // deliberately has NO glitch - the sequence should feel clean.
       const glitchActive =
         (mode === "glitch" && Math.floor(a * 4) % 7 === 0) ||
         (mode === "spin-glitch" && Math.floor(a * 4) % 5 === 0);
@@ -404,7 +404,7 @@ export function HeroVisual({
           const occ = occupancy[i];
           if (occ === 0) continue;
           if (occ === 2) {
-            // Body — bright bar brightens cells near the band, body
+            // Body - bright bar brightens cells near the band, body
             // elsewhere stays at a slight dim base for contrast.
             let ch = fillCh;
             let alpha = 1;
@@ -430,7 +430,7 @@ export function HeroVisual({
                 alpha = 1 - fade * (1 - baseAlpha);
               }
             } else if (mode === "galaxy") {
-              // V2 — silhouette stays static, each cell cycles through
+              // V2 - silhouette stays static, each cell cycles through
               // the ramp on its own phase. Phase = global wall-clock +
               // angular position from center + slight radial twist.
               // Visually reads as a galaxy spiral: density bands flow
@@ -453,11 +453,11 @@ export function HeroVisual({
             if (glitchActive && Math.random() < 0.04) {
               ch = RAMP[Math.floor(Math.random() * (RAMP.length - 1)) + 1];
             }
-            // Depth shading for spinning modes — front cells render
+            // Depth shading for spinning modes - front cells render
             // brighter, back cells dimmer. zBuffer holds rz in roughly
             // [-maskW/2, +maskW/2]; normalize to [-1, 1] where +1 =
             // closest. lit-3d takes this further: char is picked from
-            // the full ramp by depth, donut.c-style — front cells get
+            // the full ramp by depth, donut.c-style - front cells get
             // dense `@`, back cells get sparse `.`.
             if (isSpinning) {
               const depthNorm = Math.max(
@@ -466,7 +466,7 @@ export function HeroVisual({
               );
               alpha *= 0.55 + 0.45 * ((depthNorm + 1) / 2);
               if (mode === "lit-3d") {
-                // V3 — map depth directly to full ramp position. (depthNorm+1)/2
+                // V3 - map depth directly to full ramp position. (depthNorm+1)/2
                 // ∈ [0,1]; multiply by (ramp length - 1) (skip space at index 0).
                 if (ch === fillCh) {
                   const lum = (depthNorm + 1) / 2;
@@ -506,13 +506,13 @@ export function HeroVisual({
       wallTime += dt;
       if (mode === "spin-shimmer-45") {
         // Velocity-eased continuous spin. Multiplier ranges from ~1.25
-        // at the wide views (angle ≈ 0, π — full silhouette visible) to
-        // ~0.35 at the edge views (angle ≈ π/2, 3π/2 — compressed flip
+        // at the wide views (angle ≈ 0, π - full silhouette visible) to
+        // ~0.35 at the edge views (angle ≈ π/2, 3π/2 - compressed flip
         // moment). This makes the lobster linger at its most readable
         // poses and accelerate through the "flip", while never actually
         // stopping. Based on |cos(a)| because cos is 1 at wide and 0 at
-        // edge — exactly the inverse of what we want for "slow during
-        // flip" — so we map it to multiplier via (0.35 + 0.9·|cos|).
+        // edge - exactly the inverse of what we want for "slow during
+        // flip" - so we map it to multiplier via (0.35 + 0.9·|cos|).
         const ease = 0.35 + 0.9 * Math.abs(Math.cos(angle));
         angle += dt * rotationSpeed * ease;
       } else {
@@ -545,7 +545,7 @@ export function HeroVisual({
     );
     io.observe(canvas);
 
-    // Cursor tracking — translate pointer client coords into output-cell
+    // Cursor tracking - translate pointer client coords into output-cell
     // grid coords so the body render loop can do a cheap distance check.
     const onPointerMove = (e: PointerEvent) => {
       if (!canvas) return;
