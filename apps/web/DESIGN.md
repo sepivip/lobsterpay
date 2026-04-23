@@ -344,8 +344,9 @@ adjacent `.btn.btn-primary.btn-sm`.
 - Don't introduce `box-shadow` for elevation.
 - Don't add chromatic brand colors beyond white + the three status
   slots.
-- Don't use `font-weight` ≥ 600 for display text - weight 300–400
-  only.
+- Don't use `font-weight` ≥ 600 for display text - weight 300-500
+  only. The `display-hero` token is weight 500 (TASA Orbiter); heavier
+  weights read as bold at the large scale and break the restraint.
 - Don't round corners past 4px.
 - Don't brighten elements on hover.
 - Don't mix proportional fonts into buttons or monospace into body

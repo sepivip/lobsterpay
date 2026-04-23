@@ -25,7 +25,7 @@ export default function HeroAnimExperimentsPage() {
     <main className="exp-page">
       <div className="exp-toc">
         <div className="label-mono">HERO-ANIM · LIVE EXPERIMENTS</div>
-        <div className="label-mono text-ghost">scroll to compare. winner replaces 'spin' as the default.</div>
+        <div className="label-mono text-ghost">scroll to compare. current production default: `galaxy`.</div>
       </div>
       <div className="exp-anim-grid">
         {MODES.map((m) => (

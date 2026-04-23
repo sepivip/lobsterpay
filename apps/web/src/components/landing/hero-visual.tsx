@@ -584,11 +584,18 @@ export function HeroVisual({
       } else {
         angle += dt * rotationSpeed;
       }
+      // Wrap angle into [0, 2π) to keep Math.sin / Math.cos precise
+      // over long sessions. Without this, a page left open for hours
+      // accumulates `angle` into the tens of thousands of radians, at
+      // which point sin/cos start losing enough ULPs to visibly jitter.
+      // 2π is the natural period for every trig use of `angle` here.
+      if (angle >= Math.PI * 2) angle -= Math.PI * 2;
       paint(angle, wallTime);
     }
-    // (re)start the RAF loop. Safe to call repeatedly; if `raf` is
-    // already non-zero it just no-ops via the `cancelled || !visible`
-    // guard inside tick on the next frame, but we want to start cleanly.
+    // (re)start the RAF loop. Idempotent: the `raf !== 0` check makes
+    // repeated calls a no-op while the loop is already running. Also
+    // bails when reduced-motion is honored, the component is cancelled,
+    // or the mask has not loaded yet.
     function startLoop() {
       if (cancelled || raf !== 0 || reduced || !mask) return;
       lastT = performance.now();
