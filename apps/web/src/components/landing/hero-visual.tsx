@@ -17,7 +17,9 @@ import { useEffect, useRef } from "react";
  *     into a Z-buffer so the front of the slab paints over the back.
  *
  * Honors prefers-reduced-motion (paints one static frame, no RAF
- * loop). Pauses when off-screen via IntersectionObserver.
+ * loop). Cancels the RAF loop when off-screen via IntersectionObserver
+ * and re-arms when scrolled back into view, so a hidden hero is not
+ * burning ~60fps + GC churn.
  */
 
 /**
@@ -138,14 +140,27 @@ export function HeroVisual({
     // Higher zBuffer value = closer to camera. Initialized to -Infinity
     // each frame.
     let zBuffer = new Float32Array(0);
+    // Per-row x-offset cache for wave mode. Allocated once at mask load
+    // (size = maskH) instead of per-frame to avoid GC churn.
+    let rowOffsets = new Float32Array(0);
+    // Cached canvas CSS pixel size, updated in resize() so paint() does
+    // not need getBoundingClientRect() per frame (forces layout).
+    let cssWidth = 0;
+    let cssHeight = 0;
     // Cursor position in output-cell coordinates. -1 means not hovering.
     let hoverCol = -1;
     let hoverRow = -1;
+    // Set true on cleanup so any in-flight loadMask().then() bails out
+    // before scheduling RAF on an unmounted canvas.
+    let cancelled = false;
 
     async function loadMask() {
       const img = new Image();
-      img.src = src;
+      // crossOrigin must be set BEFORE src so the request is made with
+      // CORS headers; setting it after src is a no-op in some browsers
+      // and would taint the canvas (breaking getImageData below).
       img.crossOrigin = "anonymous";
+      img.src = src;
       await new Promise<void>((resolve, reject) => {
         img.onload = () => resolve();
         img.onerror = () => reject(new Error(`Failed to load ${src}`));
@@ -170,6 +185,9 @@ export function HeroVisual({
       mask = out;
       maskW = w;
       maskH = h;
+      // Allocate the per-row offset cache here (size known after load)
+      // so paint() can refill instead of re-allocate every frame.
+      rowOffsets = new Float32Array(h);
       // Pre-pick a halo char for each EMPTY mask cell that touches the
       // silhouette edge. Sparse (~20% of edge cells) so the halo reads
       // as a soft scatter, not a thick outline.
@@ -194,6 +212,8 @@ export function HeroVisual({
       if (!canvas) return;
       const dpr = window.devicePixelRatio || 1;
       const { width, height } = canvas.getBoundingClientRect();
+      cssWidth = width;
+      cssHeight = height;
       canvas.width = Math.floor(width * dpr);
       canvas.height = Math.floor(height * dpr);
       ctx?.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -260,8 +280,7 @@ export function HeroVisual({
 
     function paint(a: number, t: number) {
       if (!canvas || !ctx || !mask) return;
-      const { width, height } = canvas.getBoundingClientRect();
-      ctx.clearRect(0, 0, width, height);
+      ctx.clearRect(0, 0, cssWidth, cssHeight);
 
       const proj = projectFor(a) as {
         sx: number;
@@ -274,8 +293,9 @@ export function HeroVisual({
       const cx = outCols / 2;
       const cy = outRows / 2;
 
-      // Per-row x-offset for wave mode (precomputed so we don't sin() per pixel).
-      const rowOffsets = new Float32Array(maskH);
+      // Per-row x-offset for wave mode (precomputed so we don't sin()
+      // per pixel). Cache lives at the effect-closure level and is
+      // resized exactly once in loadMask(); we just refill / zero here.
       if (proj.rowSineAmp > 0) {
         for (let v = 0; v < maskH; v++) {
           rowOffsets[v] =
@@ -283,6 +303,11 @@ export function HeroVisual({
             proj.rowSineAmp *
             maskW;
         }
+      } else if (rowOffsets.length > 0 && rowOffsets[0] !== 0) {
+        // Last frame may have left non-zero values from wave mode if
+        // the user switched modes; clear once so the (rowOff ?? 0) sites
+        // below see zeros for non-wave modes.
+        rowOffsets.fill(0);
       }
 
       occupancy.fill(0);
@@ -499,26 +524,44 @@ export function HeroVisual({
     }
 
     function tick(t: number) {
+      if (cancelled || !visible || !mask) {
+        raf = 0;
+        return;
+      }
       raf = requestAnimationFrame(tick);
-      if (!visible || !mask) return;
       const dt = (t - lastT) / 1000;
       lastT = t;
       wallTime += dt;
       if (mode === "spin-shimmer-45") {
-        // Velocity-eased continuous spin. Multiplier ranges from ~1.25
-        // at the wide views (angle ≈ 0, π - full silhouette visible) to
-        // ~0.35 at the edge views (angle ≈ π/2, 3π/2 - compressed flip
-        // moment). This makes the lobster linger at its most readable
-        // poses and accelerate through the "flip", while never actually
-        // stopping. Based on |cos(a)| because cos is 1 at wide and 0 at
-        // edge - exactly the inverse of what we want for "slow during
-        // flip" - so we map it to multiplier via (0.35 + 0.9·|cos|).
+        // Velocity-eased continuous spin per user feedback ("slower
+        // when it flips, never stops"). Multiplier maps to ~0.35 at
+        // the edge-on views (angle ~= π/2, 3π/2 where the silhouette
+        // is compressed to a vertical line - the "flip" moment) and
+        // ~1.25 at the wide views (angle ~= 0, π - full silhouette
+        // facing camera). cos(a) is 1 at wide and 0 at edge, so
+        // (0.35 + 0.9·|cos|) gives high velocity at wide, low at edge.
+        // Net effect: lobster moves quickly through the readable poses
+        // and slows down through the compressed flip transition.
         const ease = 0.35 + 0.9 * Math.abs(Math.cos(angle));
         angle += dt * rotationSpeed * ease;
       } else {
         angle += dt * rotationSpeed;
       }
       paint(angle, wallTime);
+    }
+    // (re)start the RAF loop. Safe to call repeatedly; if `raf` is
+    // already non-zero it just no-ops via the `cancelled || !visible`
+    // guard inside tick on the next frame, but we want to start cleanly.
+    function startLoop() {
+      if (cancelled || raf !== 0 || reduced || !mask) return;
+      lastT = performance.now();
+      raf = requestAnimationFrame(tick);
+    }
+    function stopLoop() {
+      if (raf !== 0) {
+        cancelAnimationFrame(raf);
+        raf = 0;
+      }
     }
 
     const ro = new ResizeObserver(resize);
@@ -527,19 +570,28 @@ export function HeroVisual({
 
     loadMask()
       .then(() => {
+        // Bail out if the component already unmounted while the SVG
+        // was loading. Without this guard we would schedule an RAF
+        // tick on a canvas that React has detached.
+        if (cancelled) return;
         paint(angle, wallTime);
-        if (!reduced) {
-          lastT = performance.now();
-          raf = requestAnimationFrame(tick);
-        }
+        startLoop();
       })
       .catch((err) => {
+        if (cancelled) return;
         console.warn("HeroVisual mask load failed:", err);
       });
 
+    // IntersectionObserver: actually CANCEL the RAF loop when the canvas
+    // scrolls off-screen so the renderer is not burning ~60fps + GC for
+    // a hidden element. Re-arm when it returns to view.
     const io = new IntersectionObserver(
       (entries) => {
-        for (const e of entries) visible = e.isIntersecting;
+        for (const e of entries) {
+          visible = e.isIntersecting;
+          if (visible) startLoop();
+          else stopLoop();
+        }
       },
       { threshold: 0 },
     );
@@ -561,7 +613,8 @@ export function HeroVisual({
     canvas.addEventListener("pointerleave", onPointerLeave);
 
     return () => {
-      cancelAnimationFrame(raf);
+      cancelled = true;
+      stopLoop();
       ro.disconnect();
       io.disconnect();
       canvas.removeEventListener("pointermove", onPointerMove);

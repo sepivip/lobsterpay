@@ -5,8 +5,10 @@
 
 /* ══════════════════════════════════════════════════════════════════════════
    LobsterPay Design System - inspired by x.ai
-   Dark-first, monospace-driven brutalist minimalism.
-   GeistMono for display + buttons, GeistSans for body.
+   Dark-first brutalist minimalism.
+   TASA Orbiter for display H1, body, and headings; GeistMono for buttons,
+   monospace labels, and tx signatures. See apps/web/DESIGN.md for the
+   authoritative typography token spec.
    ══════════════════════════════════════════════════════════════════════════ */
 
 :root {
@@ -43,8 +45,10 @@
   --danger: #f87171;
   --danger-dim: rgba(248, 113, 113, 0.10);
 
-  /* Typography - TASA Orbiter (Google Fonts) for body/headings,
-     GeistMono for display, buttons, ASCII logo. Both loaded via next/font. */
+  /* Typography - TASA Orbiter (Google Fonts) for body, headings, AND
+     the landing display H1. GeistMono for buttons, mono labels, ASCII
+     logo, tx signatures. Both loaded via next/font. See DESIGN.md for
+     the per-token spec (display-hero, section-heading, body, etc.). */
   --font-sans: var(--font-tasa-orbiter), system-ui, -apple-system, sans-serif;
   --font-mono: var(--font-geist-mono), ui-monospace, 'SFMono-Regular', 'Roboto Mono', monospace;
 
@@ -1268,6 +1272,9 @@ a.text-accent { text-decoration: underline; text-underline-offset: 3px; }
     justify-content: center !important;
   }
   .landing-hero-visual {
+    /* order: -1 places the lobster ABOVE the headline + copy in the
+       stacked mobile layout. The visual is the brand identity hook;
+       seeing it first sets context before the user reads the H1. */
     order: -1;
     min-height: 280px;
     max-height: 360px;
