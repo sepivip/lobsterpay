@@ -4,38 +4,40 @@
 @import "@solana/wallet-adapter-react-ui/styles.css";
 
 /* ══════════════════════════════════════════════════════════════════════════
-   LobsterPay Design System — inspired by x.ai
-   Dark-first, monospace-driven brutalist minimalism.
-   GeistMono for display + buttons, GeistSans for body.
+   LobsterPay Design System - inspired by x.ai
+   Dark-first brutalist minimalism.
+   TASA Orbiter for display H1, body, and headings; GeistMono for buttons,
+   monospace labels, and tx signatures. See apps/web/DESIGN.md for the
+   authoritative typography token spec.
    ══════════════════════════════════════════════════════════════════════════ */
 
 :root {
-  /* Canvas & Surface — warm near-black, never pure #000 */
+  /* Canvas & Surface - warm near-black, never pure #000 */
   --bg-deep: #1f2228;
   --bg-base: #1f2228;
   --bg-raised: rgba(255, 255, 255, 0.04);
   --bg-card: rgba(255, 255, 255, 0.05);
   --bg-card-hover: rgba(255, 255, 255, 0.08);
 
-  /* Borders — white at low opacity, visible enough to define structure */
+  /* Borders - white at low opacity, visible enough to define structure */
   --border-subtle: rgba(255, 255, 255, 0.12);
   --border-default: rgba(255, 255, 255, 0.12);
   --border-strong: rgba(255, 255, 255, 0.22);
 
-  /* Text — pure white hierarchy via opacity */
+  /* Text - pure white hierarchy via opacity */
   --text-primary: #ffffff;
   --text-secondary: rgba(255, 255, 255, 0.7);
   --text-tertiary: rgba(255, 255, 255, 0.5);
   --text-ghost: rgba(255, 255, 255, 0.3);
 
-  /* Accent — white replaces red; interaction is monochrome */
+  /* Accent - white replaces red; interaction is monochrome */
   --accent: #ffffff;
   --accent-hover: rgba(255, 255, 255, 0.9);
   --accent-dim: rgba(255, 255, 255, 0.1);
   --accent-glow: none;
   --accent-subtle: rgba(255, 255, 255, 0.05);
 
-  /* Functional status — muted but distinguishable (financial UX requires this) */
+  /* Functional status - muted but distinguishable (financial UX requires this) */
   --success: #34d399;
   --success-dim: rgba(52, 211, 153, 0.12);
   --warning: #fbbf24;
@@ -43,8 +45,12 @@
   --danger: #f87171;
   --danger-dim: rgba(248, 113, 113, 0.10);
 
-  /* Typography — TASA Orbiter (Google Fonts) for body/headings,
-     GeistMono for display, buttons, ASCII logo. Both loaded via next/font. */
+  /* Typography - TASA Orbiter for body, headings, AND the landing
+     display H1. GeistMono for buttons, mono labels, ASCII logo, tx
+     signatures. Both loaded via next/font (TASA Orbiter via
+     next/font/local + self-hosted .woff2; GeistMono via the `geist`
+     package's font module). See DESIGN.md for the per-token spec
+     (display-hero, section-heading, body, etc.). */
   --font-sans: var(--font-tasa-orbiter), system-ui, -apple-system, sans-serif;
   --font-mono: var(--font-geist-mono), ui-monospace, 'SFMono-Regular', 'Roboto Mono', monospace;
 
@@ -53,7 +59,7 @@
   --tracking-mono: 0.08em;
   --tracking-button: 0.09em;
 
-  /* Radius — sharp by default, brutalist precision */
+  /* Radius - sharp by default, brutalist precision */
   --radius-sm: 0px;
   --radius-md: 0px;
   --radius-lg: 0px;
@@ -83,7 +89,7 @@ body {
   margin: 0;
 }
 
-/* ── Focus — blue ring for accessibility ──────────────────────────────── */
+/* ── Focus - blue ring for accessibility ──────────────────────────────── */
 
 *:focus-visible {
   outline: none;
@@ -133,10 +139,12 @@ body {
 }
 
 .text-display {
-  font-family: var(--font-mono);
-  font-size: clamp(2.5rem, 6vw, 4.5rem);
-  font-weight: 300;
-  letter-spacing: normal;
+  font-family: var(--font-sans);
+  /* Smaller so the headline lands in two lines inside the
+     ~576px hero column at 1200px max-width. */
+  font-size: clamp(1.875rem, 3.6vw, 2.875rem);
+  font-weight: 500;
+  letter-spacing: -0.01em;
   line-height: 1.1;
 }
 
@@ -163,7 +171,7 @@ body {
   color: var(--text-secondary);
 }
 
-/* ── Button primitives — GeistMono, uppercase, sharp ─────────────────── */
+/* ── Button primitives - GeistMono, uppercase, sharp ─────────────────── */
 
 .btn {
   display: inline-flex;
@@ -240,7 +248,7 @@ body {
   pointer-events: none;
 }
 
-/* ── Card — transparent surface, thin border, no shadow ───────────────── */
+/* ── Card - transparent surface, thin border, no shadow ───────────────── */
 
 .card {
   background: var(--bg-card);
@@ -253,7 +261,7 @@ body {
   border-color: var(--border-strong);
 }
 
-/* ── Input — transparent, sharp ───────────────────────────────────────── */
+/* ── Input - transparent, sharp ───────────────────────────────────────── */
 
 .input {
   width: 100%;
@@ -311,7 +319,7 @@ body {
   transform: translateX(18px);
 }
 
-/* ── Badge / Status — monochrome tags ─────────────────────────────────── */
+/* ── Badge / Status - monochrome tags ─────────────────────────────────── */
 
 .badge {
   display: inline-flex;
@@ -347,7 +355,7 @@ body {
   color: var(--text-tertiary);
 }
 
-/* ── Status dot — minimal glow ────────────────────────────────────────── */
+/* ── Status dot - minimal glow ────────────────────────────────────────── */
 
 .status-dot {
   width: 6px;
@@ -396,7 +404,7 @@ body {
   background: rgba(255, 255, 255, 0.03);
 }
 
-/* ── Hero — flat dark, no gradient ────────────────────────────────────── */
+/* ── Hero - flat dark, no gradient ────────────────────────────────────── */
 
 .hero-gradient {
   background: var(--bg-deep);
@@ -430,7 +438,7 @@ body {
   transition: all 0.15s ease !important;
 }
 
-/* Trigger variant (top-bar pill) — matches .btn.btn-primary exactly:
+/* Trigger variant (top-bar pill) - matches .btn.btn-primary exactly:
    white fill, dark text, 90% opacity on hover. DESIGN.md §4 Buttons. */
 .wallet-adapter-button-trigger {
   background-color: #ffffff !important;
@@ -490,7 +498,7 @@ body {
 .animate-delay-4 { animation-delay: 0.16s; }
 .animate-delay-5 { animation-delay: 0.2s; }
 
-/* ── Nav — dark, monospace brand ──────────────────────────────────────── */
+/* ── Nav - dark, monospace brand ──────────────────────────────────────── */
 
 .nav {
   border-bottom: 1px solid var(--border-subtle);
@@ -1033,7 +1041,7 @@ a.text-accent { text-decoration: underline; text-underline-offset: 3px; }
   max-height: 320px;
 }
 
-/* ── Landing feature pill — monospace tag ──────────────────────────────── */
+/* ── Landing feature pill - monospace tag ──────────────────────────────── */
 
 .feature-pill {
   font-family: var(--font-mono);
@@ -1049,7 +1057,7 @@ a.text-accent { text-decoration: underline; text-underline-offset: 3px; }
   white-space: nowrap;
 }
 
-/* 3 × 2 arrangement for the landing feature pills — always balanced rows.
+/* 3 × 2 arrangement for the landing feature pills - always balanced rows.
    Collapses to 2 columns at tablet and 1 at mobile. */
 .feature-pill-grid {
   display: grid;
@@ -1077,7 +1085,7 @@ a.text-accent { text-decoration: underline; text-underline-offset: 3px; }
    asymmetric sibling widths. The nav is removed from the layout flow
    entirely (position: absolute) and pinned to the BAR'S geometric
    center via left: 50% + translate(-50%). That way the wallet button
-   widening when connected — or the Open Dashboard CTA appearing —
+   widening when connected - or the Open Dashboard CTA appearing -
    can never push the nav off-center, because the nav doesn't share
    layout with them.
    Container is position: relative so the absolute child anchors to
@@ -1161,7 +1169,9 @@ a.text-accent { text-decoration: underline; text-underline-offset: 3px; }
   margin-bottom: 40px;
 }
 
-/* Hero symbol — just the lobster/claw mark, centered. */
+/* Hero symbol - just the lobster/claw mark, centered.
+   Kept for any page that wants the static symbol; the landing hero
+   now uses the animated <HeroVisual /> instead. */
 .hero-symbol {
   margin-bottom: 32px;
   display: flex;
@@ -1174,7 +1184,115 @@ a.text-accent { text-decoration: underline; text-underline-offset: 3px; }
   display: block;
 }
 
-/* ── Landing sections — shared wrapper ───────────────────────────────── */
+/* ── Landing hero - 2-column variant ──────────────────────────────────
+   Left column: tag, headline, sub-copy, CTAs, feature pills (left-
+   aligned). Right column: <HeroVisual /> animated lobster, fills the
+   column. Stacks vertically below 1024px; the visual goes ABOVE the
+   content on mobile (see `.landing-hero-visual { order: -1 }` in the
+   media query below - the brand identity hook lands first, copy
+   reads underneath). */
+
+.landing-hero-split {
+  margin: 0 auto;
+  max-width: 1200px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 48px;
+  align-items: center;
+  text-align: left;
+  padding: 80px 32px 120px;
+}
+
+.landing-hero-content {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.landing-hero-content .hero-sub {
+  margin-left: 0;
+  text-align: left;
+}
+
+/* Override the global .text-display centering for the split hero. */
+.landing-hero-content .text-display {
+  text-align: left;
+}
+
+/* Feature pills inside the split hero - left-anchored grid, no center
+   justify. Responsive layouts (in .feature-pill-grid above) reduce
+   column count via media queries on narrower viewports. */
+.feature-pill-grid-left {
+  justify-content: flex-start !important;
+  margin-top: 32px !important;
+}
+
+/* Hero CTA row - wallet adapter button needs to match `.btn` (large)
+   here, not `.btn-sm` like the nav. The global wallet-adapter-button
+   override sets it to small dimensions for the top bar; this scoped
+   selector pushes it back up to the full button-primary box-model so
+   the Connect Wallet pill measures identically to the adjacent
+   `.btn.btn-secondary` View Quickstart link. */
+.landing-hero-cta-row .wallet-adapter-button {
+  font-size: 0.875rem !important;
+  padding: 12px 24px !important;
+  line-height: 1.43 !important;
+}
+
+.landing-hero-visual {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1;
+  min-height: 480px;
+  max-height: 720px;
+}
+
+.hero-visual-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  /* pointer-events auto so the cursor-proximity @ → $ hover swap in
+     HeroVisual receives pointermove. Canvas sits inside its own
+     positioned container (.landing-hero-visual / .exp-anim-canvas-wrap),
+     so it cannot intercept clicks meant for adjacent hero CTAs. */
+  pointer-events: auto;
+}
+
+@media (max-width: 1024px) {
+  .landing-hero-split {
+    grid-template-columns: 1fr;
+    text-align: center;
+    gap: 32px;
+    padding: 48px 24px 80px;
+  }
+  .landing-hero-content {
+    align-items: center;
+  }
+  .landing-hero-content .hero-sub,
+  .landing-hero-content .text-display {
+    text-align: center;
+  }
+  .feature-pill-grid-left {
+    justify-content: center !important;
+  }
+  .landing-hero-visual {
+    /* order: -1 places the lobster ABOVE the headline + copy in the
+       stacked mobile layout. The visual is the brand identity hook;
+       seeing it first sets context before the user reads the H1.
+       Width is constrained alongside height so wide-but-short viewports
+       (landscape tablet ~900px) get a properly proportioned canvas
+       instead of a wide letterbox dwarfed by side margins. */
+    order: -1;
+    width: min(360px, 100%);
+    margin-inline: auto;
+    min-height: 280px;
+    max-height: 360px;
+  }
+}
+
+/* ── Landing sections - shared wrapper ───────────────────────────────── */
 
 .landing-section {
   padding: 96px 0;
@@ -1695,4 +1813,63 @@ a.text-accent { text-decoration: underline; text-underline-offset: 3px; }
   justify-content: space-between;
   flex-wrap: wrap;
   gap: 12px;
+}
+
+/* ── Hero animation experiment grid (LP-010) ──────────────────────── */
+
+.exp-page {
+  background: var(--bg-deep);
+  min-height: 100vh;
+  color: var(--text-primary);
+}
+
+.exp-toc {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 32px;
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--bg-deep);
+}
+
+.exp-anim-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1px;
+  background: var(--border-subtle);
+}
+
+@media (max-width: 900px) {
+  .exp-anim-grid { grid-template-columns: 1fr; }
+}
+
+.exp-anim-cell {
+  background: var(--bg-deep);
+  display: flex;
+  flex-direction: column;
+  min-height: 460px;
+}
+
+.exp-anim-label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 16px 24px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.exp-anim-canvas-wrap {
+  flex: 1;
+  position: relative;
+  min-height: 360px;
+}
+
+.exp-anim-canvas-wrap .hero-visual-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
 }
