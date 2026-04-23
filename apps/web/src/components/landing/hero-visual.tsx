@@ -79,7 +79,7 @@ const HALO_CHARS = "+*=~.";
  *                      sweeps left→right; cells outside the bar stay
  *                      at base brightness.
  *   galaxy           - Static silhouette; each cell cycles through the
- *                      ramp on its own phase = wallTime + angular
+ *                      ramp on its own phase = animTime + angular
  *                      position from center + radial twist. Reads as
  *                      density bands flowing outward and rotating
  *                      around the lobster. Production hero default.
@@ -154,10 +154,14 @@ export function HeroVisual({
 		let raf = 0;
 		let visible = true;
 		let angle = 0;
-		// Wall-clock seconds since mount, independent of rotationSpeed. Used
-		// for effects (like the diagonal shimmer sweep) that should pace the
-		// same regardless of how fast the lobster is spinning.
-		let wallTime = 0;
+		// Cumulative ANIMATION-frame seconds since mount, independent of
+		// rotationSpeed. Pauses when the RAF loop pauses (off-screen via
+		// IntersectionObserver, or reduced-motion honored), so it is not
+		// strictly wall-clock - "animation time" is the right mental
+		// model. Used for effects (the diagonal shimmer sweep, the
+		// galaxy per-cell phase) that should pace the same regardless
+		// of how fast the lobster is spinning.
+		let animTime = 0;
 		let lastT = 0;
 		let outCols = 0;
 		let outRows = 0;
@@ -451,7 +455,7 @@ export function HeroVisual({
 			// spin-shimmer-45: concurrent with the (eased) spin - the bar
 			// sweeps the full diagonal once every SS45_SHIMMER_PERIOD seconds
 			// on its own wall-clock timer, pauses off-canvas during the rest
-			// of the duty cycle, then re-enters. Driven by wallTime so it's
+			// of the duty cycle, then re-enters. Driven by animTime so it's
 			// independent of spin velocity / rotationSpeed.
 			const shimmerCenter = mode === "shimmer" ? ((Math.sin(a) + 1) / 2) * outCols : -1;
 			const shimmerBand = Math.max(2, Math.floor(outCols * 0.06));
@@ -575,7 +579,7 @@ export function HeroVisual({
 			raf = requestAnimationFrame(tick);
 			const dt = (t - lastT) / 1000;
 			lastT = t;
-			wallTime += dt;
+			animTime += dt;
 			if (mode === "spin-shimmer-45") {
 				// Velocity-eased continuous spin per user feedback ("slower
 				// when it flips, never stops"). Multiplier maps to ~0.35 at
@@ -599,7 +603,7 @@ export function HeroVisual({
 			// positive dt and any signed edge case.
 			const tau = Math.PI * 2;
 			angle = ((angle % tau) + tau) % tau;
-			paint(angle, wallTime);
+			paint(angle, animTime);
 		}
 		// (re)start the RAF loop. Idempotent: the `raf !== 0` check makes
 		// repeated calls a no-op while the loop is already running. Also
@@ -631,7 +635,7 @@ export function HeroVisual({
 			pendingHoverPaint = requestAnimationFrame(() => {
 				pendingHoverPaint = 0;
 				if (cancelled || !mask) return;
-				paint(angle, wallTime);
+				paint(angle, animTime);
 			});
 		}
 
@@ -645,7 +649,7 @@ export function HeroVisual({
 				// was loading. Without this guard we would schedule an RAF
 				// tick on a canvas that React has detached.
 				if (cancelled) return;
-				paint(angle, wallTime);
+				paint(angle, animTime);
 				startLoop();
 			})
 			.catch((err) => {
@@ -671,18 +675,28 @@ export function HeroVisual({
 		// Cursor tracking - PointerEvent.offsetX/Y is already relative to
 		// the target element, so no client-rect math (and no rect cache /
 		// scroll listener) is needed to translate to cell coords.
+		// Mouse-only filter. The @ -> $ swap is a cursor-proximity effect;
+		// touch interactions can fire pointermove during a scroll/drag and
+		// then never deliver a clean pointerleave, leaving hover stuck on
+		// after the user lifts their finger. Ignoring touch + pen pointers
+		// keeps the effect desktop-cursor-scoped where it belongs.
 		const onPointerMove = (e: PointerEvent) => {
+			if (e.pointerType !== "mouse") return;
 			hoverCol = Math.floor(e.offsetX / cellPx);
 			hoverRow = Math.floor(e.offsetY / cellPx);
 			schedulePaintIfIdle();
 		};
-		const onPointerLeave = () => {
+		const clearHover = () => {
+			if (hoverCol === -1 && hoverRow === -1) return;
 			hoverCol = -1;
 			hoverRow = -1;
 			schedulePaintIfIdle();
 		};
 		canvas.addEventListener("pointermove", onPointerMove);
-		canvas.addEventListener("pointerleave", onPointerLeave);
+		// pointerleave for the normal exit; pointercancel as a safety net
+		// for touch / interrupted gestures that bypass leave.
+		canvas.addEventListener("pointerleave", clearHover);
+		canvas.addEventListener("pointercancel", clearHover);
 
 		return () => {
 			cancelled = true;
@@ -694,7 +708,8 @@ export function HeroVisual({
 			ro.disconnect();
 			io.disconnect();
 			canvas.removeEventListener("pointermove", onPointerMove);
-			canvas.removeEventListener("pointerleave", onPointerLeave);
+			canvas.removeEventListener("pointerleave", clearHover);
+			canvas.removeEventListener("pointercancel", clearHover);
 		};
 	}, [cellPx, rotationSpeed, src, respectReducedMotion, mode]);
 
