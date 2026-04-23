@@ -686,25 +686,28 @@ export function agentRoutes(app: FastifyInstance, db: Db, config: Config) {
     const { paymentRequirements, originalRequestUrl } = parsed.data;
     const idempotencyKey = parsed.data.idempotencyKey ?? `auto-${randomUUID()}`;
 
-    const [vault] = await db`SELECT vault_pda FROM vaults WHERE id = ${vaultId}`;
-
     const result = await x402Service.buildX402FacilitatorPayment({
       paymentRequirements,
       originalRequestUrl,
       idempotencyKey,
       vaultId,
       apiKeyId: apiKey.id,
-      vaultPda: vault.vault_pda,
     });
 
     // Status mapping:
-    //   awaiting_facilitator → 200 (tx1 landed, tx2 handed to agent)
-    //   pending_confirmation → 202 (tx1 confirmation timed out)
-    //   duplicate            → 409 (paymentId collision / concurrent retry)
-    //   failed (policy)      → 403 (paused, over-limit, invalid input, feepayer missing)
-    //   failed (infra)       → 500
+    //   awaiting_facilitator             → 200 (tx1 landed, tx2 handed to agent)
+    //   pending_confirmation             → 202 (tx1 confirmation timed out)
+    //   tx1_confirmed_tx2_build_failed   → 207 Multi-Status (tx1 landed on-chain
+    //                                         but tx2 construction failed after.
+    //                                         Funds moved from vault to relayer;
+    //                                         agent should call again with a new
+    //                                         idempotencyKey to retry tx2.)
+    //   duplicate                        → 409 (paymentId collision / concurrent retry)
+    //   failed (policy)                  → 403 (paused, over-limit, invalid input, feepayer missing)
+    //   failed (infra)                   → 500
     if (result.status === "awaiting_facilitator") return reply.status(200).send(result);
     if (result.status === "pending_confirmation") return reply.status(202).send(result);
+    if (result.status === "tx1_confirmed_tx2_build_failed") return reply.status(207).send(result);
     if (result.status === "duplicate") return reply.status(409).send(result);
 
     const facilitatorRejectionSlugs = [

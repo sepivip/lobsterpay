@@ -13,6 +13,7 @@ import {
   getAssociatedTokenAddressSync,
   createAssociatedTokenAccountIdempotentInstruction,
   createTransferCheckedInstruction,
+  getMint,
 } from "@solana/spl-token";
 import {
   parsePaymentRequirements,
@@ -29,6 +30,7 @@ import {
   getTreasuryTokenAccount,
   TREASURY_PUBKEY,
   SERVICE_FEE_BPS,
+  BPS_DENOMINATOR,
   FEE_VAULT_MIN_BALANCE,
 } from "../solana/instructions.js";
 
@@ -42,23 +44,30 @@ const FACILITATOR_COMPUTE_UNIT_LIMIT = 300_000;
 const FACILITATOR_COMPUTE_UNIT_PRICE_MICROLAMPORTS = 1_000_000;
 
 /**
- * Given the amount the facilitator demands (after our 1.5% service fee
+ * Given the amount the facilitator demands (after our SERVICE_FEE_BPS fee
  * has been skimmed), compute the minimum gross amount the vault must
  * send via `execute_pay_exact` so that at least `agonAmount` lands in
- * the relayer's ATA (the rest is the 1.5% LobsterPay service fee).
+ * the relayer's ATA (the rest is the LobsterPay service fee).
  *
- * `execute_pay_exact` computes: service_fee = floor(gross * 150 / 10_000).
- * We want: gross - service_fee >= agonAmount, i.e. floor(gross * 9850 / 10000) >= agonAmount.
- * Inverting: gross >= ceil(agonAmount * 10000 / 9850).
+ * `execute_pay_exact` computes on-chain:
+ *   service_fee = floor(gross * SERVICE_FEE_BPS / BPS_DENOMINATOR)
+ *   net = gross - service_fee
+ *
+ * We need net >= agonAmount, i.e.
+ *   gross - floor(gross * SERVICE_FEE_BPS / BPS_DENOMINATOR) >= agonAmount.
+ *
+ * Start from gross ≈ ceil(agonAmount * BPS_DENOMINATOR / (BPS_DENOMINATOR - SERVICE_FEE_BPS))
+ * and bump by 1 until the on-chain-exact invariant holds (covers floor-rounding
+ * edge cases).
  */
 function computeGrossFromAgonAmount(agonAmount: bigint): bigint {
-  const num = agonAmount * 10000n;
-  const den = 9850n;
-  let gross = num / den;
-  if (gross * den !== num) gross += 1n;
-  // Guard: floor(gross * 150 / 10000) might round up more than expected
-  // on dust edges. Bump until invariant holds.
-  while (gross - (gross * 150n) / 10000n < agonAmount) gross += 1n;
+  const netBps = BPS_DENOMINATOR - SERVICE_FEE_BPS; // e.g. 10000 - 150 = 9850
+  const num = agonAmount * BPS_DENOMINATOR;
+  let gross = num / netBps;
+  if (gross * netBps !== num) gross += 1n;
+  while (gross - (gross * SERVICE_FEE_BPS) / BPS_DENOMINATOR < agonAmount) {
+    gross += 1n;
+  }
   return gross;
 }
 
@@ -538,7 +547,6 @@ export function createX402Service(db: Db, config: Config) {
       idempotencyKey?: string;
       vaultId: string;
       apiKeyId: string;
-      vaultPda: string;
     }) {
       const idempotencyKey = params.idempotencyKey ?? `auto-${randomUUID()}`;
 
@@ -670,12 +678,17 @@ export function createX402Service(db: Db, config: Config) {
 
       // 5. Compute gross and enforce per-tx + daily limits against gross
       // (what actually leaves the user's vault).
+      //
+      // Accounting semantics, matched to on-chain execute_pay_exact:
+      //   serviceFee = floor(gross * SERVICE_FEE_BPS / BPS_DENOMINATOR)  — routes to treasury
+      //   netToRelayer = gross - serviceFee                               — lands in relayer ATA
+      //   relayerDust = netToRelayer - agonAmount                         — leftover after tx2 pays facilitator
+      // (relayerDust is 0 in the happy case; can be 1 atomic at fee-rounding edges.)
       const agonAmount = BigInt(requirements.amount);
       const grossAmount = computeGrossFromAgonAmount(agonAmount);
-      const serviceFee = grossAmount - agonAmount; // exact: what lands in treasury
-      // Note: `execute_pay_exact` onchain computes fee as floor(gross*150/10000).
-      // Due to our gross-computation invariant, the net to relayer is >= agonAmount.
-      // Any +1 dust stays in relayer's ATA as harmless operational float.
+      const serviceFee = (grossAmount * SERVICE_FEE_BPS) / BPS_DENOMINATOR;
+      const netToRelayer = grossAmount - serviceFee;
+      const relayerDust = netToRelayer - agonAmount;
 
       const perTxLimit = BigInt(policy.max_per_tx_amount_atomic);
       if (perTxLimit > 0n && grossAmount > perTxLimit) {
@@ -756,6 +769,13 @@ export function createX402Service(db: Db, config: Config) {
         return { requestId: req.id, status: "failed", error: "Fee payer not configured", paymentId: requirements.paymentId || null, paymentSignatureHeader: null, partialTransactionBase64: null, tx1Signature: null };
       }
 
+      // Declared outside the try/catch so the error handler can tell
+      // "crashed before tx1 landed" from "crashed after tx1 landed" and
+      // avoid clearing an authoritative settlement signature from the
+      // request row (or releasing daily-limit reservation for funds
+      // that already left the vault).
+      let tx1Signature: string | null = null;
+
       try {
         const [vault] = await db`SELECT vault_pda, policy_pda, fee_vault_pda FROM vaults WHERE id = ${params.vaultId}`;
         const vaultPubkey = new PublicKey(vault.vault_pda);
@@ -820,6 +840,15 @@ export function createX402Service(db: Db, config: Config) {
 
         // Pre-create any missing ATAs as pre-ixs on tx1 — all paid by the
         // relayer (so the facilitator never pays rent).
+        //
+        // Cost note: each ATA rent is ~0.00203 SOL, paid from the relayer's
+        // own SOL balance. The FeeVault's FEE_REIMBURSEMENT_LAMPORTS (10_000)
+        // only covers the tx fee, not ATA rent. So the first call that
+        // targets a brand-new (facilitator, mint) pair eats ~0.002 SOL of
+        // uncovered relayer SOL. Amortizes to zero across subsequent calls
+        // against the same facilitator + mint. Acceptable for hackathon;
+        // post-launch, consider rolling rent into `grossAmount` or having
+        // the user's fee_vault top up the relayer's ATA-creation budget.
         const preIxs: TransactionInstruction[] = [];
         try {
           const [relayerAtaInfo, treasuryAtaInfo, facilitatorAtaInfo] = await Promise.all([
@@ -866,8 +895,21 @@ export function createX402Service(db: Db, config: Config) {
           tokenProgramId: TOKEN_PROGRAM_ID,
           params: { amount: grossAmount, requestHash },
         });
+        // Real mint decimals — transferChecked validates amount_decimals
+        // against on-chain mint. Hardcoding 6 would fail for any non-USDC
+        // mint. Fetch once before tx1 so we can fail fast without spending
+        // vault USDC on a tx we can't complete.
+        const mintInfo = await getMint(txService.connection, mintPubkey, "confirmed", TOKEN_PROGRAM_ID);
+        const decimals = mintInfo.decimals;
+
         const tx1 = await buildTransaction([...preIxs, payIx], relayerPubkey, txService.connection);
+        // Past this point tx1Sig is authoritative — the settlement has
+        // landed on-chain. Error handler must preserve it (not clear).
+        // Assign to both the outer `tx1Signature` (visible to catch) and a
+        // local `tx1Sig` const — the const's narrower `string` type avoids
+        // the TS null-widening across subsequent awaits.
         const tx1Sig = await txService.sendAndConfirm(tx1, [txService.feePayer]);
+        tx1Signature = tx1Sig;
 
         // ── tx2: relayer → facilitator, agon-spec v0 tx ───────────────
         const limitIx = ComputeBudgetProgram.setComputeUnitLimit({
@@ -876,8 +918,6 @@ export function createX402Service(db: Db, config: Config) {
         const priceIx = ComputeBudgetProgram.setComputeUnitPrice({
           microLamports: FACILITATOR_COMPUTE_UNIT_PRICE_MICROLAMPORTS,
         });
-        // Fetch decimals from the 402; fall back to 6 (USDC) on parse miss.
-        const decimals = 6;
         const transferIx = createTransferCheckedInstruction(
           relayerAta,
           mintPubkey,
@@ -905,11 +945,15 @@ export function createX402Service(db: Db, config: Config) {
         const partialTransactionBase64 = Buffer.from(vtx.serialize()).toString("base64");
 
         // x402 v2 envelope for PAYMENT-SIGNATURE header — shape per
-        // @x402/core/types PaymentPayload: uses `accepted` (full matched
-        // requirement object), NOT scheme+network top-level.
+        // @x402/core/types PaymentPayload: uses `accepted` with the FULL
+        // original requirements object the facilitator advertised (must
+        // deep-equal one entry of the route's `accepts` array, including
+        // `extra.feePayer`, `payTo`, etc). Using the adapter's normalized
+        // shape here would rename payTo→recipient and drop extra, causing
+        // the facilitator to reject with "No matching payment requirements".
         const envelope = {
           x402Version: 2,
-          accepted: requirements,
+          accepted: params.paymentRequirements,
           payload: { transaction: partialTransactionBase64 },
         };
         const paymentSignatureHeader = Buffer.from(JSON.stringify(envelope)).toString("base64");
@@ -929,6 +973,8 @@ export function createX402Service(db: Db, config: Config) {
             grossAmount: grossAmount.toString(),
             agonAmount: agonAmount.toString(),
             serviceFee: serviceFee.toString(),
+            netToRelayer: netToRelayer.toString(),
+            relayerDust: relayerDust.toString(),
             asset: requirements.asset,
             network: requirements.network,
             facilitatorFeePayer: facilitatorFeePayerStr,
@@ -942,6 +988,8 @@ export function createX402Service(db: Db, config: Config) {
           agonAmount: agonAmount.toString(),
           grossAmount: grossAmount.toString(),
           serviceFee: serviceFee.toString(),
+          netToRelayer: netToRelayer.toString(),
+          relayerDust: relayerDust.toString(),
           asset: requirements.asset,
           recipient: requirements.recipient,
           paymentId: requirements.paymentId,
@@ -965,13 +1013,29 @@ export function createX402Service(db: Db, config: Config) {
           grossAmount: grossAmount.toString(),
           agonAmount: agonAmount.toString(),
           serviceFee: serviceFee.toString(),
+          netToRelayer: netToRelayer.toString(),
+          relayerDust: relayerDust.toString(),
           error: null,
         };
       } catch (err: any) {
         const isTimeout = /timeout|expired|not confirmed/i.test(err?.message ?? "");
-        const finalStatus = isTimeout ? "pending_confirmation" : "failed";
-        await txService.updateRequestTx(req.id, "", finalStatus);
-        if (!isTimeout && reserved) {
+        // If tx1 already landed, funds have left the vault — we must
+        // preserve tx1Signature, keep the daily-limit reservation, and
+        // surface a distinct "tx1 confirmed but tx2 build failed" status
+        // instead of wiping the record. Otherwise (crash before tx1), it
+        // is safe to clear the signature and refund usage.
+        const tx1Already = tx1Signature !== null;
+        const finalStatus = tx1Already
+          ? "tx1_confirmed_tx2_build_failed"
+          : isTimeout
+            ? "pending_confirmation"
+            : "failed";
+        await txService.updateRequestTx(
+          req.id,
+          tx1Already ? tx1Signature! : "",
+          finalStatus,
+        );
+        if (!tx1Already && !isTimeout && reserved) {
           await txService.releaseUsage(params.vaultId, params.apiKeyId, grossAmount);
         }
         await txService.logActivity(params.vaultId, "x402_facilitator", {
@@ -982,18 +1046,21 @@ export function createX402Service(db: Db, config: Config) {
           recipient: requirements.recipient,
           paymentId: requirements.paymentId,
           facilitatorFeePayer: facilitatorFeePayerStr,
+          tx1Signature,
           error: String(err?.message ?? err).slice(0, 400),
-        }, undefined, req.id);
+        }, tx1Signature ?? undefined, req.id);
         return {
           requestId: req.id,
           status: finalStatus,
           paymentId: requirements.paymentId || null,
           paymentSignatureHeader: null,
           partialTransactionBase64: null,
-          tx1Signature: null,
-          error: isTimeout
-            ? "Transaction 1 (vault → relayer) confirmation timed out; status uncertain"
-            : `x402 facilitator settlement failed: ${String(err?.message ?? err).slice(0, 200)}`,
+          tx1Signature,
+          error: tx1Already
+            ? `tx1 (vault → relayer) landed at ${tx1Signature} but tx2 build failed: ${String(err?.message ?? err).slice(0, 160)}. Funds reached the relayer; call again with a new idempotencyKey to resume, or withdraw dust from the relayer's ATA manually.`
+            : isTimeout
+              ? "Transaction 1 (vault → relayer) confirmation timed out; status uncertain"
+              : `x402 facilitator settlement failed: ${String(err?.message ?? err).slice(0, 200)}`,
         };
       }
     },

@@ -10,7 +10,6 @@
 // Run: node scripts/lobsterpay-api-probe.mjs
 
 import fs from "node:fs";
-import path from "node:path";
 
 // Load LOBSTERPAY_API from .env (one-line .env only — no parser dep).
 const envRaw = fs.readFileSync(".env", "utf8");
