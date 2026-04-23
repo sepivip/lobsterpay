@@ -167,7 +167,7 @@
           "name": "paymentRequirements",
           "type": "object",
           "required": true,
-          "description": "Payment requirements from the 402 response. Must include: scheme ('exact'), network ('solana'), asset (mint address), amount (atomic units), recipient (destination wallet). Optional: paymentId for upstream dedup, expiresAt as an ISO string."
+          "description": "Payment requirements from the 402 response. Must include: scheme ('exact'), network, asset (mint address), amount (atomic units), recipient (destination wallet). The `network` field accepts any of: 'solana' (cluster-agnostic, resolves to the server's configured cluster), 'solana-devnet', 'solana-mainnet', 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp' (CAIP-2 mainnet, per x402 spec), 'solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1' (CAIP-2 devnet). The server rejects cluster-specific values that don't match its own cluster. Optional: paymentId for upstream dedup, expiresAt as an ISO string."
         },
         {
           "name": "originalRequestUrl",
@@ -195,7 +195,7 @@
       },
       "x402_retry_flow": [
         "1. Agent GETs the paywalled URL, gets a 402 with paymentRequirements in the body.",
-        "2. Agent calls pay_x402 with { paymentRequirements, originalRequestUrl }.",
+        "2. Agent forwards paymentRequirements intact to pay_x402 along with originalRequestUrl. The 402's `network` field is commonly a CAIP-2 chain id like 'solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1' (devnet) or 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp' (mainnet) - both are accepted as-is.",
         "3. On status: confirmed, agent retries the original URL with header 'X-PAYMENT: <xPaymentHeader>'.",
         "4. Upstream API verifies the Solana tx, returns 200 + content."
       ]

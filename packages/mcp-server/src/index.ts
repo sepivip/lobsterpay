@@ -285,7 +285,12 @@ server.tool(
 		paymentRequirements: z
 			.object({
 				scheme: z.string().default("exact"),
-				network: z.string().default("solana"),
+				network: z
+					.string()
+					.default("solana")
+					.describe(
+						'Solana network identifier. Accepted: "solana" (cluster-agnostic), "solana-devnet", "solana-mainnet", "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp" (CAIP-2 mainnet), "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1" (CAIP-2 devnet). Forward whatever the 402 response sent.',
+					),
 				asset: z.string().describe("Token mint address"),
 				amount: z.string().describe("Amount in atomic units"),
 				recipient: z.string().describe("Payment destination address"),
