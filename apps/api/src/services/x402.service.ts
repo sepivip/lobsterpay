@@ -400,19 +400,36 @@ export function createX402Service(db: Db, config: Config) {
           serviceFee: serviceFee.toString(),
         }, signature, req.id);
 
-        // X-PAYMENT header value the agent sends on its retry against
-        // originalRequestUrl. Spec-compliant shape: base64-encoded JSON
-        // with the settlement details. Upstream API verifies the
-        // signature against its configured recipient + amount.
+        // Payment header value the agent sends on its retry against
+        // originalRequestUrl. Shape is the x402 v2 envelope:
+        //   { x402Version, scheme, network, payload: { ...settlement } }
+        // The `payload` itself carries both the v2 field names (payTo,
+        // maxAmountRequired) AND our legacy aliases (recipient, amount)
+        // so upstream verifiers that read either get what they need.
+        //
+        // Note: this header is usable by upstream paywalls that verify
+        // by on-chain tx-signature lookup (like our /v1/demo/x402/*).
+        // It is NOT compatible with spec-conformant x402 facilitator
+        // gateways (agonx402, Coinbase reference facilitator) - those
+        // expect a pre-signed UNSUBMITTED transaction that they will
+        // submit themselves, which the LobsterPay vault-PDA model
+        // cannot produce. See the skill docs' "compatibility" note.
         const xPaymentHeader = Buffer.from(
           JSON.stringify({
+            x402Version: 2,
             scheme: "exact",
             network: requirements.network,
-            txSignature: signature,
-            amount: requirements.amount,
-            asset: requirements.asset,
-            recipient: requirements.recipient,
-            paymentId: requirements.paymentId ?? null,
+            payload: {
+              txSignature: signature,
+              // v2 field names
+              maxAmountRequired: requirements.amount,
+              payTo: requirements.recipient,
+              asset: requirements.asset,
+              // Back-compat aliases (what the flat pre-v2 header used)
+              amount: requirements.amount,
+              recipient: requirements.recipient,
+              paymentId: requirements.paymentId ?? null,
+            },
           }),
         ).toString("base64");
 

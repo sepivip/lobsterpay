@@ -11,6 +11,16 @@ import { TREASURY_PUBKEY } from "../solana/instructions.js";
 const DEMO_PRICE_ATOMIC = "10000";
 // devnet USDC mint (the same one the dashboard + activity feed surface)
 const DEMO_MINT = "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU";
+const DEMO_MINT_SYMBOL = "USDC";
+const DEMO_MINT_DECIMALS = 6;
+
+// x402 v2 advertises networks via CAIP-2. Solana devnet's CAIP-2 chain id
+// is the first 32 chars of the devnet genesis block hash. See
+// https://github.com/ChainAgnostic/namespaces/blob/main/solana/caip2.md
+const CAIP2_SOLANA_DEVNET = "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1";
+
+// x402 schema bump we target. Current spec: https://docs.x402.org
+const X402_VERSION = 2;
 
 // In-memory anti-replay cache: once a tx signature has unlocked content, it
 // can't be re-used. Bounded so it can't leak forever on long-running
@@ -50,19 +60,37 @@ function pick<T>(arr: T[]): T {
 }
 
 /**
- * Spec-compliant x402 payment-requirements body. Agent uses these fields
- * when calling pay_x402 — we read them back out of X-PAYMENT on retry.
+ * x402 v2 payment-requirements body. Shape matches the upstream spec
+ * (https://docs.x402.org): `accepts` array per-scheme, CAIP-2 network
+ * ids, `maxAmountRequired` naming, `payTo` for the receiver, `asset`
+ * as an object with {address, symbol, decimals}.
+ *
+ * Backward-compat fields (`amount`, `recipient`, `paymentId` at the top
+ * level of the requirement) are kept so our own `pay_x402` endpoint
+ * and older clients that use the flat shape still work. Our adapter
+ * already accepts these as aliases.
  */
-function buildRequirements(resource: string, paymentId: string, publicApiUrl: string) {
+function buildRequirement(resource: string, paymentId: string, publicApiUrl: string) {
   return {
     scheme: "exact" as const,
-    network: "solana",
-    asset: DEMO_MINT,
+    network: CAIP2_SOLANA_DEVNET,
+    maxAmountRequired: DEMO_PRICE_ATOMIC,
+    // Back-compat alias; identical to maxAmountRequired.
     amount: DEMO_PRICE_ATOMIC,
+    payTo: TREASURY_PUBKEY.toString(),
+    // Back-compat alias; identical to payTo.
     recipient: TREASURY_PUBKEY.toString(),
-    paymentId,
-    description: `LobsterPay demo paywall — unlock ${resource}`,
+    asset: {
+      address: DEMO_MINT,
+      symbol: DEMO_MINT_SYMBOL,
+      decimals: DEMO_MINT_DECIMALS,
+    },
     resource: `${publicApiUrl}${resource}`,
+    description: `LobsterPay demo paywall - unlock ${resource}`,
+    mimeType: "application/json",
+    maxTimeoutSeconds: 600,
+    // Our Payment Identifier extension; facilitates upstream dedup.
+    paymentId,
     expiresAt: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
   };
 }
@@ -75,35 +103,58 @@ interface ParsedXPayment {
   paymentId?: string | null;
 }
 
+/**
+ * Decode the payment header. Accepts both shapes:
+ *
+ *   v2 envelope:  { x402Version, scheme, network, payload: { txSignature,
+ *                   amount|maxAmountRequired, asset|mint, payTo|recipient,
+ *                   paymentId? } }
+ *   legacy flat:  { txSignature, amount, asset, recipient, paymentId? }
+ *
+ * asset in the v2 envelope may be either a string (mint address) or an
+ * object {address, symbol, decimals}.
+ */
 function parseXPayment(header: string | undefined): ParsedXPayment | { error: string } {
-  if (!header) return { error: "Missing X-PAYMENT header" };
+  if (!header) return { error: "Missing payment header (PAYMENT-SIGNATURE or X-PAYMENT)" };
   let decoded: string;
   try {
     decoded = Buffer.from(header, "base64").toString("utf8");
   } catch {
-    return { error: "X-PAYMENT header is not valid base64" };
+    return { error: "Payment header is not valid base64" };
   }
   let parsed: any;
   try {
     parsed = JSON.parse(decoded);
   } catch {
-    return { error: "X-PAYMENT header is not valid JSON after base64 decode" };
+    return { error: "Payment header is not valid JSON after base64 decode" };
   }
   if (typeof parsed !== "object" || parsed == null) {
-    return { error: "X-PAYMENT header must be a JSON object" };
+    return { error: "Payment header must be a JSON object" };
   }
-  if (!parsed.txSignature || typeof parsed.txSignature !== "string") {
-    return { error: "X-PAYMENT missing txSignature" };
+
+  // If the caller sent a v2 envelope, the interesting fields live under
+  // `payload`. Otherwise treat the whole object as the flat legacy form.
+  const src = parsed.payload && typeof parsed.payload === "object" ? parsed.payload : parsed;
+
+  const txSignature = src.txSignature;
+  if (!txSignature || typeof txSignature !== "string") {
+    return { error: "Payment header missing txSignature" };
   }
-  if (!parsed.amount || !parsed.asset || !parsed.recipient) {
-    return { error: "X-PAYMENT missing amount / asset / recipient" };
+  const amount = src.amount ?? src.maxAmountRequired ?? src.amountAtomic;
+  const assetRaw = src.asset ?? src.mint ?? src.token;
+  // asset may be { address, symbol, decimals } (v2) or a plain string (legacy).
+  const asset = typeof assetRaw === "object" && assetRaw !== null ? assetRaw.address : assetRaw;
+  const recipient = src.payTo ?? src.recipient ?? src.destination;
+
+  if (!amount || !asset || !recipient) {
+    return { error: "Payment header missing amount / asset / payTo" };
   }
   return {
-    txSignature: parsed.txSignature,
-    amount: String(parsed.amount),
-    asset: String(parsed.asset),
-    recipient: String(parsed.recipient),
-    paymentId: parsed.paymentId ?? null,
+    txSignature,
+    amount: String(amount),
+    asset: String(asset),
+    recipient: String(recipient),
+    paymentId: src.paymentId ?? src.payment_id ?? null,
   };
 }
 
@@ -195,33 +246,47 @@ async function handlePaywall(opts: {
   resource: string;
   respond: () => unknown;
 }) {
-  const xPayment = opts.request.headers["x-payment"] as string | undefined;
-  if (!xPayment) {
+  // Accept both v2 (PAYMENT-SIGNATURE) and legacy (X-PAYMENT) header
+  // names. Node lowercases header keys for us.
+  const paymentHeader =
+    (opts.request.headers["payment-signature"] as string | undefined) ||
+    (opts.request.headers["x-payment"] as string | undefined);
+
+  if (!paymentHeader) {
     const paymentId = randomUUID();
-    const requirements = buildRequirements(opts.resource, paymentId, opts.publicApiUrl);
+    const requirement = buildRequirement(opts.resource, paymentId, opts.publicApiUrl);
+    // v2 body shape: top-level envelope with `accepts` array. Extra
+    // `paymentRequirements` alias + `instructions` array are non-spec
+    // additions that help humans + legacy clients; strict v2 parsers
+    // ignore unknown keys.
+    const body = {
+      x402Version: X402_VERSION,
+      accepts: [requirement],
+      // Legacy alias for pre-v2 clients. Identical content to accepts[0].
+      paymentRequirements: requirement,
+      error: "Payment Required",
+      instructions: [
+        `1. POST ${opts.publicApiUrl}/v1/agent/actions/x402 with { paymentRequirements: <this requirement>, originalRequestUrl: "${opts.publicApiUrl}${opts.resource}" }`,
+        "2. On status: confirmed, retry the original URL with header 'PAYMENT-SIGNATURE: <xPaymentHeader from the response>' (or legacy 'X-PAYMENT').",
+        "3. You will receive 200 + the paywalled content.",
+      ],
+    };
     return opts.reply
       .status(402)
-      .header("X-PAYMENT-REQUIRED", JSON.stringify(requirements))
-      .send({
-        error: "Payment Required",
-        x402Version: 1,
-        paymentRequirements: requirements,
-        instructions: [
-          `1. POST ${opts.publicApiUrl}/v1/agent/actions/x402 with { paymentRequirements, originalRequestUrl: "${opts.publicApiUrl}${opts.resource}" }`,
-          "2. On status: confirmed, retry the original URL with header 'X-PAYMENT: <xPaymentHeader from the response>'",
-          "3. You will receive 200 + the paywalled content",
-        ],
-      });
+      // v2 header name + legacy alias for backward compat.
+      .header("PAYMENT-REQUIRED", JSON.stringify(body))
+      .header("X-PAYMENT-REQUIRED", JSON.stringify(requirement))
+      .send(body);
   }
 
-  const claimed = parseXPayment(xPayment);
+  const claimed = parseXPayment(paymentHeader);
   if ("error" in claimed) {
     return opts.reply.status(400).send({ error: claimed.error });
   }
 
   if (claimedSignatures.has(claimed.txSignature)) {
     return opts.reply.status(409).send({
-      error: "X-PAYMENT signature already used for a prior request (anti-replay)",
+      error: "Payment signature already used for a prior request (anti-replay)",
       txSignature: claimed.txSignature,
     });
   }
@@ -243,8 +308,23 @@ async function handlePaywall(opts: {
 
   markClaimed(claimed.txSignature);
   const payload = opts.respond();
+  // v2 PAYMENT-RESPONSE carries a base64-encoded settlement receipt so
+  // clients can log what was paid without parsing the upstream body.
+  // Legacy X-PAYMENT-VERIFIED header kept for older verifiers.
+  const receipt = Buffer.from(
+    JSON.stringify({
+      x402Version: X402_VERSION,
+      scheme: "exact",
+      network: CAIP2_SOLANA_DEVNET,
+      txSignature: claimed.txSignature,
+      payTo: claimed.recipient,
+      amount: DEMO_PRICE_ATOMIC,
+      asset: { address: DEMO_MINT, symbol: DEMO_MINT_SYMBOL, decimals: DEMO_MINT_DECIMALS },
+    }),
+  ).toString("base64");
   return opts.reply
     .status(200)
+    .header("PAYMENT-RESPONSE", receipt)
     .header("X-PAYMENT-VERIFIED", claimed.txSignature)
     .send({
       verified: true,
