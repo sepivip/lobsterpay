@@ -1,7 +1,12 @@
 {
-  "version": "0.3.5",
+  "version": "0.4.0",
   "updated": "2026-04-23",
   "changelog": [
+    {
+      "version": "0.4.0",
+      "date": "2026-04-23",
+      "notes": "x402 v2 envelope polish across the surface. (1) pay_x402's returned xPaymentHeader is now the spec's { x402Version: 2, scheme, network, payload: {...} } envelope instead of a flat object; payload carries both v2 field names (maxAmountRequired, payTo) and legacy aliases (amount, recipient) so upstream verifiers reading either still work. (2) The demo paywall at /v1/demo/x402/fortune and /v1/demo/x402/joke now emits v2-shaped 402 responses with { x402Version: 2, accepts: [{ scheme, network: 'solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1', maxAmountRequired, payTo, asset: { address, symbol, decimals }, ... }] }, and sends PAYMENT-REQUIRED / PAYMENT-RESPONSE headers alongside the legacy X-PAYMENT-* aliases. (3) Demo accepts both PAYMENT-SIGNATURE (v2) and X-PAYMENT (legacy) as the retry header. (4) Added an explicit `compatibility` section to the skill documenting the structural incompatibility with facilitator-style x402 gateways (agonx402, Coinbase reference) - their flow requires a pre-signed unsubmitted tx the facilitator submits, which vault PDAs cannot produce."
+    },
     {
       "version": "0.3.5",
       "date": "2026-04-23",
