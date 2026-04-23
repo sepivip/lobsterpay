@@ -143,12 +143,25 @@ export function HeroVisual({
 		// Pull the design-system mono font from the CSS custom property
 		// instead of hardcoding a ui-monospace fallback chain. Keeps the
 		// ASCII hero in the same GeistMono voice as buttons, mono labels,
-		// and tx signatures across the rest of the site. Computed once at
-		// effect setup; ctx.font assignment per frame just composes it
-		// with cellPx.
-		const monoFamily =
-			getComputedStyle(document.documentElement).getPropertyValue("--font-mono").trim() ||
-			"ui-monospace, SFMono-Regular, Menlo, monospace";
+		// and tx signatures across the rest of the site.
+		//
+		// IMPORTANT: read `--font-geist-mono` directly (the next/font
+		// runtime variable that resolves to the actual `__variable_xxxxx`
+		// font-family string) rather than `--font-mono`. The latter is
+		// defined as `var(--font-geist-mono), ui-monospace, ...` and
+		// getComputedStyle().getPropertyValue() does NOT resolve nested
+		// var() references; it returns the literal text. Canvas ctx.font
+		// cannot parse `var()`, so it would silently fall back to the
+		// default sans font and break the monospace alignment of the
+		// ASCII grid. Reading the leaf variable + appending our fallbacks
+		// here gives ctx.font a value it can actually parse. Computed
+		// once at effect setup; ctx.font assignment per frame just
+		// composes it with cellPx.
+		const geistMono = getComputedStyle(document.documentElement)
+			.getPropertyValue("--font-geist-mono")
+			.trim();
+		const monoFallbacks = "ui-monospace, SFMono-Regular, Menlo, monospace";
+		const monoFamily = geistMono ? `${geistMono}, ${monoFallbacks}` : monoFallbacks;
 		const ctxFontString = `${cellPx}px ${monoFamily}`;
 
 		let mask: Uint8Array | null = null;
