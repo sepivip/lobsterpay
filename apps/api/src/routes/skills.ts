@@ -304,6 +304,69 @@ function buildOpenApiSpec(apiUrl: string, version: string) {
 					},
 				},
 			},
+				"/v1/agent/actions/x402-facilitator": {
+					post: {
+						operationId: "payX402Facilitator",
+						summary: "Pay a 402-gated endpoint via a spec-conformant x402 facilitator gateway (agonx402, Coinbase reference facilitator)",
+						description:
+							"Returns a partial-signed v0 transferChecked tx wrapped in the x402 PAYMENT-SIGNATURE envelope for the facilitator to co-sign and submit. Internally does two txs: vault → relayer (execute_pay_exact, 1.5% fee to treasury) then relayer → facilitator (partial-signed, returned to agent). Requires the 402's paymentRequirements.extra.feePayer to be set — that's the facilitator's published fee-payer pubkey.",
+						requestBody: {
+							required: true,
+							content: {
+								"application/json": {
+									schema: {
+										type: "object",
+										required: ["paymentRequirements", "originalRequestUrl"],
+										properties: {
+											paymentRequirements: {
+												type: "object",
+												description: "Full accepts[i] object from the 402. MUST include extra.feePayer.",
+											},
+											originalRequestUrl: { type: "string", format: "uri" },
+											idempotencyKey: { type: "string" },
+										},
+									},
+								},
+							},
+						},
+						responses: {
+							"200": {
+								description:
+									"tx1 (vault → relayer) settled; partial-signed tx2 ready for the facilitator",
+								content: {
+									"application/json": {
+										schema: {
+											type: "object",
+											properties: {
+												requestId: { type: "string" },
+												status: { type: "string", enum: ["awaiting_facilitator"] },
+												paymentId: { type: "string", nullable: true },
+												paymentSignatureHeader: {
+													type: "string",
+													description: "Base64 x402 v2 envelope — put this in PAYMENT-SIGNATURE on retry",
+												},
+												partialTransactionBase64: { type: "string" },
+												tx1Signature: { type: "string" },
+												feePayer: { type: "string" },
+												authority: { type: "string" },
+												blockhash: { type: "string" },
+												lastValidBlockHeight: { type: "integer" },
+												expiresAt: { type: "string", format: "date-time" },
+												grossAmount: { type: "string" },
+												agonAmount: { type: "string" },
+												serviceFee: { type: "string" },
+											},
+										},
+									},
+								},
+							},
+							"202": { description: "tx1 confirmation timed out" },
+							"403": { description: "Policy rejection (paused, over-limit, missing extra.feePayer, invalid input)" },
+							"409": { description: "Duplicate paymentId or concurrent retry" },
+							"500": { description: "On-chain or infrastructure error" },
+						},
+					},
+				},
 		},
 	};
 }

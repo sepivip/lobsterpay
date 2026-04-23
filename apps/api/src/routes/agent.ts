@@ -5,7 +5,7 @@ import { createApiKeyAuth } from "../middleware/auth.js";
 import { createTxService } from "../services/tx.service.js";
 import { createSwapService } from "../services/swap.service.js";
 import { createX402Service } from "../services/x402.service.js";
-import { payRequestSchema, swapRequestSchema, x402RequestSchema } from "@lobsterpay/shared";
+import { payRequestSchema, swapRequestSchema, x402RequestSchema, x402FacilitatorRequestSchema } from "@lobsterpay/shared";
 import { Connection, PublicKey } from "@solana/web3.js";
 import {
   TOKEN_PROGRAM_ID,
@@ -656,5 +656,73 @@ export function agentRoutes(app: FastifyInstance, db: Db, config: Config) {
       err.startsWith("Invalid payment requirements") ||
       err.startsWith("Fee vault below minimum balance");
     return reply.status(isPolicyReject ? 403 : 500).send(result);
+  });
+
+  // POST /v1/agent/actions/x402-facilitator
+  //
+  // Facilitator-mode x402 — for spec-conformant x402 SVM facilitator
+  // gateways (agonx402, Coinbase reference facilitator, etc.) that
+  // expect a pre-signed unsubmitted v0 transferChecked tx in the
+  // PAYMENT-SIGNATURE header. LobsterPay does two txs per call:
+  //   tx1 (LobsterPay-submitted): execute_pay_exact(vault → relayer's
+  //        USDC ATA, gross). Service fee (1.5%) routes to treasury;
+  //        net lands in the relayer's ATA.
+  //   tx2 (facilitator-submitted): v0 transferChecked(relayer → payTo)
+  //        with feePayer = accepted.extra.feePayer. Relayer partial-
+  //        signs as authority; returned to agent in the PAYMENT-SIGNATURE
+  //        envelope.
+  //
+  // Use `pay_x402` (existing) for upstreams that verify by on-chain
+  // tx-signature lookup (our /v1/demo/x402/* demo endpoints).
+  app.post("/v1/agent/actions/x402-facilitator", { preHandler: auth }, async (request, reply) => {
+    const vaultId = (request as any).vaultId;
+    const apiKey = (request as any).apiKeyRecord;
+    const parsed = x402FacilitatorRequestSchema.safeParse(request.body);
+
+    if (!parsed.success) {
+      return reply.status(400).send({ code: "invalid_request", message: parsed.error.message });
+    }
+
+    const { paymentRequirements, originalRequestUrl } = parsed.data;
+    const idempotencyKey = parsed.data.idempotencyKey ?? `auto-${randomUUID()}`;
+
+    const [vault] = await db`SELECT vault_pda FROM vaults WHERE id = ${vaultId}`;
+
+    const result = await x402Service.buildX402FacilitatorPayment({
+      paymentRequirements,
+      originalRequestUrl,
+      idempotencyKey,
+      vaultId,
+      apiKeyId: apiKey.id,
+      vaultPda: vault.vault_pda,
+    });
+
+    // Status mapping:
+    //   awaiting_facilitator → 200 (tx1 landed, tx2 handed to agent)
+    //   pending_confirmation → 202 (tx1 confirmation timed out)
+    //   duplicate            → 409 (paymentId collision / concurrent retry)
+    //   failed (policy)      → 403 (paused, over-limit, invalid input, feepayer missing)
+    //   failed (infra)       → 500
+    if (result.status === "awaiting_facilitator") return reply.status(200).send(result);
+    if (result.status === "pending_confirmation") return reply.status(202).send(result);
+    if (result.status === "duplicate") return reply.status(409).send(result);
+
+    const facilitatorRejectionSlugs = [
+      "Vault is paused",
+      "x402 action not allowed",
+      "Amount exceeds per-tx limit",
+      "Amount exceeds daily limit",
+      "Insufficient vault balance",
+      "Fee payer not configured",
+      "Invalid originalRequestUrl",
+      "paymentRequirements.extra.feePayer is required",
+      "paymentRequirements.extra.feePayer is not a valid",
+      "Partial tx already issued",
+    ];
+    const facilitatorErr = String(result.error ?? "");
+    const isFacilitatorPolicyReject = facilitatorRejectionSlugs.some((slug) => facilitatorErr.startsWith(slug)) ||
+      facilitatorErr.startsWith("Invalid payment requirements") ||
+      facilitatorErr.startsWith("Fee vault below minimum balance");
+    return reply.status(isFacilitatorPolicyReject ? 403 : 500).send(result);
   });
 }

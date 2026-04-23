@@ -339,6 +339,100 @@ server.tool(
 	},
 );
 
+// ── Tool: pay_x402_facilitator ─────────────────────────────────────────────
+
+server.tool(
+	"pay_x402_facilitator",
+	"Pay a 402-gated endpoint whose 402 came from a spec-conformant x402 facilitator gateway (agonx402, Coinbase reference facilitator). Returns a `paymentSignatureHeader` you put in the `PAYMENT-SIGNATURE` header on your retry; the facilitator co-signs and submits the tx itself. Use when the 402's accepts[i].extra.feePayer is set — for paywalls that verify on-chain by tx-signature lookup, use `pay_x402` instead.",
+	{
+		paymentRequirements: z
+			.object({
+				scheme: z.string().default("exact"),
+				network: z
+					.string()
+					.describe(
+						"CAIP-2 Solana chain id from the 402 (e.g. 'solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1' for devnet).",
+					),
+				asset: z.string().describe("Token mint address"),
+				amount: z.string().describe("Amount in atomic units"),
+				payTo: z.string().describe("Facilitator's payTo wallet"),
+				maxTimeoutSeconds: z.number().optional(),
+				extra: z
+					.object({
+						feePayer: z
+							.string()
+							.describe(
+								"Facilitator's fee-payer pubkey (required for facilitator-mode). Usually same as payTo.",
+							),
+					})
+					.passthrough(),
+			})
+			.passthrough()
+			.describe(
+				"Payment requirements from the facilitator's 402 response. MUST include extra.feePayer.",
+			),
+		originalRequestUrl: z
+			.string()
+			.describe("The facilitator-gateway URL that returned the 402"),
+		idempotencyKey: z
+			.string()
+			.optional()
+			.describe(
+				"Optional. Each partial tx is tied to a ~60-90s blockhash; if the facilitator doesn't submit in time, call again with a new key.",
+			),
+	},
+	async (params) => {
+		try {
+			const result = await api<any>(
+				"POST",
+				"/v1/agent/actions/x402-facilitator",
+				{
+					paymentRequirements: params.paymentRequirements,
+					originalRequestUrl: params.originalRequestUrl,
+					idempotencyKey: params.idempotencyKey,
+				},
+			);
+			return {
+				content: [
+					{
+						type: "text" as const,
+						text: JSON.stringify(
+							{
+								status: result.status,
+								requestId: result.requestId,
+								paymentSignatureHeader: result.paymentSignatureHeader,
+								tx1Signature: result.tx1Signature,
+								feePayer: result.feePayer,
+								authority: result.authority,
+								blockhash: result.blockhash,
+								lastValidBlockHeight: result.lastValidBlockHeight,
+								expiresAt: result.expiresAt,
+								paymentId: result.paymentId,
+								grossAmount: result.grossAmount,
+								agonAmount: result.agonAmount,
+								serviceFee: result.serviceFee,
+								error: result.error,
+							},
+							null,
+							2,
+						),
+					},
+				],
+			};
+		} catch (err: any) {
+			return {
+				content: [
+					{
+						type: "text" as const,
+						text: `x402 facilitator payment failed: ${err.message}`,
+					},
+				],
+				isError: true,
+			};
+		}
+	},
+);
+
 // ── Tool: list_activity ────────────────────────────────────────────────────
 
 server.tool(

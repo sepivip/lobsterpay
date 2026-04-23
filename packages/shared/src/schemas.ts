@@ -43,6 +43,22 @@ export const x402RequestSchema = z.object({
   idempotencyKey: optionalIdempotencyKey,
 });
 
+// Facilitator-mode x402 (agonx402, Coinbase reference facilitator, etc.).
+// The facilitator's fee-payer pubkey is advertised in
+// `paymentRequirements.extra.feePayer` and extracted server-side — no
+// client-side field required. LobsterPay does two txs per call:
+//   1. execute_pay_exact(vault → relayer's USDC ATA, gross) — LobsterPay
+//      submits. 1.5% of gross lands in the treasury, the rest in the
+//      relayer's ATA.
+//   2. v0 transferChecked(relayer → facilitator's payTo) with feePayer
+//      set to the facilitator's pubkey. Returned partial-signed to the
+//      agent for the x402 retry.
+export const x402FacilitatorRequestSchema = z.object({
+  paymentRequirements: z.unknown(),
+  originalRequestUrl: z.string().url(),
+  idempotencyKey: optionalIdempotencyKey,
+});
+
 // --- API key schemas ---
 
 export const createApiKeySchema = z.object({
@@ -114,6 +130,7 @@ export const envSchema = z.object({
 export type PayRequestInput = z.infer<typeof payRequestSchema>;
 export type SwapRequestInput = z.infer<typeof swapRequestSchema>;
 export type X402RequestInput = z.infer<typeof x402RequestSchema>;
+export type X402FacilitatorRequestInput = z.infer<typeof x402FacilitatorRequestSchema>;
 export type CreateApiKeyInput = z.infer<typeof createApiKeySchema>;
 export type UpdatePolicyInput = z.infer<typeof updatePolicySchema>;
 export type DepositFeesInput = z.infer<typeof depositFeesSchema>;

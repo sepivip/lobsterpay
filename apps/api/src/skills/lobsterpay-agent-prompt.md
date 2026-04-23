@@ -122,11 +122,42 @@ If the 402 sends a cluster-specific value that doesn't match this deployment (e.
 
 **Response header.** The returned `xPaymentHeader` is a base64-encoded v2 envelope: `{ x402Version: 2, scheme, network, payload: { txSignature, maxAmountRequired, payTo, asset, amount, recipient, paymentId } }`. Send it on the retry as `PAYMENT-SIGNATURE: <value>` (or legacy `X-PAYMENT: <value>` for pre-v2 upstreams). The `payload` carries both v2 names and legacy aliases so either kind of verifier works.
 
-### Compatibility limits
+### Two x402 modes
 
-LobsterPay's `pay_x402` works with upstream APIs that verify payment by looking up the Solana tx signature on-chain (like our `/v1/demo/x402/fortune` and `/v1/demo/x402/joke` reference endpoints).
+**Submit mode — `pay_x402` (POST /v1/agent/actions/x402).** LobsterPay settles the tx on-chain itself and returns a confirmed signature wrapped in `xPaymentHeader`. Works with upstreams that verify payment by on-chain tx-signature lookup (our `/v1/demo/x402/*` endpoints, many self-hosted paywalls).
 
-It does **not** work with spec-conformant x402 *facilitator* gateways (e.g. agonx402, Coinbase's reference facilitator) that expect a pre-signed unsubmitted transaction which the facilitator itself submits after upstream succeeds. LobsterPay's vaults are program-derived addresses (PDAs), and PDAs cannot produce pre-signed tx blobs - so that flow is structurally not possible with the LobsterPay model. If the 402 you received points at a facilitator URL and expects that flow, skip `pay_x402` and use a wallet-based client instead.
+**Facilitator mode — `pay_x402_facilitator` (POST /v1/agent/actions/x402-facilitator).** For spec-conformant x402 facilitator gateways (agonx402, Coinbase reference facilitator). These gateways publish their fee-payer pubkey in the 402's `accepts[i].extra.feePayer` and expect a pre-signed **unsubmitted** v0 `transferChecked` in the `PAYMENT-SIGNATURE` header for them to co-sign and submit after upstream returns 200. Use this tool when the 402 includes `extra.feePayer`; LobsterPay handles the two-tx dance internally (vault → relayer via `execute_pay_exact`, then relayer → facilitator partial-signed and returned to you).
+
+### 5. Facilitator-mode x402 (agonx402 et al.)
+
+```
+POST /v1/agent/actions/x402-facilitator
+{
+  "paymentRequirements": {
+    "scheme": "exact",
+    "network": "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1",
+    "amount": "605",
+    "asset": "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU",
+    "payTo": "9418vqXsaVbwUEP5q8FGtRxEtzrDgDc2ECfHrWWthvPQ",
+    "maxTimeoutSeconds": 300,
+    "extra": { "feePayer": "9418vqXsaVbwUEP5q8FGtRxEtzrDgDc2ECfHrWWthvPQ" }
+  },
+  "originalRequestUrl": "https://gateway.agonx402.com/v1/x402/solana/devnet/helius/rpc/getBalance",
+  "idempotencyKey": "x402-agon-001"
+}
+```
+
+Forward the entire `accepts[i]` object from the facilitator's 402. The `extra.feePayer` field is REQUIRED — without it, LobsterPay returns a 403. You pay `agonAmount × 1.015` from your vault (the 1.5% markup is LobsterPay's service fee).
+
+On success (status: `awaiting_facilitator`) you get back a `paymentSignatureHeader`. Retry the original URL with:
+
+```
+PAYMENT-SIGNATURE: <paymentSignatureHeader>
+```
+
+The facilitator submits the tx itself after upstream succeeds. If the blockhash expires before the facilitator submits (~60-90s), call `pay_x402_facilitator` again with a fresh idempotencyKey — retrying the SAME key returns the stale row.
+
+**Which mode to use.** If the 402 includes `extra.feePayer` and the URL points at a facilitator gateway, use `pay_x402_facilitator`. Otherwise (paywalls that verify by on-chain tx-signature lookup) use `pay_x402`.
 
 ## Rules
 
