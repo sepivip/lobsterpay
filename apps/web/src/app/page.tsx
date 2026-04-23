@@ -4,6 +4,7 @@ import { useWallet } from "@solana/wallet-adapter-react";
 import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
 import Image from "next/image";
 import Link from "next/link";
+import { HeroVisual } from "@/components/landing/hero-visual";
 import { HowItWorks } from "@/components/landing/how-it-works";
 import { TerminalDemo } from "@/components/landing/terminal-demo";
 import { WorksWith } from "@/components/landing/works-with";
@@ -47,61 +48,68 @@ export default function Home() {
 				</div>
 			</header>
 
-			{/* Hero */}
-			<div className="landing-hero">
-				<div className="animate-in hero-symbol">
-					<Image
-						src="/logo.svg"
-						alt="LobsterPay"
-						width={201}
-						height={214}
-						priority
+			{/* Hero — 2-column on desktop: copy on the left, animated lobster
+				on the right. Stacks vertically below 1024px. */}
+			<div className="landing-hero landing-hero-split">
+				<div className="landing-hero-content">
+					<div className="animate-in mb-4">
+						<span className="label-mono">KEYS STAY HOME. AGENTS GO OUT.</span>
+					</div>
+
+					<h1 className="text-display animate-in animate-delay-1 mb-5">
+						Give agents limits,
+						<br />
+						<span className="text-accent">not seed phrases.</span>
+					</h1>
+
+					<p className="animate-in animate-delay-2 hero-sub">
+						A permissioned payment layer for AI agents on Solana. Issue API keys
+						scoped to a program-controlled vault — agents pay for services,
+						x402-gated APIs, and swaps, without ever holding a private key.
+					</p>
+
+					<div className="animate-in animate-delay-3 flex gap-3 items-center">
+						{connected ? (
+							<Link href="/dashboard" className="btn btn-primary">
+								Open Dashboard
+							</Link>
+						) : (
+							<WalletMultiButton />
+						)}
+						<a href="#quickstart" className="btn btn-secondary">
+							View Quickstart
+						</a>
+					</div>
+
+					{/* Feature pills — 3 × 2 grid so every row has equal weight. */}
+					<div className="animate-in animate-delay-4 feature-pill-grid feature-pill-grid-left">
+						{[
+							"PDA-Controlled Vaults",
+							"Per-TX Limits",
+							"Daily Caps",
+							"Mint Allowlists",
+							"Instant Revocation",
+							"x402 Payments",
+						].map((feature) => (
+							<span key={feature} className="feature-pill">
+								{feature}
+							</span>
+						))}
+					</div>
+				</div>
+
+				<div className="landing-hero-visual animate-in animate-delay-1">
+					{/* respectReducedMotion=false — the spin IS the brand
+						visual, not decorative motion; we'd rather everyone
+						see it than respect a system setting that would hide
+						our hero's centerpiece. */}
+					<HeroVisual
+						mode="galaxy"
+						opacity={0.95}
+						cellPx={9}
+						rotationSpeed={1.4}
+						respectReducedMotion={false}
 					/>
-				</div>
-
-				<div className="animate-in mb-4">
-					<span className="label-mono">KEYS STAY HOME. AGENTS GO OUT.</span>
-				</div>
-
-				<h1 className="text-display animate-in animate-delay-1 mb-5">
-					Give agents limits,
-					<br />
-					<span className="text-accent">not seed phrases.</span>
-				</h1>
-
-				<p className="animate-in animate-delay-2 hero-sub">
-					A permissioned payment layer for AI agents on Solana. Issue API keys
-					scoped to a program-controlled vault — agents pay for services,
-					x402-gated APIs, and swaps, without ever holding a private key.
-				</p>
-
-				<div className="animate-in animate-delay-3 flex gap-3 items-center">
-					{connected ? (
-						<Link href="/dashboard" className="btn btn-primary">
-							Open Dashboard
-						</Link>
-					) : (
-						<WalletMultiButton />
-					)}
-					<a href="#quickstart" className="btn btn-secondary">
-						View Quickstart
-					</a>
-				</div>
-
-				{/* Feature pills — 3 × 2 grid so every row has equal weight. */}
-				<div className="animate-in animate-delay-4 feature-pill-grid">
-					{[
-						"PDA-Controlled Vaults",
-						"Per-TX Limits",
-						"Daily Caps",
-						"Mint Allowlists",
-						"Instant Revocation",
-						"x402 Payments",
-					].map((feature) => (
-						<span key={feature} className="feature-pill">
-							{feature}
-						</span>
-					))}
 				</div>
 			</div>
 

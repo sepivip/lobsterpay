@@ -1161,7 +1161,9 @@ a.text-accent { text-decoration: underline; text-underline-offset: 3px; }
   margin-bottom: 40px;
 }
 
-/* Hero symbol — just the lobster/claw mark, centered. */
+/* Hero symbol — just the lobster/claw mark, centered.
+   Kept for any page that wants the static symbol; the landing hero
+   now uses the animated <HeroVisual /> instead. */
 .hero-symbol {
   margin-bottom: 32px;
   display: flex;
@@ -1172,6 +1174,90 @@ a.text-accent { text-decoration: underline; text-underline-offset: 3px; }
   width: clamp(80px, 14vw, 140px);
   height: auto;
   display: block;
+}
+
+/* ── Landing hero — 2-column variant ──────────────────────────────────
+   Left column: tag, headline, sub-copy, CTAs, feature pills (left-
+   aligned). Right column: <HeroVisual /> animated lobster, fills the
+   column. Stacks vertically below 1024px (visual goes BELOW content
+   on mobile so the fold is the headline + CTAs). */
+
+.landing-hero-split {
+  max-width: 1200px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 48px;
+  align-items: center;
+  text-align: left;
+  padding: 80px 32px 120px;
+}
+
+.landing-hero-content {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.landing-hero-content .hero-sub {
+  margin-left: 0;
+  text-align: left;
+}
+
+/* Override the global .text-display centering for the split hero. */
+.landing-hero-content .text-display {
+  text-align: left;
+}
+
+/* Feature pills inside the split hero — left-anchored grid, no center
+   justify. Falls back to wrap if the column is narrow. */
+.feature-pill-grid-left {
+  justify-content: flex-start !important;
+  margin-top: 32px !important;
+}
+
+.landing-hero-visual {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1;
+  min-height: 480px;
+  max-height: 720px;
+}
+
+.hero-visual-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  /* pointer-events auto so the cursor-proximity @ → $ hover swap in
+     HeroVisual receives pointermove. Canvas sits inside its own
+     positioned container (.landing-hero-visual / .exp-anim-canvas-wrap),
+     so it cannot intercept clicks meant for adjacent hero CTAs. */
+  pointer-events: auto;
+}
+
+@media (max-width: 1024px) {
+  .landing-hero-split {
+    grid-template-columns: 1fr;
+    text-align: center;
+    gap: 32px;
+    padding: 48px 24px 80px;
+  }
+  .landing-hero-content {
+    align-items: center;
+  }
+  .landing-hero-content .hero-sub,
+  .landing-hero-content .text-display {
+    text-align: center;
+  }
+  .feature-pill-grid-left {
+    justify-content: center !important;
+  }
+  .landing-hero-visual {
+    order: -1;
+    min-height: 280px;
+    max-height: 360px;
+  }
 }
 
 /* ── Landing sections — shared wrapper ───────────────────────────────── */
@@ -1695,4 +1781,63 @@ a.text-accent { text-decoration: underline; text-underline-offset: 3px; }
   justify-content: space-between;
   flex-wrap: wrap;
   gap: 12px;
+}
+
+/* ── Hero animation experiment grid (LP-010) ──────────────────────── */
+
+.exp-page {
+  background: var(--bg-deep);
+  min-height: 100vh;
+  color: var(--text-primary);
+}
+
+.exp-toc {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 32px;
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--bg-deep);
+}
+
+.exp-anim-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1px;
+  background: var(--border-subtle);
+}
+
+@media (max-width: 900px) {
+  .exp-anim-grid { grid-template-columns: 1fr; }
+}
+
+.exp-anim-cell {
+  background: var(--bg-deep);
+  display: flex;
+  flex-direction: column;
+  min-height: 460px;
+}
+
+.exp-anim-label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 16px 24px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.exp-anim-canvas-wrap {
+  flex: 1;
+  position: relative;
+  min-height: 360px;
+}
+
+.exp-anim-canvas-wrap .hero-visual-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
 }
