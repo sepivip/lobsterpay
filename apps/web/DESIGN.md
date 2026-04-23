@@ -19,8 +19,9 @@ colors:
 
 # ── Typography ─────────────────────────────────────────────────────────
 # Two roles with zero overlap:
-#   mono = GeistMono → display, buttons, monospace labels, tx signatures
-#   sans = TASA Orbiter → body, headings, forms, descriptions
+#   mono = GeistMono -> buttons, monospace labels, tx signatures, ASCII logo
+#   sans = TASA Orbiter -> display H1, body, section headings, forms,
+#                          descriptions
 typography:
   # display-hero: TASA Orbiter weight 500 at max 2.875rem. CSS uses
   # clamp() (1.875rem mobile -> 2.875rem desktop) so the multi-word
@@ -212,11 +213,14 @@ Restraint is the point.
 
 **Two typefaces.** Zero role overlap.
 
-- **GeistMono** - display hero (weight 300, extreme scale), all button
-  text, monospace labels, tx signatures, timestamps, anything that
-  relies on fixed-width rhythm.
 - **TASA Orbiter** (variable sans, self-hosted via `next/font/local`) -
-  body, section headings, forms, descriptions.
+  display H1 (weight 500), body, section headings, forms, descriptions.
+  Earlier iterations used GeistMono for the display H1; that read as
+  visually heavy at the multi-word landing headline and overflowed the
+  2-column hero, so display moved to sans.
+- **GeistMono** - all button text, monospace labels, tx signatures,
+  timestamps, the ASCII logo, anything that relies on fixed-width
+  rhythm. Display H1 is no longer mono.
 
 **Depth through opacity, not shadow.** There are no `box-shadow`
 elevations anywhere except the 2px blue focus ring (accessibility). Depth
@@ -262,7 +266,7 @@ See `typography.*`. Two families, eight named scales:
 
 | Token | Role |
 |---|---|
-| `display-hero` | 20rem weight 300 - the one place monospace goes big |
+| `display-hero` | TASA Orbiter weight 500 at clamp(1.875rem, 3.6vw, 2.875rem) - the landing hero H1 |
 | `section-heading` | 30px TASA Orbiter weight 400 |
 | `body` | 16px TASA Orbiter weight 400, line-height 1.5 |
 | `label` | 14px TASA Orbiter |
@@ -272,9 +276,11 @@ See `typography.*`. Two families, eight named scales:
 | `label-mono` | 10px GeistMono uppercase, heavily tracked - badges |
 
 **Non-negotiables.** Buttons are always uppercase GeistMono with the
-button letter-spacing. Body text is always TASA Orbiter. Display
-headlines use weight 300 - weight 400+ feels heavy at extreme sizes.
-Never mix proportional fonts into buttons or monospace into body.
+button letter-spacing. Body text is always TASA Orbiter. The display
+H1 is TASA Orbiter weight 500 (was GeistMono at extreme scale; reverted
+because the multi-word landing headline read as visually heavy at 4.5rem
+mono and overflowed the 2-column hero into 4 lines). Never mix
+monospace into body copy.
 
 ## Layout & Spacing
 
@@ -292,7 +298,7 @@ rhythm over horizontal density.
 
 1. **Opacity-based borders** - 12% → 22% on hover / active.
 2. **Surface opacity steps** - transparent → 5% → 8%.
-3. **Type-scale contrast** - the 320px display headline against 16px
+3. **Type-scale contrast** - the ~46px display headline against 16px
    body creates typographic depth shadow-based systems can't match.
 
 The only permitted shadow-like effect is the 2px blue focus ring, used
@@ -350,5 +356,5 @@ adjacent `.btn.btn-primary.btn-sm`.
 ## Responsive Behavior
 
 Breakpoints: 480, 640, 768, 1024, 1280, 1536, 2000. The display hero
-scales from 20rem desktop down to 3rem mobile. Nav tabs collapse to a
+scales from clamp(1.875rem, 3.6vw, 2.875rem). Nav tabs collapse to a
 hamburger below 768px. Section padding steps 96px → 48px → 24px.

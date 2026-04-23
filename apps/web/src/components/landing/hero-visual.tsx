@@ -79,7 +79,10 @@ interface Props {
   opacity?: number;
   /** Output cell size in px. Smaller = finer detail, more CPU. */
   cellPx?: number;
-  /** Animation rate (radians/sec for rotations, cycles/sec for pulse/wave). */
+  /** Animation rate in radians per second. The accumulated angle is fed
+   *  directly into Math.sin/Math.cos in every mode, so the unit is always
+   *  rad/s regardless of whether the mode is geometrically rotating
+   *  (spin*) or just feeding `angle` into a sine wave (wave, pulse). */
   rotationSpeed?: number;
   /** SVG to rasterize. Defaults to the site's /logo.svg. */
   src?: string;
@@ -147,6 +150,11 @@ export function HeroVisual({
     // not need getBoundingClientRect() per frame (forces layout).
     let cssWidth = 0;
     let cssHeight = 0;
+    // Cached canvas position rect, used by pointermove to convert client
+    // coords -> cell coords without a per-event getBoundingClientRect()
+    // (also a layout-forcing call). Refreshed in resize() and on
+    // pointerenter / scroll.
+    let canvasRect: DOMRect | null = null;
     // Cursor position in output-cell coordinates. -1 means not hovering.
     let hoverCol = -1;
     let hoverRow = -1;
@@ -211,14 +219,15 @@ export function HeroVisual({
     function resize() {
       if (!canvas) return;
       const dpr = window.devicePixelRatio || 1;
-      const { width, height } = canvas.getBoundingClientRect();
-      cssWidth = width;
-      cssHeight = height;
-      canvas.width = Math.floor(width * dpr);
-      canvas.height = Math.floor(height * dpr);
+      const rect = canvas.getBoundingClientRect();
+      canvasRect = rect;
+      cssWidth = rect.width;
+      cssHeight = rect.height;
+      canvas.width = Math.floor(rect.width * dpr);
+      canvas.height = Math.floor(rect.height * dpr);
       ctx?.setTransform(dpr, 0, 0, dpr, 0, 0);
-      outCols = Math.ceil(width / cellPx);
-      outRows = Math.ceil(height / cellPx);
+      outCols = Math.ceil(rect.width / cellPx);
+      outRows = Math.ceil(rect.height / cellPx);
       occupancy = new Uint8Array(outCols * outRows);
       haloIdxGrid = new Uint8Array(outCols * outRows);
       zBuffer = new Float32Array(outCols * outRows);
@@ -295,7 +304,7 @@ export function HeroVisual({
 
       // Per-row x-offset for wave mode (precomputed so we don't sin()
       // per pixel). Cache lives at the effect-closure level and is
-      // resized exactly once in loadMask(); we just refill / zero here.
+      // sized exactly once in loadMask(); we refill / zero here.
       if (proj.rowSineAmp > 0) {
         for (let v = 0; v < maskH; v++) {
           rowOffsets[v] =
@@ -303,10 +312,12 @@ export function HeroVisual({
             proj.rowSineAmp *
             maskW;
         }
-      } else if (rowOffsets.length > 0 && rowOffsets[0] !== 0) {
-        // Last frame may have left non-zero values from wave mode if
-        // the user switched modes; clear once so the (rowOff ?? 0) sites
-        // below see zeros for non-wave modes.
+      } else if (rowOffsets.length > 0) {
+        // Always clear when not in wave mode. Checking just rowOffsets[0]
+        // is unsafe - row 0 can legitimately be 0 in wave mode (when
+        // rowSinePhase is a multiple of π) while later rows still hold
+        // stale non-zero offsets that would warp the projection. fill(0)
+        // is ~120 floats; cost is negligible vs. the bug it prevents.
         rowOffsets.fill(0);
       }
 
@@ -599,26 +610,39 @@ export function HeroVisual({
 
     // Cursor tracking - translate pointer client coords into output-cell
     // grid coords so the body render loop can do a cheap distance check.
+    // The canvas rect is cached (in canvasRect, refreshed by resize() and
+    // on pointerenter / scroll) so pointermove avoids forcing layout via
+    // getBoundingClientRect on every cursor pixel.
+    const refreshRect = () => {
+      if (canvas) canvasRect = canvas.getBoundingClientRect();
+    };
+    const onPointerEnter = refreshRect;
     const onPointerMove = (e: PointerEvent) => {
-      if (!canvas) return;
-      const rect = canvas.getBoundingClientRect();
-      hoverCol = Math.floor((e.clientX - rect.left) / cellPx);
-      hoverRow = Math.floor((e.clientY - rect.top) / cellPx);
+      if (!canvasRect) return;
+      hoverCol = Math.floor((e.clientX - canvasRect.left) / cellPx);
+      hoverRow = Math.floor((e.clientY - canvasRect.top) / cellPx);
     };
     const onPointerLeave = () => {
       hoverCol = -1;
       hoverRow = -1;
     };
+    canvas.addEventListener("pointerenter", onPointerEnter);
     canvas.addEventListener("pointermove", onPointerMove);
     canvas.addEventListener("pointerleave", onPointerLeave);
+    // Window resize / scroll can invalidate the cached rect even
+    // without ResizeObserver firing (if only the page scrolled). Cheap
+    // listeners that just re-query on demand.
+    window.addEventListener("scroll", refreshRect, { passive: true });
 
     return () => {
       cancelled = true;
       stopLoop();
       ro.disconnect();
       io.disconnect();
+      canvas.removeEventListener("pointerenter", onPointerEnter);
       canvas.removeEventListener("pointermove", onPointerMove);
       canvas.removeEventListener("pointerleave", onPointerLeave);
+      window.removeEventListener("scroll", refreshRect);
     };
   }, [cellPx, rotationSpeed, src, respectReducedMotion, mode]);
 

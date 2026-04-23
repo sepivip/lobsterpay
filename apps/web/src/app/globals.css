@@ -1185,8 +1185,10 @@ a.text-accent { text-decoration: underline; text-underline-offset: 3px; }
 /* ── Landing hero - 2-column variant ──────────────────────────────────
    Left column: tag, headline, sub-copy, CTAs, feature pills (left-
    aligned). Right column: <HeroVisual /> animated lobster, fills the
-   column. Stacks vertically below 1024px (visual goes BELOW content
-   on mobile so the fold is the headline + CTAs). */
+   column. Stacks vertically below 1024px; the visual goes ABOVE the
+   content on mobile (see `.landing-hero-visual { order: -1 }` in the
+   media query below - the brand identity hook lands first, copy
+   reads underneath). */
 
 .landing-hero-split {
   max-width: 1200px;
