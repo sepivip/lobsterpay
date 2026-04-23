@@ -62,8 +62,10 @@ const HALO_CHARS = "+*=~.";
  *   spin-shimmer-45  - Continuous Y-axis spin (velocity-eased: slower
  *                      through the edge-on flip, faster through wide
  *                      views) with a 45° diagonal bright bar sweeping
- *                      across on its own wall-clock timer. Production
- *                      experiment grid winner V1.
+ *                      across on its own animation-time schedule
+ *                      (animTime, so it pauses when the RAF loop
+ *                      pauses - off-screen / reduced-motion).
+ *                      Production experiment grid winner V1.
  *   spin-glitch      - Y-axis spin plus periodic char-scramble pulses.
  *   tumble           - Independent X and Y axis scaling driven by two
  *                      out-of-phase cosines (sx = cos(a),
@@ -79,8 +81,11 @@ const HALO_CHARS = "+*=~.";
  *   wave             - No rotation. Each row is sine-displaced
  *                      horizontally for an underwater-current feel.
  *   shimmer          - No rotation. A vertical bar of brighter chars
- *                      sweeps left→right; cells outside the bar stay
- *                      at base brightness.
+ *                      OSCILLATES horizontally back and forth
+ *                      (driven by sin(angle), so it traces a smooth
+ *                      cosine path between the two edges rather than
+ *                      a unidirectional left->right sweep). Cells
+ *                      outside the bar stay at base brightness.
  *   galaxy           - Static silhouette; each cell cycles through the
  *                      ramp on its own phase = animTime + angular
  *                      position from center + radial twist. Reads as

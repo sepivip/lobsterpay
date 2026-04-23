@@ -56,7 +56,7 @@ const MODES: Array<{
 	{
 		mode: "shimmer",
 		label: "SHIMMER",
-		blurb: "Vertical bright bar sweeps left → right.",
+		blurb: "Vertical bright bar oscillates horizontally back and forth.",
 		speed: 1.0,
 	},
 	{
