@@ -88,7 +88,7 @@ POST /v1/agent/actions/swap
 
 ### 4. Pay a 402-Gated Endpoint
 
-When you get a 402 response with payment requirements:
+When you get a 402 response with payment requirements, forward them to `pay_x402` intact:
 
 ```
 POST /v1/agent/actions/x402
@@ -104,6 +104,15 @@ POST /v1/agent/actions/x402
   "idempotencyKey": "x402-example-001"
 }
 ```
+
+**`network` field.** Accepted values:
+
+- `"solana"` - cluster-agnostic; resolves to whatever cluster the server is configured for. Safe default when you don't know.
+- `"solana-devnet"` / `"solana-mainnet"` - our dialect.
+- `"solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp"` - CAIP-2 mainnet chain id (per the x402 spec; this is what real gateways like agonx402 emit).
+- `"solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1"` - CAIP-2 devnet chain id.
+
+If the 402 response sends a cluster-specific value that doesn't match this deployment (e.g. a mainnet chain id when the server is devnet), the call returns a clear "Network mismatch" error - don't retry with a different network value, route to a deployment configured for that cluster instead.
 
 ## Rules
 
