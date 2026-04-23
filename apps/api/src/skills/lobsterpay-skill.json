@@ -187,18 +187,22 @@
         "txSignature": "Solana transaction signature (null until tx confirms)",
         "status": "confirmed | failed | duplicate | pending_confirmation",
         "paymentId": "The upstream paymentId if the 402 included one",
-        "xPaymentHeader": "Base64-encoded JSON proof the agent SHOULD set as the X-PAYMENT header when retrying originalRequestUrl. Shape: { scheme, network, txSignature, amount, asset, recipient, paymentId }.",
+        "xPaymentHeader": "Base64-encoded JSON proof the agent SHOULD set as the PAYMENT-SIGNATURE header (or legacy X-PAYMENT) when retrying originalRequestUrl. Shape is the x402 v2 envelope: { x402Version: 2, scheme: 'exact', network, payload: { txSignature, maxAmountRequired, payTo, asset, amount, recipient, paymentId } }. `maxAmountRequired`/`payTo` are the v2 names; `amount`/`recipient` are included as back-compat aliases so upstream paywalls reading either work.",
         "grossAmount": "Amount paid in atomic units (same as paymentRequirements.amount)",
         "netAmount": "Amount the recipient actually received (gross minus the 1.5% service fee, enforced on-chain)",
         "serviceFee": "1.5% service fee in atomic units, routed to the LobsterPay treasury",
         "error": "Error message if failed"
       },
       "x402_retry_flow": [
-        "1. Agent GETs the paywalled URL, gets a 402 with paymentRequirements in the body.",
-        "2. Agent forwards paymentRequirements intact to pay_x402 along with originalRequestUrl. The 402's `network` field is commonly a CAIP-2 chain id like 'solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1' (devnet) or 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp' (mainnet) - both are accepted as-is.",
-        "3. On status: confirmed, agent retries the original URL with header 'X-PAYMENT: <xPaymentHeader>'.",
-        "4. Upstream API verifies the Solana tx, returns 200 + content."
-      ]
+        "1. Agent GETs the paywalled URL, gets a 402 with paymentRequirements in the body. In x402 v2, the body is { x402Version: 2, accepts: [ { scheme, network, maxAmountRequired, payTo, asset, ... } ] }. Pass accepts[0] (or the legacy flat paymentRequirements alias if present) to pay_x402.",
+        "2. Agent forwards paymentRequirements intact to pay_x402 along with originalRequestUrl. The 402's `network` field is typically a CAIP-2 chain id like 'solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1' (devnet) or 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp' (mainnet). Both are accepted. The server rejects cluster-specific values that don't match its own configured cluster.",
+        "3. On status: confirmed, agent retries the original URL with header 'PAYMENT-SIGNATURE: <xPaymentHeader>' (or legacy 'X-PAYMENT: <xPaymentHeader>' for older upstreams).",
+        "4. Upstream API verifies the Solana tx signature (by looking it up on-chain) and returns 200 + content."
+      ],
+      "compatibility": {
+        "works_with": "Upstream paywalled APIs that verify by looking up the Solana tx signature on-chain (amount + recipient + mint against getTransaction). Our own /v1/demo/x402/fortune and /v1/demo/x402/joke are reference implementations.",
+        "does_not_work_with": "Spec-conformant x402 FACILITATOR gateways (agonx402, Coinbase reference facilitator, etc.) that expect a pre-signed UNSUBMITTED transaction in PAYMENT-SIGNATURE for the facilitator to submit after upstream success. LobsterPay's vault model settles the tx on-chain itself via a program-derived address (PDA); PDAs cannot produce the pre-signed-unsubmitted tx blob facilitators require, so the two designs do not interoperate. This is structural, not a schema gap - no header-shape change fixes it."
+      }
     }
   ],
   "common_mints": {

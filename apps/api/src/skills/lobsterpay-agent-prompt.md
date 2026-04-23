@@ -88,31 +88,45 @@ POST /v1/agent/actions/swap
 
 ### 4. Pay a 402-Gated Endpoint
 
-When you get a 402 response with payment requirements, forward them to `pay_x402` intact:
+When you get a 402 response with payment requirements, forward them to `pay_x402` intact. x402 v2 bodies use an `accepts` array; pass `accepts[0]` (or the flat legacy `paymentRequirements` alias if the server emits it) as the object:
 
 ```
 POST /v1/agent/actions/x402
 {
   "paymentRequirements": {
     "scheme": "exact",
-    "network": "solana",
-    "asset": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
-    "amount": "100000",
-    "recipient": "SERVICE_WALLET"
+    "network": "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1",
+    "maxAmountRequired": "100000",
+    "payTo": "SERVICE_WALLET",
+    "asset": {
+      "address": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+      "symbol": "USDC",
+      "decimals": 6
+    }
   },
   "originalRequestUrl": "https://api.example.com/premium-data",
   "idempotencyKey": "x402-example-001"
 }
 ```
 
+Either v2 field names (`maxAmountRequired`, `payTo`, `asset.address`) or legacy aliases (`amount`, `recipient`, `asset` as a string mint address) are accepted; we normalize internally.
+
 **`network` field.** Accepted values:
 
 - `"solana"` - cluster-agnostic; resolves to whatever cluster the server is configured for. Safe default when you don't know.
 - `"solana-devnet"` / `"solana-mainnet"` - our dialect.
-- `"solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp"` - CAIP-2 mainnet chain id (per the x402 spec; this is what real gateways like agonx402 emit).
+- `"solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp"` - CAIP-2 mainnet chain id (per the x402 spec; this is what real gateways emit).
 - `"solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1"` - CAIP-2 devnet chain id.
 
-If the 402 response sends a cluster-specific value that doesn't match this deployment (e.g. a mainnet chain id when the server is devnet), the call returns a clear "Network mismatch" error - don't retry with a different network value, route to a deployment configured for that cluster instead.
+If the 402 sends a cluster-specific value that doesn't match this deployment (e.g. a mainnet chain id when the server is devnet), the call returns a clear "Network mismatch" error - don't retry with a different value, route to a deployment configured for that cluster instead.
+
+**Response header.** The returned `xPaymentHeader` is a base64-encoded v2 envelope: `{ x402Version: 2, scheme, network, payload: { txSignature, maxAmountRequired, payTo, asset, amount, recipient, paymentId } }`. Send it on the retry as `PAYMENT-SIGNATURE: <value>` (or legacy `X-PAYMENT: <value>` for pre-v2 upstreams). The `payload` carries both v2 names and legacy aliases so either kind of verifier works.
+
+### Compatibility limits
+
+LobsterPay's `pay_x402` works with upstream APIs that verify payment by looking up the Solana tx signature on-chain (like our `/v1/demo/x402/fortune` and `/v1/demo/x402/joke` reference endpoints).
+
+It does **not** work with spec-conformant x402 *facilitator* gateways (e.g. agonx402, Coinbase's reference facilitator) that expect a pre-signed unsubmitted transaction which the facilitator itself submits after upstream succeeds. LobsterPay's vaults are program-derived addresses (PDAs), and PDAs cannot produce pre-signed tx blobs - so that flow is structurally not possible with the LobsterPay model. If the 402 you received points at a facilitator URL and expects that flow, skip `pay_x402` and use a wallet-based client instead.
 
 ## Rules
 
