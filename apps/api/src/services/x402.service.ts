@@ -10,6 +10,7 @@ import {
 import {
   parsePaymentRequirements,
   validateRequirements,
+  type SolanaCluster,
   type X402PaymentRequirements,
 } from "../adapters/x402/index.js";
 import { createTxService } from "./tx.service.js";
@@ -40,8 +41,23 @@ function isStuckCreated(existing: { tx_status?: string | null; tx_signature?: st
   return Date.now() - createdAt > STUCK_CREATED_TTL_MS;
 }
 
+/**
+ * Map the app config's cluster token (shared/constants SOLANA_CLUSTERS:
+ * "devnet" | "mainnet-beta" | "localnet") to the x402 adapter's canonical
+ * form ("devnet" | "mainnet"). `localnet` intentionally returns null -
+ * there is no x402 spec value for local-only clusters, so we just skip
+ * the mismatch check in that mode (localnet is dev-only, not a customer
+ * surface).
+ */
+function adapterClusterFromConfig(c: Config["SOLANA_CLUSTER"]): SolanaCluster | null {
+  if (c === "mainnet-beta") return "mainnet";
+  if (c === "devnet") return "devnet";
+  return null;
+}
+
 export function createX402Service(db: Db, config: Config) {
   const txService = createTxService(db, config);
+  const serverCluster = adapterClusterFromConfig(config.SOLANA_CLUSTER);
 
   return {
     async processX402Payment(params: {
@@ -70,7 +86,7 @@ export function createX402Service(db: Db, config: Config) {
       // 2. Parse + validate the 402's payment requirements.
       let requirements: X402PaymentRequirements;
       try {
-        requirements = parsePaymentRequirements(params.paymentRequirements);
+        requirements = parsePaymentRequirements(params.paymentRequirements, serverCluster);
       } catch (err: any) {
         const req = await txService.persistRequest({
           vaultId: params.vaultId, apiKeyId: params.apiKeyId,
