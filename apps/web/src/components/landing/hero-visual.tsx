@@ -136,8 +136,11 @@ export function HeroVisual({
     let mask: Uint8Array | null = null;
     let maskW = 0;
     let maskH = 0;
-    // Per-mask-cell halo chars, picked once. Empty string = no halo.
-    let haloChars: string[] = [];
+    // Per-mask-cell halo index, picked once at load. -1 = no halo; any
+    // non-negative value is an index into HALO_CHARS. Storing numbers
+    // instead of the chars themselves lets the per-frame halo pass skip
+    // HALO_CHARS.indexOf() when seeding haloIdxGrid.
+    let haloIdxMask: Int8Array = new Int8Array(0);
     let raf = 0;
     let visible = true;
     let angle = 0;
@@ -171,11 +174,12 @@ export function HeroVisual({
     // not need getBoundingClientRect() per frame (forces layout).
     let cssWidth = 0;
     let cssHeight = 0;
-    // Cached canvas position rect, used by pointermove to convert client
-    // coords -> cell coords without a per-event getBoundingClientRect()
-    // (also a layout-forcing call). Refreshed in resize() and on
-    // pointerenter / scroll.
-    let canvasRect: DOMRect | null = null;
+    // Pointer -> cell conversion uses PointerEvent.offsetX/Y directly
+    // (relative to the target element's padding edge, which equals the
+    // CSS pixel position inside the canvas since the canvas has no
+    // padding). No rect caching needed; no window scroll listener.
+    // Matters on /experiments/hero-anim where 10 HeroVisual instances
+    // used to each register their own scroll listener + rect-query.
     // Cursor position in output-cell coordinates. -1 means not hovering.
     let hoverCol = -1;
     let hoverRow = -1;
@@ -222,10 +226,14 @@ export function HeroVisual({
       // Allocate the per-row offset cache here (size known after load)
       // so paint() can refill instead of re-allocate every frame.
       rowOffsets = new Float32Array(h);
-      // Pre-pick a halo char for each EMPTY mask cell that touches the
-      // silhouette edge. Sparse (~20% of edge cells) so the halo reads
-      // as a soft scatter, not a thick outline.
-      haloChars = new Array(w * h).fill("");
+      // Pre-pick a halo INDEX (into HALO_CHARS) for each EMPTY mask
+      // cell that touches the silhouette edge. Sparse (~20% of edge
+      // cells) so the halo reads as a soft scatter, not a thick
+      // outline. -1 means "no halo here"; non-negative is the char
+      // index. Storing numbers (not the chars themselves) removes a
+      // per-frame HALO_CHARS.indexOf() from the halo projection loop.
+      haloIdxMask = new Int8Array(w * h);
+      haloIdxMask.fill(-1);
       for (let v = 1; v < h - 1; v++) {
         for (let u = 1; u < w - 1; u++) {
           if (out[v * w + u]) continue; // skip body cells
@@ -237,7 +245,9 @@ export function HeroVisual({
             out[v * w + u + 1];
           if (!isEdge) continue;
           if (Math.random() > 0.2) continue;
-          haloChars[v * w + u] = HALO_CHARS[Math.floor(Math.random() * HALO_CHARS.length)];
+          haloIdxMask[v * w + u] = Math.floor(
+            Math.random() * HALO_CHARS.length,
+          );
         }
       }
     }
@@ -246,7 +256,6 @@ export function HeroVisual({
       if (!canvas) return;
       const dpr = window.devicePixelRatio || 1;
       const rect = canvas.getBoundingClientRect();
-      canvasRect = rect;
       cssWidth = rect.width;
       cssHeight = rect.height;
       canvas.width = Math.floor(rect.width * dpr);
@@ -376,21 +385,22 @@ export function HeroVisual({
       const perspK = 0.0045;
 
       // Halo pass - flat projection (no depth), runs first so body can
-      // paint over.
+      // paint over. Reads halo index directly from haloIdxMask; the
+      // char string lookup is deferred to render time.
       for (let v = 0; v < maskH; v++) {
         const rowOff = rowOffsets[v] ?? 0;
         for (let u = 0; u < maskW; u++) {
-          const ch = haloChars[v * maskW + u];
-          if (!ch) continue;
+          const haloIdx = haloIdxMask[v * maskW + u];
+          if (haloIdx < 0) continue;
           const du = u - maskW / 2;
           const dv = v - maskH / 2;
           const ox = Math.round(cx + (du * proj.sx + rowOff) * fit);
           const oy = Math.round(cy + dv * proj.sy * fit);
           if (ox < 0 || ox >= outCols || oy < 0 || oy >= outRows) continue;
-          const idx = oy * outCols + ox;
-          if (occupancy[idx] === 0) {
-            occupancy[idx] = 1;
-            haloIdxGrid[idx] = HALO_CHARS.indexOf(ch);
+          const outIdx = oy * outCols + ox;
+          if (occupancy[outIdx] === 0) {
+            occupancy[outIdx] = 1;
+            haloIdxGrid[outIdx] = haloIdx;
           }
         }
       }
@@ -585,11 +595,13 @@ export function HeroVisual({
         angle += dt * rotationSpeed;
       }
       // Wrap angle into [0, 2π) to keep Math.sin / Math.cos precise
-      // over long sessions. Without this, a page left open for hours
-      // accumulates `angle` into the tens of thousands of radians, at
-      // which point sin/cos start losing enough ULPs to visibly jitter.
-      // 2π is the natural period for every trig use of `angle` here.
-      if (angle >= Math.PI * 2) angle -= Math.PI * 2;
+      // over long sessions. Full modulo (not a single subtract) because
+      // a backgrounded tab or a sleep/wake cycle can produce a huge
+      // `dt`, advancing `angle` by multiple revolutions in one step.
+      // The `((x % tau) + tau) % tau` form is robust against both large
+      // positive dt and any signed edge case.
+      const tau = Math.PI * 2;
+      angle = ((angle % tau) + tau) % tau;
       paint(angle, wallTime);
     }
     // (re)start the RAF loop. Idempotent: the `raf !== 0` check makes
@@ -641,14 +653,9 @@ export function HeroVisual({
     );
     io.observe(canvas);
 
-    // Cursor tracking - translate pointer client coords into output-cell
-    // grid coords so the body render loop can do a cheap distance check.
-    // The canvas rect is cached (in canvasRect, refreshed by resize() and
-    // on pointerenter / scroll) so pointermove avoids forcing layout via
-    // getBoundingClientRect on every cursor pixel.
-    const refreshRect = () => {
-      if (canvas) canvasRect = canvas.getBoundingClientRect();
-    };
+    // Cursor tracking - PointerEvent.offsetX/Y is already relative to
+    // the target element, so no client-rect math (and no rect cache /
+    // scroll listener) is needed to translate to cell coords.
     // When the main RAF loop is stopped (off-screen via IntersectionObserver,
     // or reduced-motion is honored), pointer events still update hoverCol /
     // hoverRow but nothing repaints. Schedule a single rAF to render the
@@ -662,11 +669,9 @@ export function HeroVisual({
         paint(angle, wallTime);
       });
     };
-    const onPointerEnter = refreshRect;
     const onPointerMove = (e: PointerEvent) => {
-      if (!canvasRect) return;
-      hoverCol = Math.floor((e.clientX - canvasRect.left) / cellPx);
-      hoverRow = Math.floor((e.clientY - canvasRect.top) / cellPx);
+      hoverCol = Math.floor(e.offsetX / cellPx);
+      hoverRow = Math.floor(e.offsetY / cellPx);
       schedulePaintIfIdle();
     };
     const onPointerLeave = () => {
@@ -674,13 +679,8 @@ export function HeroVisual({
       hoverRow = -1;
       schedulePaintIfIdle();
     };
-    canvas.addEventListener("pointerenter", onPointerEnter);
     canvas.addEventListener("pointermove", onPointerMove);
     canvas.addEventListener("pointerleave", onPointerLeave);
-    // Window resize / scroll can invalidate the cached rect even
-    // without ResizeObserver firing (if only the page scrolled). Cheap
-    // listeners that just re-query on demand.
-    window.addEventListener("scroll", refreshRect, { passive: true });
 
     return () => {
       cancelled = true;
@@ -691,10 +691,8 @@ export function HeroVisual({
       }
       ro.disconnect();
       io.disconnect();
-      canvas.removeEventListener("pointerenter", onPointerEnter);
       canvas.removeEventListener("pointermove", onPointerMove);
       canvas.removeEventListener("pointerleave", onPointerLeave);
-      window.removeEventListener("scroll", refreshRect);
     };
   }, [cellPx, rotationSpeed, src, respectReducedMotion, mode]);
 
