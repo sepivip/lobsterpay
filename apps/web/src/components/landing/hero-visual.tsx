@@ -105,14 +105,11 @@ interface Props {
 	opacity?: number;
 	/** Output cell size in px. Smaller = finer detail, more CPU. */
 	cellPx?: number;
-	/** Animation rate in radians per second for the angle-driven modes:
-	 *  spin, spin-shimmer-45, spin-glitch, tumble, pulse, wave, shimmer,
-	 *  lit-3d. The accumulated angle is fed directly into Math.sin /
-	 *  Math.cos.
-	 *
-	 *  The `galaxy` mode is intentionally wall-clock driven (its per-cell
-	 *  phase is a function of elapsed seconds since mount, angular
-	 *  position, and radial distance) and therefore ignores this prop.
+	/** Animation rate, in radians per second for the angle-driven modes
+	 *  (spin, spin-shimmer-45, spin-glitch, tumble, pulse, wave, shimmer,
+	 *  lit-3d - the accumulated angle is fed directly into Math.sin /
+	 *  Math.cos), and as a unit-less multiplier on the per-cell phase
+	 *  cycle for `galaxy` (which uses animation-time, not raw angle).
 	 *  `glitch` uses angle only to drive its scramble trigger; the visual
 	 *  is otherwise static. */
 	rotationSpeed?: number;
@@ -523,17 +520,20 @@ export function HeroVisual({
 								alpha = 1 - fade * (1 - baseAlpha);
 							}
 						} else if (mode === "galaxy") {
-							// V2 - silhouette stays static, each cell cycles through
-							// the ramp on its own phase. Phase = global wall-clock +
-							// angular position from center + slight radial twist.
-							// Visually reads as a galaxy spiral: density bands flow
-							// outward and rotate around the lobster's center.
+							// V2 - silhouette stays static; each cell cycles through
+							// the ramp on its own phase = animation-time + angular
+							// position from center + slight radial twist. Reads as
+							// a galaxy spiral: density bands flow outward and rotate
+							// around the lobster's center. `t` is animTime (paused
+							// when RAF is paused), and `rotationSpeed` scales the
+							// cycle rate so the same prop semantics that drive the
+							// rotating modes also tune the cycling speed here.
 							const dc = c - outCols / 2;
 							const dr = r - outRows / 2;
 							const radius = Math.sqrt(dc * dc + dr * dr);
 							const ang = Math.atan2(dr, dc); // [-π, π]
 							const phase =
-								t * 4.0 + // global cycle speed
+								t * 4.0 * rotationSpeed + // cycle rate, scaled by prop
 								ang * 2.5 + // 2.5 cycles per revolution → spiral arms
 								radius * 0.18; // radial twist
 							// Skip RAMP[0] (space) so cells are always visible. Use

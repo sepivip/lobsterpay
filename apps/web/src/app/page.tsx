@@ -1,19 +1,19 @@
 "use client";
 
+import { DevQuickstart } from "@/components/landing/dev-quickstart";
+import { FAQ } from "@/components/landing/faq";
+import { HeroVisual } from "@/components/landing/hero-visual";
+import { HowItWorks } from "@/components/landing/how-it-works";
+import { Pricing } from "@/components/landing/pricing";
+import { SecurityPillars } from "@/components/landing/security-pillars";
+import { SiteFooter } from "@/components/landing/site-footer";
+import { TerminalDemo } from "@/components/landing/terminal-demo";
+import { UseCases } from "@/components/landing/use-cases";
+import { WorksWith } from "@/components/landing/works-with";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
 import Image from "next/image";
 import Link from "next/link";
-import { HeroVisual } from "@/components/landing/hero-visual";
-import { HowItWorks } from "@/components/landing/how-it-works";
-import { TerminalDemo } from "@/components/landing/terminal-demo";
-import { WorksWith } from "@/components/landing/works-with";
-import { UseCases } from "@/components/landing/use-cases";
-import { SecurityPillars } from "@/components/landing/security-pillars";
-import { DevQuickstart } from "@/components/landing/dev-quickstart";
-import { Pricing } from "@/components/landing/pricing";
-import { FAQ } from "@/components/landing/faq";
-import { SiteFooter } from "@/components/landing/site-footer";
 
 export default function Home() {
 	const { connected } = useWallet();
@@ -23,7 +23,11 @@ export default function Home() {
 			{/* Top bar - logo always links home; wallet button always present so
 				users can disconnect or switch wallets. */}
 			<header className="landing-topbar">
-				<Link href="/" aria-label="LobsterPay home" style={{ display: "inline-flex", alignItems: "center" }}>
+				<Link
+					href="/"
+					aria-label="LobsterPay home"
+					style={{ display: "inline-flex", alignItems: "center" }}
+				>
 					<Image
 						src="/logo-wordmark.svg"
 						alt="LobsterPay"
@@ -34,9 +38,15 @@ export default function Home() {
 					/>
 				</Link>
 				<nav className="landing-topbar-nav">
-					<a href="#how-it-works" className="landing-topbar-link">How it works</a>
-					<a href="#quickstart" className="landing-topbar-link">Quickstart</a>
-					<a href="#faq" className="landing-topbar-link">FAQ</a>
+					<a href="#how-it-works" className="landing-topbar-link">
+						How it works
+					</a>
+					<a href="#quickstart" className="landing-topbar-link">
+						Quickstart
+					</a>
+					<a href="#faq" className="landing-topbar-link">
+						FAQ
+					</a>
 				</nav>
 				<div className="flex items-center gap-3">
 					{connected && (
@@ -63,9 +73,9 @@ export default function Home() {
 					</h1>
 
 					<p className="animate-in animate-delay-2 hero-sub">
-						A permissioned payment layer for AI agents on Solana. Issue API keys
-						scoped to a program-controlled vault - agents pay for services,
-						x402-gated APIs, and swaps, without ever holding a private key.
+						A permissioned payment layer for AI agents on Solana. Issue API keys scoped to a
+						program-controlled vault - agents pay for services, x402-gated APIs, and swaps, without
+						ever holding a private key.
 					</p>
 
 					<div className="landing-hero-cta-row animate-in animate-delay-3 flex gap-3 items-center">
@@ -108,7 +118,7 @@ export default function Home() {
 						mode="galaxy"
 						opacity={0.95}
 						cellPx={9}
-						rotationSpeed={1.4}
+						rotationSpeed={1.0}
 						respectReducedMotion={false}
 					/>
 				</div>
@@ -119,13 +129,11 @@ export default function Home() {
 				<div className="landing-section-inner">
 					<div className="landing-section-head">
 						<span className="label-mono">LIVE · DEVNET</span>
-						<h2 className="landing-section-title">
-							A real agent call, live on devnet
-						</h2>
+						<h2 className="landing-section-title">A real agent call, live on devnet</h2>
 						<p className="landing-section-blurb">
-							Every LobsterPay endpoint returns JSON. Agents use Bearer auth, the server
-							enforces your policy, and the response tells them exactly what happened -
-							on-chain signature, net amount, service fee.
+							Every LobsterPay endpoint returns JSON. Agents use Bearer auth, the server enforces
+							your policy, and the response tells them exactly what happened - on-chain signature,
+							net amount, service fee.
 						</p>
 					</div>
 					<TerminalDemo />

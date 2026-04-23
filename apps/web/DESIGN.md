@@ -1,7 +1,7 @@
 ---
 version: alpha
 name: LobsterPay
-description: Dark-first brutalist minimalism - monospace display + TASA Orbiter body on a warm near-black canvas. Inspired by x.ai.
+description: Dark-first brutalist minimalism - TASA Orbiter display + body with GeistMono accents (buttons, mono labels, tx signatures, ASCII logo) on a warm near-black canvas. Inspired by x.ai.
 
 # ── Colors ─────────────────────────────────────────────────────────────
 # Tokens expose the SOLID base palette only. Opacity-based hierarchy
