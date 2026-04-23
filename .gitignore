@@ -43,6 +43,11 @@ coverage/
 *.png
 *.jpg
 
+# Web public/ assets are intentional site artifacts (OG card, brand SVGs,
+# icon.svg). Whitelist back in over the broad *.png / *.jpg rules above.
+!apps/web/public/*.png
+!apps/web/public/*.jpg
+
 # Claude Code session transcripts (may contain pasted secrets)
 claude-session.jsonl
 *.session.jsonl
