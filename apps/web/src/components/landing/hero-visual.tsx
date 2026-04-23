@@ -143,6 +143,17 @@ export function HeroVisual({
 		const reduced =
 			respectReducedMotion && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
+		// Pull the design-system mono font from the CSS custom property
+		// instead of hardcoding a ui-monospace fallback chain. Keeps the
+		// ASCII hero in the same GeistMono voice as buttons, mono labels,
+		// and tx signatures across the rest of the site. Computed once at
+		// effect setup; ctx.font assignment per frame just composes it
+		// with cellPx.
+		const monoFamily =
+			getComputedStyle(document.documentElement).getPropertyValue("--font-mono").trim() ||
+			"ui-monospace, SFMono-Regular, Menlo, monospace";
+		const ctxFontString = `${cellPx}px ${monoFamily}`;
+
 		let mask: Uint8Array | null = null;
 		let maskW = 0;
 		let maskH = 0;
@@ -227,7 +238,13 @@ export function HeroVisual({
 			off.width = w;
 			off.height = h;
 			const octx = off.getContext("2d");
-			if (!octx) return;
+			if (!octx) {
+				// Throw so the loadMask().catch() in the effect surfaces
+				// a console warning. Returning silently would leave mask
+				// unset and the user staring at an unexplained blank
+				// canvas with no diagnostic clue.
+				throw new Error("Failed to acquire 2D context for hero mask offscreen canvas");
+			}
 			octx.drawImage(img, 0, 0, w, h);
 			const data = octx.getImageData(0, 0, w, h).data;
 			const out = new Uint8Array(w * h);
@@ -474,7 +491,7 @@ export function HeroVisual({
 				(mode === "glitch" && Math.floor(a * 4) % 7 === 0) ||
 				(mode === "spin-glitch" && Math.floor(a * 4) % 5 === 0);
 
-			ctx.font = `${cellPx}px ui-monospace, SFMono-Regular, Menlo, monospace`;
+			ctx.font = ctxFontString;
 			ctx.textBaseline = "top";
 			const fillCh = RAMP[FILL_CHAR_INDEX];
 			for (let r = 0; r < outRows; r++) {
@@ -714,11 +731,13 @@ export function HeroVisual({
 	}, [cellPx, rotationSpeed, src, respectReducedMotion, mode]);
 
 	return (
-		// tabIndex={-1} explicitly makes the canvas non-focusable so the
-		// aria-hidden="true" attribute is valid (a focusable hidden node
-		// confuses screen reader users). Pointer interaction still works
-		// for the hover @ -> $ swap; keyboard users do not need it
-		// because the canvas is purely decorative.
+		// The canvas is purely decorative, so aria-hidden hides it from
+		// assistive tech. tabIndex={-1} removes it from the keyboard
+		// tab order (and silences Biome's noAriaHiddenOnFocusable rule
+		// which treats <canvas> as potentially focusable). Pointer
+		// interaction still works for the hover @ -> $ swap; keyboard
+		// users do not need it because the canvas conveys no info that
+		// is not also expressed in the surrounding copy.
 		<canvas
 			ref={canvasRef}
 			className="hero-visual-canvas"
