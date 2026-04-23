@@ -50,17 +50,38 @@ const HALO_CHARS = "+*=~.";
 
 /**
  * Animation modes - each one re-uses the same mask-rasterize pipeline
- * but warps the (u, v) → (ox, oy) projection differently per frame.
+ * but warps the (u, v) → (ox, oy) projection differently per frame, or
+ * (for the static modes) leaves the silhouette in place and animates
+ * per-cell character / brightness instead.
  *
- *   spin     - Y-axis rotation. Silhouette compresses on X as it turns.
- *   tumble   - Y + X rotation simultaneously. Lobster pitches and yaws.
- *   pulse    - No rotation. Scale breathes between ~0.85 and 1.05.
- *   glitch   - Mostly static; periodically corrupts ~3% of body cells
- *              with random ramp chars for ~120 ms then snaps back.
- *   wave     - No rotation. Each row is sine-displaced horizontally for
- *              an underwater-current feel.
- *   shimmer  - No rotation. A vertical bar of brighter chars sweeps
- *              left→right; cells outside the bar stay at base brightness.
+ *   spin             - Y-axis rotation. Silhouette compresses on X as
+ *                      it turns. Z-buffered so front cells occlude back.
+ *   spin-shimmer-45  - Continuous Y-axis spin (velocity-eased: slower
+ *                      through the edge-on flip, faster through wide
+ *                      views) with a 45° diagonal bright bar sweeping
+ *                      across on its own wall-clock timer. Production
+ *                      experiment grid winner V1.
+ *   spin-glitch      - Y-axis spin plus periodic char-scramble pulses.
+ *   tumble           - Y + X rotation simultaneously. Lobster pitches
+ *                      and yaws.
+ *   pulse            - No rotation. Scale breathes between ~0.85 and
+ *                      ~1.05.
+ *   glitch           - Mostly static; periodically corrupts ~4% of body
+ *                      cells with random ramp chars for ~250ms.
+ *   wave             - No rotation. Each row is sine-displaced
+ *                      horizontally for an underwater-current feel.
+ *   shimmer          - No rotation. A vertical bar of brighter chars
+ *                      sweeps left→right; cells outside the bar stay
+ *                      at base brightness.
+ *   galaxy           - Static silhouette; each cell cycles through the
+ *                      ramp on its own phase = wallTime + angular
+ *                      position from center + radial twist. Reads as
+ *                      density bands flowing outward and rotating
+ *                      around the lobster. Production hero default.
+ *   lit-3d           - Y-axis spin like `spin`, but every visible cell
+ *                      picks its char from the FULL ramp by depth:
+ *                      front = dense `@`, back = sparse `.`. donut.c-
+ *                      style luminance-via-density.
  */
 export type HeroVisualMode =
   | "spin"
@@ -161,6 +182,11 @@ export function HeroVisual({
     // Set true on cleanup so any in-flight loadMask().then() bails out
     // before scheduling RAF on an unmounted canvas.
     let cancelled = false;
+    // RAF id for one-off repaints triggered by hover events when the
+    // main animation loop is stopped (off-screen, or reduced-motion).
+    // 0 = none scheduled. Coalesced via flag so a burst of pointermove
+    // events within one frame triggers exactly one repaint.
+    let pendingHoverPaint = 0;
 
     async function loadMask() {
       const img = new Image();
@@ -616,15 +642,30 @@ export function HeroVisual({
     const refreshRect = () => {
       if (canvas) canvasRect = canvas.getBoundingClientRect();
     };
+    // When the main RAF loop is stopped (off-screen via IntersectionObserver,
+    // or reduced-motion is honored), pointer events still update hoverCol /
+    // hoverRow but nothing repaints. Schedule a single rAF to render the
+    // updated hover state. Coalesced so a burst of pointermove events
+    // within one frame triggers exactly one paint.
+    const schedulePaintIfIdle = () => {
+      if (cancelled || !mask || raf !== 0 || pendingHoverPaint !== 0) return;
+      pendingHoverPaint = requestAnimationFrame(() => {
+        pendingHoverPaint = 0;
+        if (cancelled || !mask) return;
+        paint(angle, wallTime);
+      });
+    };
     const onPointerEnter = refreshRect;
     const onPointerMove = (e: PointerEvent) => {
       if (!canvasRect) return;
       hoverCol = Math.floor((e.clientX - canvasRect.left) / cellPx);
       hoverRow = Math.floor((e.clientY - canvasRect.top) / cellPx);
+      schedulePaintIfIdle();
     };
     const onPointerLeave = () => {
       hoverCol = -1;
       hoverRow = -1;
+      schedulePaintIfIdle();
     };
     canvas.addEventListener("pointerenter", onPointerEnter);
     canvas.addEventListener("pointermove", onPointerMove);
@@ -637,6 +678,10 @@ export function HeroVisual({
     return () => {
       cancelled = true;
       stopLoop();
+      if (pendingHoverPaint !== 0) {
+        cancelAnimationFrame(pendingHoverPaint);
+        pendingHoverPaint = 0;
+      }
       ro.disconnect();
       io.disconnect();
       canvas.removeEventListener("pointerenter", onPointerEnter);

@@ -1217,7 +1217,8 @@ a.text-accent { text-decoration: underline; text-underline-offset: 3px; }
 }
 
 /* Feature pills inside the split hero - left-anchored grid, no center
-   justify. Falls back to wrap if the column is narrow. */
+   justify. Responsive layouts (in .feature-pill-grid above) reduce
+   column count via media queries on narrower viewports. */
 .feature-pill-grid-left {
   justify-content: flex-start !important;
   margin-top: 32px !important;

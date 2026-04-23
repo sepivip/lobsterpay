@@ -99,10 +99,11 @@ export default function Home() {
 				</div>
 
 				<div className="landing-hero-visual animate-in animate-delay-1">
-					{/* respectReducedMotion=false - the spin IS the brand
-						visual, not decorative motion; we'd rather everyone
-						see it than respect a system setting that would hide
-						our hero's centerpiece. */}
+					{/* respectReducedMotion=false - the animated lobster IS
+						the brand identity hook (regardless of which mode is
+						active), not decorative motion. We'd rather every
+						visitor see it than respect a system setting that
+						would hide the hero's centerpiece. */}
 					<HeroVisual
 						mode="galaxy"
 						opacity={0.95}
