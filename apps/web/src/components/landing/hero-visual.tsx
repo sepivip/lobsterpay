@@ -16,10 +16,12 @@ import { useEffect, useRef } from "react";
  *     project to the output ASCII grid, write the depth-mapped char
  *     into a Z-buffer so the front of the slab paints over the back.
  *
- * Honors prefers-reduced-motion (paints one static frame, no RAF
- * loop). Cancels the RAF loop when off-screen via IntersectionObserver
- * and re-arms when scrolled back into view, so a hidden hero is not
- * burning ~60fps + GC churn.
+ * Honors prefers-reduced-motion by painting an initial static frame
+ * and skipping the RAF loop; pointer hover still triggers a coalesced
+ * one-off repaint so the @ -> $ swap remains interactive even when
+ * animation is paused. Cancels the RAF loop when off-screen via
+ * IntersectionObserver and re-arms when scrolled back into view, so a
+ * hidden hero is not burning ~60fps + GC churn.
  */
 
 /**
@@ -484,7 +486,12 @@ export function HeroVisual({
 			// on its own wall-clock timer, pauses off-canvas during the rest
 			// of the duty cycle, then re-enters. Driven by animTime so it's
 			// independent of spin velocity / rotationSpeed.
-			const shimmerCenter = mode === "shimmer" ? ((Math.sin(a) + 1) / 2) * outCols : -1;
+			// Scale by (outCols - 1) so the bar center stays inside the valid
+			// column range [0, outCols - 1] even at sin(a) === 1 (which would
+			// otherwise put the center at outCols, slightly skewing the right-
+			// edge distance check).
+			const shimmerCenter =
+				mode === "shimmer" ? ((Math.sin(a) + 1) / 2) * Math.max(0, outCols - 1) : -1;
 			const shimmerBand = Math.max(2, Math.floor(outCols * 0.06));
 			const diagShimmerBand = Math.max(3, Math.floor(outCols * 0.08));
 			const diagSweepFull = outCols + outRows + diagShimmerBand * 2;
@@ -503,6 +510,13 @@ export function HeroVisual({
 
 			ctx.font = ctxFontString;
 			ctx.textBaseline = "top";
+			// Set fillStyle ONCE (white) and modulate per-cell brightness via
+			// globalAlpha. Building a fresh `rgba(255,255,255,${alpha})` string
+			// per cell would allocate ~5000 strings per frame, ~300k/sec at
+			// 60fps - significant GC churn, especially with 10 instances on
+			// /experiments/hero-anim. Single fixed fillStyle + per-cell
+			// globalAlpha is the canonical zero-alloc canvas pattern.
+			ctx.fillStyle = "rgb(255,255,255)";
 			const fillCh = RAMP[FILL_CHAR_INDEX];
 			for (let r = 0; r < outRows; r++) {
 				for (let c = 0; c < outCols; c++) {
@@ -591,10 +605,10 @@ export function HeroVisual({
 								ch = HOVER_FILL_CHAR;
 							}
 						}
-						ctx.fillStyle = `rgba(255,255,255,${alpha})`;
+						ctx.globalAlpha = alpha;
 						ctx.fillText(ch, c * cellPx, r * cellPx);
 					} else {
-						ctx.fillStyle = "rgba(255,255,255,0.55)";
+						ctx.globalAlpha = 0.55;
 						ctx.fillText(HALO_CHARS[haloIdxGrid[i]], c * cellPx, r * cellPx);
 					}
 				}
