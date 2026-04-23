@@ -59,8 +59,13 @@ export default function Home() {
 			</header>
 
 			{/* Hero - 2-column on desktop: copy on the left, animated lobster
-				on the right. Stacks vertically below 1024px. */}
-			<div className="landing-hero landing-hero-split">
+				on the right. Stacks vertically below 1024px.
+				Dropped the base .landing-hero class here: the split layout
+				overrides every property it sets (display, align, padding,
+				max-width, text-align); keeping both made the split hero
+				implicitly dependent on the base class's `margin: 0 auto`.
+				That is now set directly on .landing-hero-split. */}
+			<div className="landing-hero-split">
 				<div className="landing-hero-content">
 					<div className="animate-in mb-4">
 						<span className="label-mono">KEYS STAY HOME. AGENTS GO OUT.</span>

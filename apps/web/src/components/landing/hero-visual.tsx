@@ -38,7 +38,8 @@ const HOVER_RADIUS_CELLS = 8; // radius in output cells (≈ 72px at cellPx=9)
 // Shimmer-45 pacing. Spin is continuous (velocity eased so the silhouette
 // lingers longer at the wide views and accelerates through the edge-on
 // flip - never actually stops). Shimmer bar sweeps concurrently on its
-// own wall-clock schedule so the two effects never fully align.
+// own animation-time schedule (animTime, not wall-clock - pauses when
+// the RAF loop pauses), so the two effects never fully align.
 const SS45_SHIMMER_PERIOD = 5.5; // seconds for one full sweep cycle
 const SS45_SHIMMER_DUTY = 0.75; // fraction of period the bar is on-canvas
 
@@ -504,9 +505,14 @@ export function HeroVisual({
 			}
 			// Glitch only applies to glitch / spin-glitch modes. spin-shimmer-45
 			// deliberately has NO glitch - the sequence should feel clean.
+			// Driven by animTime (`t`) instead of `angle` so the pulse window
+			// is a fixed ~250ms (1 / 4Hz) regardless of rotationSpeed; an
+			// earlier angle-based form (`Math.floor(a * 4) % N`) made the
+			// window contract or expand with the spin rate, which contradicted
+			// the doc string and felt erratic at non-default rotationSpeed.
 			const glitchActive =
-				(mode === "glitch" && Math.floor(a * 4) % 7 === 0) ||
-				(mode === "spin-glitch" && Math.floor(a * 4) % 5 === 0);
+				(mode === "glitch" && Math.floor(t * 4) % 7 === 0) ||
+				(mode === "spin-glitch" && Math.floor(t * 4) % 5 === 0);
 
 			ctx.font = ctxFontString;
 			ctx.textBaseline = "top";

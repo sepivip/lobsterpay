@@ -1191,6 +1191,7 @@ a.text-accent { text-decoration: underline; text-underline-offset: 3px; }
    reads underneath). */
 
 .landing-hero-split {
+  margin: 0 auto;
   max-width: 1200px;
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
