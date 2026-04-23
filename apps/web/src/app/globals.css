@@ -45,10 +45,12 @@
   --danger: #f87171;
   --danger-dim: rgba(248, 113, 113, 0.10);
 
-  /* Typography - TASA Orbiter (Google Fonts) for body, headings, AND
-     the landing display H1. GeistMono for buttons, mono labels, ASCII
-     logo, tx signatures. Both loaded via next/font. See DESIGN.md for
-     the per-token spec (display-hero, section-heading, body, etc.). */
+  /* Typography - TASA Orbiter for body, headings, AND the landing
+     display H1. GeistMono for buttons, mono labels, ASCII logo, tx
+     signatures. Both loaded via next/font (TASA Orbiter via
+     next/font/local + self-hosted .woff2; GeistMono via the `geist`
+     package's font module). See DESIGN.md for the per-token spec
+     (display-hero, section-heading, body, etc.). */
   --font-sans: var(--font-tasa-orbiter), system-ui, -apple-system, sans-serif;
   --font-mono: var(--font-geist-mono), ui-monospace, 'SFMono-Regular', 'Roboto Mono', monospace;
 
@@ -1278,8 +1280,13 @@ a.text-accent { text-decoration: underline; text-underline-offset: 3px; }
   .landing-hero-visual {
     /* order: -1 places the lobster ABOVE the headline + copy in the
        stacked mobile layout. The visual is the brand identity hook;
-       seeing it first sets context before the user reads the H1. */
+       seeing it first sets context before the user reads the H1.
+       Width is constrained alongside height so wide-but-short viewports
+       (landscape tablet ~900px) get a properly proportioned canvas
+       instead of a wide letterbox dwarfed by side margins. */
     order: -1;
+    width: min(360px, 100%);
+    margin-inline: auto;
     min-height: 280px;
     max-height: 360px;
   }

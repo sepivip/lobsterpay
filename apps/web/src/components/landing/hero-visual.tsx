@@ -145,8 +145,16 @@ export function HeroVisual({
 		const ctx = canvas.getContext("2d");
 		if (!ctx) return;
 
-		const reduced =
-			respectReducedMotion && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+		// Track prefers-reduced-motion live, not just at mount. If the user
+		// toggles the OS setting (or DevTools rendering pane) while the
+		// page is open, we pause / resume the RAF loop accordingly. The
+		// MQL change listener is wired further down, after stopLoop() and
+		// startLoop() are declared (function declarations are hoisted, but
+		// they reference closure state that is initialized in order).
+		const reducedMQL = respectReducedMotion
+			? window.matchMedia("(prefers-reduced-motion: reduce)")
+			: null;
+		let reduced = reducedMQL?.matches ?? false;
 
 		// Pull the design-system mono font from the CSS custom property
 		// instead of hardcoding a ui-monospace fallback chain. Keeps the
@@ -727,6 +735,17 @@ export function HeroVisual({
 		);
 		io.observe(canvas);
 
+		// Live prefers-reduced-motion subscription. If the user toggles the
+		// OS / browser setting while the page is open, pause or resume the
+		// RAF loop in response. startLoop()'s own `reduced` guard is what
+		// blocks restart when the user enables reduced-motion mid-session.
+		const onReducedMotionChange = (e: MediaQueryListEvent) => {
+			reduced = e.matches;
+			if (reduced) stopLoop();
+			else startLoop();
+		};
+		reducedMQL?.addEventListener("change", onReducedMotionChange);
+
 		// Cursor tracking - PointerEvent.offsetX/Y is already relative to
 		// the target element, so no client-rect math (and no rect cache /
 		// scroll listener) is needed to translate to cell coords.
@@ -762,6 +781,7 @@ export function HeroVisual({
 			}
 			ro.disconnect();
 			io.disconnect();
+			reducedMQL?.removeEventListener("change", onReducedMotionChange);
 			canvas.removeEventListener("pointermove", onPointerMove);
 			canvas.removeEventListener("pointerleave", clearHover);
 			canvas.removeEventListener("pointercancel", clearHover);
