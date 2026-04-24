@@ -201,8 +201,59 @@
       ],
       "compatibility": {
         "works_with": "Upstream paywalled APIs that verify by looking up the Solana tx signature on-chain (amount + recipient + mint against getTransaction). Our own /v1/demo/x402/fortune and /v1/demo/x402/joke are reference implementations.",
-        "does_not_work_with": "Spec-conformant x402 FACILITATOR gateways (agonx402, Coinbase reference facilitator, etc.) that expect a pre-signed UNSUBMITTED transaction in PAYMENT-SIGNATURE for the facilitator to submit after upstream success. LobsterPay's vault model settles the tx on-chain itself via a program-derived address (PDA); PDAs cannot produce the pre-signed-unsubmitted tx blob facilitators require, so the two designs do not interoperate. This is structural, not a schema gap - no header-shape change fixes it."
+        "for_facilitator_gateways": "If the 402 came from a spec-conformant x402 facilitator gateway (agonx402, Coinbase reference facilitator) and contains `extra.feePayer` — use `pay_x402_facilitator` (the tool below) instead of `pay_x402`. Facilitator gateways verify a pre-signed unsubmitted v0 transferChecked tx from the payer's ATA, which `pay_x402_facilitator` produces via a two-tx passthrough: vault → relayer's USDC ATA via execute_pay_exact, then relayer → facilitator's payTo via transferChecked in a v0 tx returned to the agent for the retry."
       }
+    },
+    {
+      "name": "pay_x402_facilitator",
+      "description": "Pay a 402-gated endpoint whose 402 response came from a spec-conformant x402 facilitator gateway (agonx402, Coinbase reference facilitator, etc.). Unlike `pay_x402` (which settles on-chain and returns a tx signature), this tool returns a pre-signed unsubmitted v0 transferChecked transaction in a PAYMENT-SIGNATURE-ready envelope; the facilitator co-signs as fee payer and submits after upstream returns 200. Internally does two txs: (1) LobsterPay-submitted vault → relayer via execute_pay_exact (1.5% service fee applies), (2) relayer → facilitator partial-signed and returned. Use this when the 402 includes `extra.feePayer`; otherwise use `pay_x402`.",
+      "method": "POST",
+      "path": "/v1/agent/actions/x402-facilitator",
+      "parameters": [
+        {
+          "name": "paymentRequirements",
+          "type": "object",
+          "required": true,
+          "description": "Payment requirements from the facilitator's 402 response. MUST include `extra.feePayer` (base58 Solana pubkey — the facilitator publishes this; same pubkey is usually also `payTo`). Standard fields: scheme ('exact'), network (CAIP-2 chain id), asset (mint), amount (atomic), payTo. Forward the facilitator's accepts[0] object intact."
+        },
+        {
+          "name": "originalRequestUrl",
+          "type": "string",
+          "required": true,
+          "description": "The facilitator-gateway URL that returned the 402. Used for domain-based policy checks + audit trail."
+        },
+        {
+          "name": "idempotencyKey",
+          "type": "string",
+          "required": false,
+          "description": "Optional. Server generates one if omitted. Note: because each partial tx is tied to a specific blockhash (~60-90s window), retrying with the SAME idempotencyKey after expiry returns the stale request row, not a new tx — call with a fresh idempotencyKey instead."
+        }
+      ],
+      "response": {
+        "requestId": "Internal request tracking ID",
+        "status": "awaiting_facilitator | failed | duplicate | pending_confirmation",
+        "paymentId": "Upstream paymentId if the 402 included one",
+        "paymentSignatureHeader": "Base64-encoded x402 v2 envelope. PUT THIS in the `PAYMENT-SIGNATURE` header of your retry against originalRequestUrl. Shape: { x402Version: 2, accepted: <same requirements object you passed in>, payload: { transaction: <base64 v0 tx> } }.",
+        "partialTransactionBase64": "Raw base64 of the v0 tx (inside `paymentSignatureHeader.payload.transaction`). Exposed for debugging.",
+        "tx1Signature": "Solana signature of the on-chain settlement tx (vault → relayer). Useful for auditing.",
+        "feePayer": "Echo of the facilitator's fee-payer pubkey we set in tx2.",
+        "authority": "LobsterPay relayer pubkey — the signer that partial-signed tx2 as transferChecked authority.",
+        "blockhash": "recentBlockhash baked into tx2. Facilitator must submit before it expires.",
+        "lastValidBlockHeight": "Authoritative submit deadline. After this slot, tx2 is permanently invalid.",
+        "expiresAt": "Conservative ISO timestamp (~60s) — client-facing hint.",
+        "grossAmount": "Atomic amount pulled from your vault (agonAmount + 1.5% service fee).",
+        "agonAmount": "Atomic amount the facilitator actually receives.",
+        "serviceFee": "1.5% service fee in atomic units, routed to the LobsterPay treasury.",
+        "error": "Error message if failed"
+      },
+      "facilitator_retry_flow": [
+        "1. Agent hits the facilitator-gateway URL, gets a 402 with paymentRequirements in the `Payment-Required` header (base64 JSON) and/or the body. The `accepts` array's entry MUST include `extra.feePayer` — that's how you know it's facilitator-mode.",
+        "2. Agent calls pay_x402_facilitator with `paymentRequirements = accepts[0]` and `originalRequestUrl`.",
+        "3. LobsterPay validates vault policy, runs tx1 (execute_pay_exact vault → relayer) on-chain — 1.5% of gross routes to our treasury — and returns `paymentSignatureHeader` plus metadata.",
+        "4. Agent retries the original URL with header `PAYMENT-SIGNATURE: <paymentSignatureHeader>`.",
+        "5. Facilitator verifies the partial tx, forwards the request upstream, co-signs as feePayer, submits tx2 on-chain, and returns 200 + the upstream response plus an `X-PAYMENT-RESPONSE` header containing the submitted tx signature.",
+        "6. If the facilitator fails to submit within the blockhash window (~60-90s), the partial tx is dead. Call pay_x402_facilitator again with a fresh idempotencyKey for a new tx2."
+      ]
     }
   ],
   "common_mints": {

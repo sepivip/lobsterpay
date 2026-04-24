@@ -1,11 +1,21 @@
 {
-  "version": "0.4.0",
-  "updated": "2026-04-23",
+  "version": "0.5.1",
+  "updated": "2026-04-24",
   "changelog": [
+    {
+      "version": "0.5.1",
+      "date": "2026-04-24",
+      "notes": "Polish on facilitator-mode (LP-014) per Copilot review: (1) both x402 endpoints (submit-mode and facilitator-mode) now reject Token-2022 mints (and any non-classic-SPL token) up front with a clear error before any vault USDC is spent - hardcoded TOKEN_PROGRAM_ID downstream would otherwise silently produce wrong ATAs and cryptic failures. Token-2022 support remains a future feature. (2) Service-fee math now uses the shared BPS_DENOMINATOR constant everywhere (was a stray `/ 10000n` in one spot, a drift risk if the on-chain constant ever changes). (3) OpenAPI spec for /v1/agent/actions/x402-facilitator now documents the 207 Multi-Status response for the `tx1_confirmed_tx2_build_failed` case so generated clients/docs are accurate."
+    },
+    {
+      "version": "0.5.0",
+      "date": "2026-04-24",
+      "notes": "Added facilitator-mode x402 via the new `pay_x402_facilitator` tool (POST /v1/agent/actions/x402-facilitator). LobsterPay now interoperates with spec-conformant x402 facilitator gateways (agonx402, Coinbase reference facilitator, etc.) that expect a pre-signed unsubmitted v0 transferChecked tx in PAYMENT-SIGNATURE. Implemented as a vault → relayer → facilitator two-tx passthrough: tx1 is execute_pay_exact(vault → relayer's USDC ATA, gross) with the normal 1.5% service fee to treasury; tx2 is a v0 transferChecked(relayer → facilitator's payTo, agonAmount) partial-signed by the relayer and returned to the agent for the retry. The facilitator's fee-payer pubkey is auto-extracted from `paymentRequirements.extra.feePayer` (no client-side field required). Relayer's USDC ATA is a per-call passthrough — no cross-user shared pool. Supersedes the v0.4.0 `compatibility` note that claimed PDAs couldn't interoperate with facilitators: the real constraint was envelope shape (needs `accepted` not `scheme`+`network` at top level) and tx shape (v0, compute-budget + transferChecked + memo in strict order) — both now handled server-side. No Anchor program changes."
+    },
     {
       "version": "0.4.0",
       "date": "2026-04-23",
-      "notes": "x402 v2 envelope polish across the surface. (1) pay_x402's returned xPaymentHeader is now the spec's { x402Version: 2, scheme, network, payload: {...} } envelope instead of a flat object; payload carries both v2 field names (maxAmountRequired, payTo) and legacy aliases (amount, recipient) so upstream verifiers reading either still work. (2) The demo paywall at /v1/demo/x402/fortune and /v1/demo/x402/joke now emits v2-shaped 402 responses with { x402Version: 2, accepts: [{ scheme, network: 'solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1', maxAmountRequired, payTo, asset: { address, symbol, decimals }, ... }] }, and sends PAYMENT-REQUIRED / PAYMENT-RESPONSE headers alongside the legacy X-PAYMENT-* aliases. (3) Demo accepts both PAYMENT-SIGNATURE (v2) and X-PAYMENT (legacy) as the retry header. (4) Added an explicit `compatibility` section to the skill documenting the structural incompatibility with facilitator-style x402 gateways (agonx402, Coinbase reference) - their flow requires a pre-signed unsubmitted tx the facilitator submits, which vault PDAs cannot produce."
+      "notes": "x402 v2 envelope polish across the surface. (1) pay_x402's returned xPaymentHeader is now the spec's { x402Version: 2, scheme, network, payload: {...} } envelope instead of a flat object; payload carries both v2 field names (maxAmountRequired, payTo) and legacy aliases (amount, recipient) so upstream verifiers reading either still work. (2) The demo paywall at /v1/demo/x402/fortune and /v1/demo/x402/joke now emits v2-shaped 402 responses with { x402Version: 2, accepts: [{ scheme, network: 'solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1', maxAmountRequired, payTo, asset: { address, symbol, decimals }, ... }] }, and sends PAYMENT-REQUIRED / PAYMENT-RESPONSE headers alongside the legacy X-PAYMENT-* aliases. (3) Demo accepts both PAYMENT-SIGNATURE (v2) and X-PAYMENT (legacy) as the retry header. (4) Added an explicit `compatibility` section to the skill documenting the structural incompatibility with facilitator-style x402 gateways (agonx402, Coinbase reference) - their flow requires a pre-signed unsubmitted tx the facilitator submits, which vault PDAs cannot produce. [SUPERSEDED BY 0.5.0 — facilitator mode is now supported.]"
     },
     {
       "version": "0.3.5",
