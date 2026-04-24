@@ -1460,7 +1460,15 @@ a.text-accent { text-decoration: underline; text-underline-offset: 3px; }
   color: var(--text-primary);
   white-space: pre-wrap;
   word-break: break-all;
-  max-height: 420px;
+  /* Lock the body to its final-state height. Without this the box
+     starts ~50px tall (just one prompt line) and grows to ~420px as
+     the typing animation fills the script - which keeps shoving the
+     "How it works" / use cases / quickstart sections below it down
+     the page, so a reader scrolling has to chase a moving target
+     (BAT-506). Using `height` (not just `max-height`) reserves the
+     full final size from the first paint; existing overflow-y: auto
+     still kicks in if content overflows. */
+  height: 420px;
   overflow-y: auto;
   letter-spacing: 0;
 }
