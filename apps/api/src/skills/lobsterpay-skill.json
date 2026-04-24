@@ -201,7 +201,8 @@
       ],
       "compatibility": {
         "works_with": "Upstream paywalled APIs that verify by looking up the Solana tx signature on-chain (amount + recipient + mint against getTransaction). Our own /v1/demo/x402/fortune and /v1/demo/x402/joke are reference implementations.",
-        "for_facilitator_gateways": "If the 402 came from a spec-conformant x402 facilitator gateway (agonx402, Coinbase reference facilitator) and contains `extra.feePayer` — use `pay_x402_facilitator` (the tool below) instead of `pay_x402`. Facilitator gateways verify a pre-signed unsubmitted v0 transferChecked tx from the payer's ATA, which `pay_x402_facilitator` produces via a two-tx passthrough: vault → relayer's USDC ATA via execute_pay_exact, then relayer → facilitator's payTo via transferChecked in a v0 tx returned to the agent for the retry."
+        "for_facilitator_gateways": "If the 402 came from a spec-conformant x402 facilitator gateway (agonx402, Coinbase reference facilitator) and contains `extra.feePayer` — use `pay_x402_facilitator` instead of `pay_x402`. Facilitator gateways verify a pre-signed unsubmitted v0 transferChecked tx from the payer's ATA, which `pay_x402_facilitator` produces via a two-tx passthrough: vault → relayer's USDC ATA via execute_pay_exact, then relayer → facilitator's payTo via transferChecked in a v0 tx returned to the agent for the retry.",
+        "for_siwx_routes": "If the 402's `accepts` array is empty AND it carries a Sign-In-with-X CAIP-122 challenge in `extensions['sign-in-with-x']` (e.g. agon's Tokens API, /v1/x402/tokens/...) — use `pay_x402_siwx` instead. These routes don't take payment; they gate access on a wallet signature."
       }
     },
     {
@@ -262,6 +263,67 @@
           "tx1_signature": "5N61jrzQRRmmuvMnWSYrg3MVoDwihPC9RGLTQjMHQ5jHPwZtcCLn3fDcWweAtZTmoSiV6vUgfqwVvqdnvFZvYXH3",
           "tx2_signature": "2vanrbeyh76VDkrvHJneE5J1K3CiQosxJauaumYoexpVp8v8YSPHFwmQoyThiBSfeQgu15MU4HypyYx9E67GFEaX",
           "reference_script": "scripts/agon-via-lp-facilitator.mjs"
+        }
+      ]
+    },
+    {
+      "name": "pay_x402_siwx",
+      "description": "Authenticate to a SIWX-gated x402 endpoint (no payment, no on-chain settlement). Some upstreams — e.g. agon's Tokens API at /v1/x402/tokens/... — return 402 with `accepts: []` and a Sign-In-with-X CAIP-122 challenge in `extensions['sign-in-with-x']` instead of an x402 payment scheme. LobsterPay signs the canonical SIWS message with the relayer ed25519 keypair and returns a base64 `signInWithXHeader` you put in the `SIGN-IN-WITH-X` header on the retry. The signature is single-use and valid for ~300s. Use `pay_x402` or `pay_x402_facilitator` for upstreams that take payment instead.",
+      "method": "POST",
+      "path": "/v1/agent/actions/x402-siwx",
+      "parameters": [
+        {
+          "name": "paymentRequiredHeader",
+          "type": "string",
+          "required": false,
+          "description": "Raw base64 value of the upstream's `Payment-Required` response header — easiest path: just forward the header you got. Either this or `siwxChallenge` is required."
+        },
+        {
+          "name": "siwxChallenge",
+          "type": "object",
+          "required": false,
+          "description": "Already-decoded SIWX extension (`extensions['sign-in-with-x']` from the 402). Use this if you've already parsed the header. Either this or `paymentRequiredHeader` is required."
+        },
+        {
+          "name": "originalRequestUrl",
+          "type": "string",
+          "required": true,
+          "description": "The SIWX-gated URL that returned the 402. Used for the audit trail and policy checks."
+        },
+        {
+          "name": "chainId",
+          "type": "string",
+          "required": false,
+          "description": "CAIP-2 chainId to assert against (e.g. 'solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1' for devnet). Must be in the upstream's `supportedChains[].chainId`. Defaults to the first ed25519 chain in the challenge."
+        },
+        {
+          "name": "idempotencyKey",
+          "type": "string",
+          "required": false,
+          "description": "Optional. Server generates one if omitted. Each SIWS signature is single-use anyway — retrying produces a fresh signature."
+        }
+      ],
+      "response": {
+        "requestId": "Internal request tracking ID",
+        "status": "authorized",
+        "signInWithXHeader": "Base64-encoded SIWX payload — put this in the `SIGN-IN-WITH-X` header of your retry against originalRequestUrl, with the SAME method + body. Verified working against agonx402's Tokens API.",
+        "address": "LobsterPay relayer pubkey that signed the challenge.",
+        "chainId": "CAIP-2 chain id the signature is bound to.",
+        "expirationTime": "ISO timestamp of the signature's expiry (typically ~300s after issue)."
+      },
+      "siwx_retry_flow": [
+        "1. Agent hits the SIWX-gated URL, gets a 402. Decode the `Payment-Required` RESPONSE HEADER (base64 JSON). The decoded object has `accepts: []` (no payment scheme) and a CAIP-122 challenge in `extensions['sign-in-with-x']` with `info` (domain/uri/nonce/issuedAt/expirationTime/statement) and `supportedChains` (array of {chainId, type}).",
+        "2. Agent calls pay_x402_siwx with `paymentRequiredHeader` set to the raw base64 header value (or `siwxChallenge` set to the decoded extension). Optionally pin a `chainId` from supportedChains.",
+        "3. LobsterPay signs the canonical SIWS message with the relayer ed25519 keypair and returns `signInWithXHeader`.",
+        "4. Agent retries the original URL with header `SIGN-IN-WITH-X: <signInWithXHeader>`.",
+        "5. Upstream verifies the signature (against the canonical message it reconstructs), enforces the 300s window + replay protection, and returns 200 + the API JSON response. There is no PAYMENT-RESPONSE header on SIWX flows."
+      ],
+      "verified_against": [
+        {
+          "gateway": "agonx402",
+          "url_pattern": "https://gateway.agonx402.com/v1/x402/tokens/...",
+          "verified_on": "2026-04-24",
+          "reference_script": "scripts/agon-via-lp-siwx.mjs"
         }
       ]
     }

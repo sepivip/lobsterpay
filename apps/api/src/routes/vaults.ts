@@ -207,6 +207,12 @@ function transformActivity(
       if (payload.recipient) metaLines.push(`to ${shortAddr(payload.recipient)}`);
       break;
     }
+    case "x402_siwx_authorized": {
+      const domain = payload.domain ?? "endpoint";
+      title = `Authorized agent for ${domain}`;
+      if (payload.address) metaLines.push(`signed as ${shortAddr(payload.address)}`);
+      break;
+    }
     case "policy_update": {
       const entries = Object.entries(payload).filter(([k]) => k !== "vaultId" && k !== "vault_id");
       if (entries.length === 0) {
