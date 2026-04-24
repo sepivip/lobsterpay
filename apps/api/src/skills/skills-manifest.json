@@ -1,7 +1,12 @@
 {
-  "version": "0.5.1",
+  "version": "0.5.2",
   "updated": "2026-04-24",
   "changelog": [
+    {
+      "version": "0.5.2",
+      "date": "2026-04-24",
+      "notes": "Docs-only update marking facilitator-mode as confirmed live. (1) Skill spec for pay_x402_facilitator now spells out that real x402 v2 gateways put paymentRequirements in the `Payment-Required` RESPONSE HEADER (base64 JSON), not in the body - this was the easy gotcha from the agon integration. (2) Added a `verified_against` block listing agonx402 with the actual on-chain tx signatures from the 2026-04-24 e2e proof-of-life run. (3) Agent prompt section 5 rewritten with a clear Step 0 / Step 1 / Step 2 walkthrough including how to decode the response header. (4) MCP server pay_x402_facilitator tool description updated likewise. (5) Reference end-to-end script committed at scripts/agon-via-lp-facilitator.mjs - one-command regression test for the full agon → LobsterPay → agon flow."
+    },
     {
       "version": "0.5.1",
       "date": "2026-04-24",
