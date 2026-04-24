@@ -394,6 +394,71 @@ function buildOpenApiSpec(apiUrl: string, version: string) {
 						},
 					},
 				},
+				"/v1/agent/actions/x402-siwx": {
+					post: {
+						operationId: "payX402Siwx",
+						summary: "Authenticate to a SIWX-gated x402 endpoint by signing the upstream's CAIP-122 challenge with the relayer ed25519 keypair (no payment, no settlement)",
+						description:
+							"For upstream gateways that gate routes with a Sign-In-with-X (CAIP-122) wallet signature instead of an x402 payment — e.g. agon's Tokens API. Decodes the upstream's `Payment-Required` header (or accepts the already-decoded SIWX challenge), signs the canonical SIWS message with the LobsterPay relayer keypair, and returns a base64 `signInWithXHeader` ready to use as the `SIGN-IN-WITH-X` header on the retry.",
+						requestBody: {
+							required: true,
+							content: {
+								"application/json": {
+									schema: {
+										type: "object",
+										required: ["originalRequestUrl"],
+										properties: {
+											paymentRequiredHeader: {
+												type: "string",
+												description: "Raw base64 value of the upstream's `Payment-Required` response header. Either this or `siwxChallenge` is required.",
+											},
+											siwxChallenge: {
+												type: "object",
+												description: "Already-decoded SIWX extension object (`extensions['sign-in-with-x']` from the 402). Either this or `paymentRequiredHeader` is required.",
+											},
+											originalRequestUrl: { type: "string", format: "uri" },
+											chainId: {
+												type: "string",
+												description: "CAIP-2 chainId to assert against. Must be in the upstream's `supportedChains[].chainId`. Defaults to the first ed25519 chain in the challenge.",
+											},
+											idempotencyKey: { type: "string" },
+										},
+									},
+								},
+							},
+						},
+						responses: {
+							"200": {
+								description: "Signed challenge ready to use as the SIGN-IN-WITH-X header",
+								content: {
+									"application/json": {
+										schema: {
+											type: "object",
+											properties: {
+												requestId: { type: "string" },
+												status: { type: "string", enum: ["authorized"] },
+												signInWithXHeader: {
+													type: "string",
+													description: "Base64-encoded SIWX payload — put this in the `SIGN-IN-WITH-X` header on the retry.",
+												},
+												address: { type: "string", description: "Relayer pubkey that signed the challenge." },
+												chainId: { type: "string" },
+												expirationTime: {
+													type: "string",
+													format: "date-time",
+													nullable: true,
+													description: "When the signature expires (typically 300s after issue). Replays are rejected by the upstream after this.",
+												},
+											},
+										},
+									},
+								},
+							},
+							"400": { description: "Validation rejection (missing challenge, invalid chainId, no ed25519 chain, malformed input)" },
+							"500": { description: "Infrastructure error (relayer unavailable)" },
+						},
+					},
+				},
 		},
 	};
 }

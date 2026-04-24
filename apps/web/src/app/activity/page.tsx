@@ -17,7 +17,7 @@ const TYPE_LABELS: Record<string, string> = {
 	x402_facilitator_confirmed: "X402 CONFIRMED",
 	x402_facilitator_expired: "X402 EXPIRED",
 	x402_siwx: "X402 SIWX",
-	x402_siwx_signed: "X402 SIWX SIGNED",
+	x402_siwx_authorized: "X402 SIWX",
 	withdrawal: "WITHDRAW",
 	key_created: "KEY +",
 	key_revoked: "KEY −",
@@ -222,7 +222,7 @@ export default function ActivityPage() {
 												{item.status && (
 													<span
 														className={`badge ${
-															item.status === "confirmed"
+															item.status === "confirmed" || item.status === "authorized"
 																? "badge-success"
 																: item.status === "failed"
 																	? "badge-danger"

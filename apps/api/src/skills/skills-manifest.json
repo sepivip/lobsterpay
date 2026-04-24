@@ -1,7 +1,12 @@
 {
-  "version": "0.5.2",
+  "version": "0.6.0",
   "updated": "2026-04-24",
   "changelog": [
+    {
+      "version": "0.6.0",
+      "date": "2026-04-24",
+      "notes": "Added SIWX (auth-only) mode via the new `pay_x402_siwx` tool (POST /v1/agent/actions/x402-siwx). Some x402 upstreams (e.g. agon's Tokens API at /v1/x402/tokens/...) gate routes on a Sign-In-with-X CAIP-122 wallet signature instead of an x402 payment - the 402's `accepts` array is empty and the challenge lives in `extensions['sign-in-with-x']`. LobsterPay signs the canonical SIWS message with the relayer ed25519 keypair (no payment, no on-chain settlement) and returns a base64 `signInWithXHeader` ready to use as the `SIGN-IN-WITH-X` header on the retry. Single-use, ~300s validity. Activity entries appear as `x402_siwx_authorized` in the dashboard. Agent prompt now lists three x402 modes (submit / facilitator / SIWX) with a decision table; OpenAPI + MCP surface updated. Reference script: scripts/agon-via-lp-siwx.mjs. Verified live against agon Tokens API 2026-04-24."
+    },
     {
       "version": "0.5.2",
       "date": "2026-04-24",
