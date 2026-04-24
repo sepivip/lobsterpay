@@ -343,7 +343,7 @@ server.tool(
 
 server.tool(
 	"pay_x402_facilitator",
-	"Pay a 402-gated endpoint whose 402 came from a spec-conformant x402 facilitator gateway (agonx402, Coinbase reference facilitator). Returns a `paymentSignatureHeader` you put in the `PAYMENT-SIGNATURE` header on your retry; the facilitator co-signs and submits the tx itself. Use when the 402's accepts[i].extra.feePayer is set — for paywalls that verify on-chain by tx-signature lookup, use `pay_x402` instead.",
+	"Pay a 402-gated endpoint whose 402 came from a spec-conformant x402 facilitator gateway (agonx402, Coinbase reference facilitator). Returns a `paymentSignatureHeader` you put in the `PAYMENT-SIGNATURE` header on your retry; the facilitator co-signs and submits the tx itself. Use when the 402's accepts[i].extra.feePayer is set - for paywalls that verify on-chain by tx-signature lookup, use `pay_x402` instead. NOTE: spec-conformant gateways put the requirements in the `Payment-Required` RESPONSE HEADER as base64 JSON, not in the body. Decode that header first to get the `accepts[0]` object you pass here. Verified end-to-end against agonx402 on devnet 2026-04-24.",
 	{
 		paymentRequirements: z
 			.object({

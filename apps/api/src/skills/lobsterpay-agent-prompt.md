@@ -130,6 +130,18 @@ If the 402 sends a cluster-specific value that doesn't match this deployment (e.
 
 ### 5. Facilitator-mode x402 (agonx402 et al.)
 
+**Step 0 - find the paymentRequirements.** This is the easy thing to miss. Spec-conformant x402 v2 facilitator gateways (agonx402, Coinbase, etc.) put the requirements in the **`Payment-Required` response header**, base64-encoded JSON, NOT in the response body. The body is typically a tiny `{"ok":false,"error":"Payment required"}` stub. Decode the header and read `accepts[0]`:
+
+```js
+const r = await fetch(url, { method: "POST", body: ... });
+// r.status === 402
+const pr = JSON.parse(
+  Buffer.from(r.headers.get("payment-required"), "base64").toString("utf8"),
+).accepts[0];
+```
+
+**Step 1 - settle via LobsterPay.** Forward the entire `accepts[i]` object to the facilitator endpoint:
+
 ```
 POST /v1/agent/actions/x402-facilitator
 {
@@ -142,22 +154,25 @@ POST /v1/agent/actions/x402-facilitator
     "maxTimeoutSeconds": 300,
     "extra": { "feePayer": "9418vqXsaVbwUEP5q8FGtRxEtzrDgDc2ECfHrWWthvPQ" }
   },
-  "originalRequestUrl": "https://gateway.agonx402.com/v1/x402/solana/devnet/helius/rpc/getBalance",
-  "idempotencyKey": "x402-agon-001"
+  "originalRequestUrl": "https://gateway.agonx402.com/v1/x402/solana/devnet/helius/rpc/getAccountInfo"
 }
 ```
 
-Forward the entire `accepts[i]` object from the facilitator's 402. The `extra.feePayer` field is REQUIRED — without it, LobsterPay returns a 403. You pay `agonAmount × 1.015` from your vault (the 1.5% markup is LobsterPay's service fee).
+The `extra.feePayer` field is REQUIRED - without it, LobsterPay returns a 403. You pay `agonAmount × 1.015` from your vault (the 1.5% markup is LobsterPay's service fee). On success (status: `awaiting_facilitator`) you get back `paymentSignatureHeader` + the on-chain `tx1Signature` for the vault → relayer settlement.
 
-On success (status: `awaiting_facilitator`) you get back a `paymentSignatureHeader`. Retry the original URL with:
+**Step 2 - retry the original URL with the proof:**
 
 ```
 PAYMENT-SIGNATURE: <paymentSignatureHeader>
 ```
 
-The facilitator submits the tx itself after upstream succeeds. If the blockhash expires before the facilitator submits (~60-90s), call `pay_x402_facilitator` again with a fresh idempotencyKey — retrying the SAME key returns the stale row.
+Same body as your original request. Gateway co-signs + submits tx2 only after the upstream API returns 200, so the upstream content + the settlement happen atomically. Inspect the `PAYMENT-RESPONSE` response header (also base64 JSON) for the gateway's tx2 signature - useful for audit logs.
 
-**Which mode to use.** If the 402 includes `extra.feePayer` and the URL points at a facilitator gateway, use `pay_x402_facilitator`. Otherwise (paywalls that verify by on-chain tx-signature lookup) use `pay_x402`.
+**Blockhash expiry.** The facilitator must submit tx2 within ~60-90s of LobsterPay building it. If they're slow, call `pay_x402_facilitator` again with a **fresh** `idempotencyKey` - retrying the SAME key returns the stale row.
+
+**Which mode to use.** If the 402 includes `extra.feePayer` (or the gateway docs mention "facilitator submits"), use `pay_x402_facilitator`. Otherwise (paywalls that verify by on-chain tx-signature lookup) use `pay_x402`.
+
+**Reference implementation.** A working end-to-end script lives at `scripts/agon-via-lp-facilitator.mjs` in the LobsterPay repo. It does exactly steps 0 - 2 above against agonx402's devnet `getAccountInfo` endpoint and was verified live on 2026-04-24 (tx1 `5N61j…XH3` settled vault→relayer, tx2 `2vanr…EaX` submitted by agon).
 
 ## Rules
 

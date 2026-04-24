@@ -233,7 +233,7 @@
         "requestId": "Internal request tracking ID",
         "status": "awaiting_facilitator | failed | duplicate | pending_confirmation",
         "paymentId": "Upstream paymentId if the 402 included one",
-        "paymentSignatureHeader": "Base64-encoded x402 v2 envelope. PUT THIS in the `PAYMENT-SIGNATURE` header of your retry against originalRequestUrl. Shape: { x402Version: 2, accepted: <same requirements object you passed in>, payload: { transaction: <base64 v0 tx> } }.",
+        "paymentSignatureHeader": "Base64-encoded x402 v2 envelope. PUT THIS in the `PAYMENT-SIGNATURE` header of your retry against originalRequestUrl, with the SAME body as the original request. Shape: { x402Version: 2, accepted: <same requirements object you passed in>, payload: { transaction: <base64 v0 tx> } }. Verified working against agonx402 - see `verified_against` below.",
         "partialTransactionBase64": "Raw base64 of the v0 tx (inside `paymentSignatureHeader.payload.transaction`). Exposed for debugging.",
         "tx1Signature": "Solana signature of the on-chain settlement tx (vault → relayer). Useful for auditing.",
         "feePayer": "Echo of the facilitator's fee-payer pubkey we set in tx2.",
@@ -247,12 +247,22 @@
         "error": "Error message if failed"
       },
       "facilitator_retry_flow": [
-        "1. Agent hits the facilitator-gateway URL, gets a 402 with paymentRequirements in the `Payment-Required` header (base64 JSON) and/or the body. The `accepts` array's entry MUST include `extra.feePayer` — that's how you know it's facilitator-mode.",
+        "1. Agent hits the facilitator-gateway URL, gets a 402. paymentRequirements live in the `Payment-Required` RESPONSE HEADER as base64-encoded JSON (the body is typically just `{ok:false,error:'Payment required'}` and DOES NOT contain the requirements). Decode: `JSON.parse(atob(response.headers.get('Payment-Required')))`. The decoded object is shaped like `{ x402Version: 2, accepts: [{...}] }`. The accepts[0] entry MUST include `extra.feePayer` - that's how you know it's facilitator-mode (and that field is what distinguishes facilitator-style 402s from settled-proof-style ones).",
         "2. Agent calls pay_x402_facilitator with `paymentRequirements = accepts[0]` and `originalRequestUrl`.",
-        "3. LobsterPay validates vault policy, runs tx1 (execute_pay_exact vault → relayer) on-chain — 1.5% of gross routes to our treasury — and returns `paymentSignatureHeader` plus metadata.",
-        "4. Agent retries the original URL with header `PAYMENT-SIGNATURE: <paymentSignatureHeader>`.",
-        "5. Facilitator verifies the partial tx, forwards the request upstream, co-signs as feePayer, submits tx2 on-chain, and returns 200 + the upstream response plus an `X-PAYMENT-RESPONSE` header containing the submitted tx signature.",
+        "3. LobsterPay validates vault policy, runs tx1 (execute_pay_exact vault → relayer) on-chain - 1.5% of gross routes to our treasury - and returns `paymentSignatureHeader` plus metadata.",
+        "4. Agent retries the original URL with header `PAYMENT-SIGNATURE: <paymentSignatureHeader>` (and the SAME body as the original request).",
+        "5. Facilitator verifies the partial tx, forwards the request upstream, co-signs as feePayer, submits tx2 on-chain, and returns 200 + the upstream response plus a `PAYMENT-RESPONSE` header containing the submitted tx signature (base64 JSON: { success, transaction, network, payer }). Decode it the same way as Payment-Required if you want the audit trail.",
         "6. If the facilitator fails to submit within the blockhash window (~60-90s), the partial tx is dead. Call pay_x402_facilitator again with a fresh idempotencyKey for a new tx2."
+      ],
+      "verified_against": [
+        {
+          "gateway": "agonx402",
+          "url_pattern": "https://gateway.agonx402.com/v1/x402/solana/devnet/<provider>/<surface>/<method>",
+          "verified_on": "2026-04-24",
+          "tx1_signature": "5N61jrzQRRmmuvMnWSYrg3MVoDwihPC9RGLTQjMHQ5jHPwZtcCLn3fDcWweAtZTmoSiV6vUgfqwVvqdnvFZvYXH3",
+          "tx2_signature": "2vanrbeyh76VDkrvHJneE5J1K3CiQosxJauaumYoexpVp8v8YSPHFwmQoyThiBSfeQgu15MU4HypyYx9E67GFEaX",
+          "reference_script": "scripts/agon-via-lp-facilitator.mjs"
+        }
       ]
     }
   ],

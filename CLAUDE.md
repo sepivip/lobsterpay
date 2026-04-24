@@ -2,7 +2,7 @@
 
 > Persistent context for Claude Code sessions. Read this first.
 >
-> Last updated: 2026-04-18
+> Last updated: 2026-04-24
 
 ## What LobsterPay is
 
@@ -145,6 +145,17 @@ Remaining (non-blocking for hackathon):
 - ✅ End-to-end smoke test passed: wallet connect → create vault → init fee vault → deposit SOL → manage keys → set policy
 - ✅ 1.5% service fee + fee reimbursement economics wired onchain
 - ✅ Skill versioning system with `/v1/skills/version` polling endpoint
+- ✅ **x402 - both modes confirmed end-to-end on devnet (2026-04-24).**
+  Submit-mode (`POST /v1/agent/actions/x402`) works with upstreams that
+  verify by on-chain tx-signature lookup (our `/v1/demo/x402/*`).
+  Facilitator-mode (`POST /v1/agent/actions/x402-facilitator`) works
+  with spec-conformant x402 facilitator gateways (verified live against
+  agonx402 - tx1 [`5N61j…XH3`](https://solscan.io/tx/5N61jrzQRRmmuvMnWSYrg3MVoDwihPC9RGLTQjMHQ5jHPwZtcCLn3fDcWweAtZTmoSiV6vUgfqwVvqdnvFZvYXH3?cluster=devnet) settled vault→relayer, tx2 [`2vanr…EaX`](https://solscan.io/tx/2vanrbeyh76VDkrvHJneE5J1K3CiQosxJauaumYoexpVp8v8YSPHFwmQoyThiBSfeQgu15MU4HypyYx9E67GFEaX?cluster=devnet) submitted by agon). Two-tx passthrough: vault → relayer
+  via `execute_pay_exact` (1.5% to treasury), then a partial-signed v0
+  `transferChecked` from relayer → facilitator's `payTo` returned to
+  the agent for the gateway to co-sign + submit. Facilitator fee-payer
+  auto-extracted from `paymentRequirements.extra.feePayer`. No Anchor
+  changes required. Regression script: `node scripts/agon-via-lp-facilitator.mjs`.
 
 ## What's left
 
@@ -167,9 +178,7 @@ Remaining (non-blocking for hackathon):
 
 5. **Replace devnet treasury** with a fresh one you control → paste its pubkey into `programs/lobsterpay/src/constants.rs` → redeploy. Current treasury keypair is in `.env.deploy` only (not production).
 
-6. **x402 — both modes working.** `POST /v1/agent/actions/x402` settles on-chain via `execute_pay_exact` (submit-mode, works with upstreams that verify by tx-signature lookup, like `/v1/demo/x402/*`). `POST /v1/agent/actions/x402-facilitator` returns a pre-signed unsubmitted v0 transferChecked for spec-conformant facilitator gateways (agonx402, Coinbase reference facilitator) — two-tx passthrough: vault → relayer via `execute_pay_exact` (1.5% to treasury), then relayer → facilitator partial-signed and handed back to the agent. Facilitator's fee-payer pubkey auto-extracted from `paymentRequirements.extra.feePayer`. No Anchor changes required. End-to-end devnet test against agonx402 working via regular-wallet flow; production integration pending a live call through the facilitator endpoint.
-
-7. **Polish for demo**:
+6. **Polish for demo**:
    - Add a "copy vault address" button
    - Show treasury tx history somewhere
    - Record a demo video
