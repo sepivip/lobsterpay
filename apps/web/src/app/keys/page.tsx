@@ -154,10 +154,16 @@ export default function KeysPage() {
 							<div>
 								<label className="form-label">Expires (optional)</label>
 								<input
-									className="input"
+									className="input input-date"
 									type="date"
 									value={expiresAt}
 									onChange={(e) => setExpiresAt(e.target.value)}
+									// Native <input type="date"> only opens its picker when the user
+									// clicks the calendar icon at the right edge - clicks on the
+									// "mm/dd/yyyy" placeholder text do nothing. showPicker() (Chrome
+									// 99+, Firefox 101+, Safari 16+) opens the picker on any click
+									// inside the input. Optional chain for older browser fallback.
+									onClick={(e) => e.currentTarget.showPicker?.()}
 								/>
 							</div>
 						</div>
