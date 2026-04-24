@@ -530,7 +530,24 @@ export function vaultRoutes(app: FastifyInstance, db: Db, config: Config) {
     }
 
     const keys = await apiKeyService.list(vaultId);
-    return { items: keys };
+    // Map snake_case Postgres rows -> camelCase for the frontend. Without
+    // this, fields like `created_at` and `last_used_at` go through as-is
+    // and the dashboard reads `key.createdAt` / `key.lastUsedAt` -> undefined,
+    // which shows as a dash / "Never" forever (BAT-504).
+    const items = keys.map((row: any) => ({
+      id: row.id,
+      vaultId: row.vault_id,
+      label: row.label,
+      prefix: row.prefix,
+      status: row.status,
+      expiresAt: row.expires_at instanceof Date ? row.expires_at.toISOString() : row.expires_at,
+      allowedActionsOverride: row.allowed_actions_override,
+      perTxOverride: row.per_tx_override,
+      dailyLimitOverride: row.daily_limit_override,
+      createdAt: row.created_at instanceof Date ? row.created_at.toISOString() : row.created_at,
+      lastUsedAt: row.last_used_at instanceof Date ? row.last_used_at.toISOString() : row.last_used_at,
+    }));
+    return { items };
   });
 
   // GET /v1/vaults/:vaultId/activity
