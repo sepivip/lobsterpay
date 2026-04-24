@@ -55,32 +55,31 @@ const RECONCILER_TICK_MS = 10_000;
 const RECONCILER_LOOKBACK_MIN = 5;
 
 // The `postgres` driver returns JSONB columns as raw text (no json transform
-// configured in db/client.ts). Mirrors parsePayload in routes/vaults.ts.
+// configured in db/client.ts), and some legacy rows were inserted via
+// JSON.stringify(...) so they're stored as JSONB *string scalars* — meaning
+// after one parse you get back a string, and need a second parse to get the
+// object. Handle both cases. Mirrors parsePayload in routes/vaults.ts.
 function parseJsonb(raw: unknown): Record<string, any> {
-	if (raw == null) return {};
-	if (typeof raw === "string") {
+	let v: unknown = raw;
+	for (let i = 0; i < 2; i++) {
+		if (v == null) return {};
+		if (typeof v === "object") return v as Record<string, any>;
+		if (typeof v !== "string") return {};
 		try {
-			const parsed = JSON.parse(raw);
-			return parsed && typeof parsed === "object" ? parsed : {};
+			v = JSON.parse(v);
 		} catch {
 			return {};
 		}
 	}
-	if (typeof raw === "object") return raw as Record<string, any>;
-	return {};
+	return v && typeof v === "object" ? (v as Record<string, any>) : {};
 }
 
 interface PendingRow {
 	id: string;
 	vault_id: string;
 	created_at: Date | string;
-	settlement_json: {
-		tx1Signature?: string;
-		agonAmount?: string;
-		asset?: string;
-		envelopeLastValidBlockHeight?: number;
-	} | null;
-	recipient: string | null; // facilitator's payTo (joined from x402_payments.payment_requirements_json)
+	settlement_json: unknown; // raw — JSONB returned as text, parsed by parseJsonb
+	payment_requirements_json: unknown; // raw — same; recipient extracted in JS
 }
 
 export function startX402FacilitatorReconciler(
@@ -110,14 +109,11 @@ export function startX402FacilitatorReconciler(
 			// Pull every pending row plus its settlement metadata + the
 			// facilitator's payTo from the linked x402_payments row.
 			//
-			// IMPORTANT: payment_requirements_json stores the parsed
-			// X402PaymentRequirements (apps/api/src/adapters/x402/index.ts),
-			// which normalizes the agent's wire field `payTo` to `recipient`
-			// before persisting. So even though the 402 from agon ships
-			// `payTo`, the stored JSON has `recipient`. Querying `->>'payTo'`
-			// returned NULL and tripped the "missing reconciler metadata"
-			// branch -> rows were marked expired_unsubmitted within seconds
-			// of being created, even when tx2 had landed. Fixed.
+			// payment_requirements_json was inserted via JSON.stringify(...),
+			// so postgres stored it as a JSONB *string scalar* rather than a
+			// JSONB object. That made `xp.payment_requirements_json->>'recipient'`
+			// return NULL even though the JSON contains `recipient`. Workaround:
+			// fetch the raw column and parse it in JS, same as settlement_json.
 			//
 			// The lookback interval is computed in JS (postgres tagged-template
 			// values are parameterized, and you cannot parameterize inside the
@@ -130,7 +126,7 @@ export function startX402FacilitatorReconciler(
           r.vault_id,
           r.created_at,
           xp.settlement_json,
-          xp.payment_requirements_json->>'recipient' AS recipient
+          xp.payment_requirements_json
         FROM requests r
         JOIN x402_payments xp ON xp.request_id = r.id
         WHERE r.action_type = 'x402_facilitator'
@@ -173,7 +169,7 @@ export function startX402FacilitatorReconciler(
 		const agonAmount = settlement.agonAmount;
 		const asset = settlement.asset;
 		const lastValidBlockHeight = settlement.envelopeLastValidBlockHeight;
-		const facilitatorPayTo = row.recipient;
+		const facilitatorPayTo = parseJsonb(row.payment_requirements_json).recipient;
 
 		// Any row missing metadata gets SKIPPED, not marked expired. An
 		// earlier version eagerly expired these rows, which killed any
@@ -271,7 +267,7 @@ export function startX402FacilitatorReconciler(
 		requestId: string,
 		vaultId: string,
 		tx2Signature: string,
-		settlement: PendingRow["settlement_json"],
+		settlement: Record<string, any>,
 	) {
 		// Two writes: the request row (status flips to confirmed; tx_signature
 		// stays as tx1 for backwards compatibility because that is what dashes
