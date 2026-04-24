@@ -153,12 +153,29 @@ export function startX402FacilitatorReconciler(
 		const lastValidBlockHeight = settlement.envelopeLastValidBlockHeight;
 		const facilitatorPayTo = row.recipient;
 
-		// Defensive: any row missing these fields is unreconcilable. Mark
-		// expired so it stops appearing in the next tick. This indicates
-		// a write bug in the producing code path that should be caught
-		// separately.
+		// Any row missing metadata gets SKIPPED, not marked expired. An
+		// earlier version eagerly expired these rows, which killed any
+		// row that landed in a tick during the narrow gap between the
+		// requests.tx_status update and the x402_payments.settlement_json
+		// update in the service (now fixed there too, but defense in
+		// depth). The row stays `awaiting_facilitator` and gets another
+		// shot on the next tick. If metadata is genuinely never going to
+		// arrive (bug in the producing code path), the row will age out
+		// of the 5-minute lookback window and eventually go silent - we
+		// log so operators can detect that pattern.
 		if (!tx1Sig || !agonAmount || !asset || !facilitatorPayTo || !lastValidBlockHeight) {
-			await markExpired(row.id, row.vault_id, "missing reconciler metadata");
+			const missing = [
+				!tx1Sig && "tx1Signature",
+				!agonAmount && "agonAmount",
+				!asset && "asset",
+				!facilitatorPayTo && "recipient(payTo)",
+				!lastValidBlockHeight && "envelopeLastValidBlockHeight",
+			]
+				.filter(Boolean)
+				.join(", ");
+			log.warn(
+				`[x402-reconciler] row ${row.id} missing metadata [${missing}] - skipping this tick`,
+			);
 			return;
 		}
 
