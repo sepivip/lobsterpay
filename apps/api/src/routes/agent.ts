@@ -247,7 +247,7 @@ export function agentRoutes(app: FastifyInstance, db: Db, config: Config) {
       const rows = (await db`
         SELECT r.id, r.vault_id, r.created_at,
           xp.settlement_json,
-          xp.payment_requirements_json->>'recipient' AS recipient
+          xp.payment_requirements_json
         FROM requests r
         JOIN x402_payments xp ON xp.request_id = r.id
         WHERE r.vault_id = ${vaultId}
@@ -260,22 +260,34 @@ export function agentRoutes(app: FastifyInstance, db: Db, config: Config) {
       log("query", { rowCount: rows.length, cutoff: cutoff.toISOString() });
       if (rows.length === 0) return { trace };
 
-      const row = rows[0];
-      log("row", { id: row.id, created_at: row.created_at, recipientType: typeof row.recipient, settlementType: typeof row.settlement_json });
+      const parseRaw = (raw: any): any => {
+        if (raw == null) return {};
+        if (typeof raw === "string") { try { return JSON.parse(raw); } catch { return {}; } }
+        return raw;
+      };
 
-      const settlementRaw = row.settlement_json;
-      let settlement: any = {};
-      if (settlementRaw == null) settlement = {};
-      else if (typeof settlementRaw === "string") {
-        try { settlement = JSON.parse(settlementRaw); } catch (e: any) { log("parse_error", { msg: e.message }); }
-      } else settlement = settlementRaw;
-      log("parsed_settlement", { keys: Object.keys(settlement), tx1Signature: settlement.tx1Signature, agonAmount: settlement.agonAmount, asset: settlement.asset, lastValidBlockHeight: settlement.envelopeLastValidBlockHeight });
+      const row = rows[0];
+      log("row", { id: row.id, created_at: row.created_at, settlementType: typeof row.settlement_json, requirementsType: typeof row.payment_requirements_json });
+
+      const settlement = parseRaw(row.settlement_json);
+      const requirements = parseRaw(row.payment_requirements_json);
+      // Stored requirements may itself be a JSONB string scalar — re-parse.
+      const requirementsObj = typeof requirements === "string" ? parseRaw(requirements) : requirements;
+      log("parsed", {
+        settlementKeys: Object.keys(settlement),
+        requirementsKeys: Object.keys(requirementsObj),
+        tx1Signature: settlement.tx1Signature,
+        agonAmount: settlement.agonAmount,
+        asset: settlement.asset,
+        recipient: requirementsObj.recipient,
+        lastValidBlockHeight: settlement.envelopeLastValidBlockHeight,
+      });
 
       const tx1Sig = settlement.tx1Signature;
       const agonAmount = settlement.agonAmount;
       const asset = settlement.asset;
       const lastValidBlockHeight = settlement.envelopeLastValidBlockHeight;
-      const facilitatorPayTo = row.recipient;
+      const facilitatorPayTo = requirementsObj.recipient;
 
       if (!tx1Sig || !agonAmount || !asset || !facilitatorPayTo || !lastValidBlockHeight) {
         log("missing_metadata", { tx1Sig: !!tx1Sig, agonAmount: !!agonAmount, asset: !!asset, facilitatorPayTo: !!facilitatorPayTo, lastValidBlockHeight: !!lastValidBlockHeight });
