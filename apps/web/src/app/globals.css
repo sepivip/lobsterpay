@@ -737,6 +737,15 @@ body {
   padding: 32px;
   max-width: 560px;
   width: 100%;
+  /* When applied to an element that also has `.card`, the card's 5%-white
+     background reads as semi-transparent over the modal's dim overlay,
+     making the dialog effectively invisible (BAT-505). Force a solid
+     near-black surface and the stronger 22%-white border so the modal
+     stands clearly off the dimmed page. Per DESIGN.md "no shadows ever",
+     the depth cue is the contrast between this opaque background and
+     the dim overlay - not a box-shadow. */
+  background: var(--bg-deep);
+  border: 1px solid var(--border-strong);
 }
 
 /* ── Flex utilities ── */
