@@ -94,6 +94,15 @@ export function startX402FacilitatorReconciler(
 			// Pull every pending row plus its settlement metadata + the
 			// facilitator's payTo from the linked x402_payments row.
 			//
+			// IMPORTANT: payment_requirements_json stores the parsed
+			// X402PaymentRequirements (apps/api/src/adapters/x402/index.ts),
+			// which normalizes the agent's wire field `payTo` to `recipient`
+			// before persisting. So even though the 402 from agon ships
+			// `payTo`, the stored JSON has `recipient`. Querying `->>'payTo'`
+			// returned NULL and tripped the "missing reconciler metadata"
+			// branch -> rows were marked expired_unsubmitted within seconds
+			// of being created, even when tx2 had landed. Fixed.
+			//
 			// The lookback interval is computed in JS (postgres tagged-template
 			// values are parameterized, and you cannot parameterize inside the
 			// `INTERVAL '... minutes'` literal) and passed as a TIMESTAMPTZ
@@ -105,7 +114,7 @@ export function startX402FacilitatorReconciler(
           r.vault_id,
           r.created_at,
           xp.settlement_json,
-          xp.payment_requirements_json->>'payTo' AS recipient
+          xp.payment_requirements_json->>'recipient' AS recipient
         FROM requests r
         JOIN x402_payments xp ON xp.request_id = r.id
         WHERE r.action_type = 'x402_facilitator'
