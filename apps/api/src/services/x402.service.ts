@@ -3,6 +3,7 @@ import type { Config } from "../config.js";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import {
   ComputeBudgetProgram,
+  type Connection,
   PublicKey,
   TransactionInstruction,
   TransactionMessage,
@@ -10,6 +11,7 @@ import {
 } from "@solana/web3.js";
 import {
   TOKEN_PROGRAM_ID,
+  TOKEN_2022_PROGRAM_ID,
   getAssociatedTokenAddressSync,
   createAssociatedTokenAccountIdempotentInstruction,
   createTransferCheckedInstruction,
@@ -99,6 +101,37 @@ function adapterClusterFromConfig(c: Config["SOLANA_CLUSTER"]): SolanaCluster | 
   if (c === "mainnet-beta") return "mainnet";
   if (c === "devnet") return "devnet";
   return null;
+}
+
+/**
+ * Verify the mint is owned by the classic SPL Token program.
+ *
+ * Both x402 endpoints (submit-mode and facilitator-mode) hardcode
+ * TOKEN_PROGRAM_ID throughout - getMint, ATA derivation, transferChecked,
+ * the on-chain CPI in execute_pay_exact. A Token-2022 mint would derive
+ * the wrong ATAs (different token-program seed), and transferChecked
+ * would fail with cryptic errors after we'd already spent vault USDC on
+ * a doomed tx. So we do one extra getAccountInfo up-front and bail with
+ * a clear message before any state mutates. Token-2022 support is a
+ * future feature; this guard makes the limitation explicit and the
+ * error actionable.
+ *
+ * Returns null if the mint is OK to use, otherwise an error string
+ * suitable for surfacing to the caller.
+ */
+async function checkClassicSplMint(
+  connection: Connection,
+  mintPubkey: PublicKey,
+): Promise<string | null> {
+  const info = await connection.getAccountInfo(mintPubkey, "confirmed");
+  if (!info) {
+    return `Mint account not found on-chain: ${mintPubkey.toBase58()}`;
+  }
+  if (info.owner.equals(TOKEN_PROGRAM_ID)) return null;
+  if (info.owner.equals(TOKEN_2022_PROGRAM_ID)) {
+    return `Mint ${mintPubkey.toBase58()} is a Token-2022 mint. This endpoint currently supports classic SPL Token only. Token-2022 support is on the roadmap.`;
+  }
+  return `Mint ${mintPubkey.toBase58()} is owned by an unsupported program (${info.owner.toBase58()}). Only classic SPL Token mints are supported.`;
 }
 
 export function createX402Service(db: Db, config: Config) {
@@ -243,9 +276,10 @@ export function createX402Service(db: Db, config: Config) {
       }
 
       // Compute the 1.5% service fee for auditing (the on-chain program
-      // enforces the actual split).
+      // enforces the actual split). Use the shared BPS_DENOMINATOR so this
+      // never drifts from the on-chain constant if it ever changes.
       const grossAmount = amount;
-      const serviceFee = (grossAmount * SERVICE_FEE_BPS) / 10000n;
+      const serviceFee = (grossAmount * SERVICE_FEE_BPS) / BPS_DENOMINATOR;
       const netAmount = grossAmount - serviceFee;
 
       // 6. Persist the request as approved, BEFORE tx submission so the
@@ -310,6 +344,15 @@ export function createX402Service(db: Db, config: Config) {
         const vaultPubkey = new PublicKey(vault.vault_pda);
         const policyPubkey = new PublicKey(vault.policy_pda);
         const mintPubkey = new PublicKey(requirements.asset);
+
+        // Reject Token-2022 / unsupported mints up front (see helper).
+        const mintErr = await checkClassicSplMint(txService.connection, mintPubkey);
+        if (mintErr) {
+          if (reserved) await txService.releaseUsage(params.vaultId, params.apiKeyId, amount);
+          await txService.updateRequestTx(req.id, "", "failed");
+          return { requestId: req.id, txSignature: null, status: "failed", error: mintErr, paymentId: requirements.paymentId || null };
+        }
+
         const vaultTokenAcct = getVaultTokenAccount(vaultPubkey, mintPubkey, TOKEN_PROGRAM_ID);
 
         // Fee vault PDA (cache-backed; derive if missing)
@@ -781,6 +824,24 @@ export function createX402Service(db: Db, config: Config) {
         const vaultPubkey = new PublicKey(vault.vault_pda);
         const policyPubkey = new PublicKey(vault.policy_pda);
         const mintPubkey = new PublicKey(requirements.asset);
+
+        // Reject Token-2022 / unsupported mints up front so we never spend
+        // vault USDC on a tx2 that would fail downstream (see helper).
+        const mintErr = await checkClassicSplMint(txService.connection, mintPubkey);
+        if (mintErr) {
+          if (reserved) await txService.releaseUsage(params.vaultId, params.apiKeyId, grossAmount);
+          await txService.updateRequestTx(req.id, "", "failed");
+          return {
+            requestId: req.id,
+            status: "failed",
+            error: mintErr,
+            paymentId: requirements.paymentId || null,
+            paymentSignatureHeader: null,
+            partialTransactionBase64: null,
+            tx1Signature: null,
+          };
+        }
+
         const vaultTokenAcct = getVaultTokenAccount(vaultPubkey, mintPubkey, TOKEN_PROGRAM_ID);
 
         // Fee vault PDA (cache-backed).

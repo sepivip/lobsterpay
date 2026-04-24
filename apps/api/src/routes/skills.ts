@@ -361,6 +361,33 @@ function buildOpenApiSpec(apiUrl: string, version: string) {
 								},
 							},
 							"202": { description: "tx1 confirmation timed out" },
+							"207": {
+								description:
+									"Multi-status: tx1 confirmed but tx2 build failed. Returned with status `tx1_confirmed_tx2_build_failed`. The vault → relayer settlement landed on-chain (vault USDC has moved); tx2 (relayer → facilitator's payTo) was not built so there is no PAYMENT-SIGNATURE to forward. Caller should investigate the error field; vault funds are recoverable via the relayer's USDC ATA on a follow-up.",
+								content: {
+									"application/json": {
+										schema: {
+											type: "object",
+											properties: {
+												requestId: { type: "string" },
+												status: {
+													type: "string",
+													enum: ["tx1_confirmed_tx2_build_failed"],
+												},
+												error: { type: "string" },
+												tx1Signature: {
+													type: "string",
+													description:
+														"Confirmed Solana tx signature for the vault → relayer settlement (tx1). USDC has already moved.",
+												},
+												paymentId: { type: "string", nullable: true },
+												paymentSignatureHeader: { type: "null" },
+												partialTransactionBase64: { type: "null" },
+											},
+										},
+									},
+								},
+							},
 							"403": { description: "Policy rejection (paused, over-limit, missing extra.feePayer, invalid input)" },
 							"409": { description: "Duplicate paymentId or concurrent retry" },
 							"500": { description: "On-chain or infrastructure error" },

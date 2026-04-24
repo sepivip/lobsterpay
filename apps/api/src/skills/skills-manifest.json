@@ -1,7 +1,12 @@
 {
-  "version": "0.5.0",
+  "version": "0.5.1",
   "updated": "2026-04-24",
   "changelog": [
+    {
+      "version": "0.5.1",
+      "date": "2026-04-24",
+      "notes": "Polish on facilitator-mode (LP-014) per Copilot review: (1) both x402 endpoints (submit-mode and facilitator-mode) now reject Token-2022 mints (and any non-classic-SPL token) up front with a clear error before any vault USDC is spent - hardcoded TOKEN_PROGRAM_ID downstream would otherwise silently produce wrong ATAs and cryptic failures. Token-2022 support remains a future feature. (2) Service-fee math now uses the shared BPS_DENOMINATOR constant everywhere (was a stray `/ 10000n` in one spot, a drift risk if the on-chain constant ever changes). (3) OpenAPI spec for /v1/agent/actions/x402-facilitator now documents the 207 Multi-Status response for the `tx1_confirmed_tx2_build_failed` case so generated clients/docs are accurate."
+    },
     {
       "version": "0.5.0",
       "date": "2026-04-24",
