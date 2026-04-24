@@ -5,7 +5,8 @@ import { createApiKeyAuth } from "../middleware/auth.js";
 import { createTxService } from "../services/tx.service.js";
 import { createSwapService } from "../services/swap.service.js";
 import { createX402Service } from "../services/x402.service.js";
-import { payRequestSchema, swapRequestSchema, x402RequestSchema, x402FacilitatorRequestSchema } from "@lobsterpay/shared";
+import { payRequestSchema, swapRequestSchema, x402RequestSchema, x402FacilitatorRequestSchema, x402SiwxRequestSchema } from "@lobsterpay/shared";
+import { createX402SiwxService } from "../services/x402.siwx.service.js";
 import { Connection, PublicKey } from "@solana/web3.js";
 import {
   TOKEN_PROGRAM_ID,
@@ -177,6 +178,7 @@ export function agentRoutes(app: FastifyInstance, db: Db, config: Config) {
   const txService = createTxService(db, config);
   const swapService = createSwapService(db, config);
   const x402Service = createX402Service(db, config);
+  const x402SiwxService = createX402SiwxService(db, txService);
   const connection = new Connection(config.SOLANA_RPC_URL, "confirmed");
 
   // GET /v1/agent/vault
@@ -882,5 +884,53 @@ export function agentRoutes(app: FastifyInstance, db: Db, config: Config) {
       facilitatorErr.startsWith("Invalid payment requirements") ||
       facilitatorErr.startsWith("Fee vault below minimum balance");
     return reply.status(isFacilitatorPolicyReject ? 403 : 500).send(result);
+  });
+
+  // POST /v1/agent/actions/x402-siwx
+  //
+  // Auth-only x402 routes (e.g. agon Tokens API). The upstream returns
+  // 402 with `accepts: []` and a SIWX (Sign-In-with-X / CAIP-122) challenge
+  // in `extensions["sign-in-with-x"]`. We sign the canonical SIWS message
+  // with the relayer ed25519 keypair and return a ready-to-use
+  // `SIGN-IN-WITH-X` header. No payment, no on-chain settlement.
+  //
+  // Body accepts either:
+  //   - `paymentRequiredHeader`: raw base64 from the upstream's `Payment-Required`
+  //     response header (we decode + extract the SIWX extension)
+  //   - `siwxChallenge`: the already-decoded extension object
+  app.post("/v1/agent/actions/x402-siwx", { preHandler: auth }, async (request, reply) => {
+    const vaultId = (request as any).vaultId;
+    const apiKey = (request as any).apiKeyRecord;
+    const parsed = x402SiwxRequestSchema.safeParse(request.body);
+
+    if (!parsed.success) {
+      return reply.status(400).send({ code: "invalid_request", message: parsed.error.message });
+    }
+
+    const idempotencyKey = parsed.data.idempotencyKey ?? `auto-${randomUUID()}`;
+
+    try {
+      const result = await x402SiwxService.sign({
+        vaultId,
+        apiKeyId: apiKey.id,
+        paymentRequiredHeader: parsed.data.paymentRequiredHeader,
+        siwxChallenge: parsed.data.siwxChallenge,
+        originalRequestUrl: parsed.data.originalRequestUrl,
+        chainId: parsed.data.chainId,
+        idempotencyKey,
+      });
+      return reply.status(200).send(result);
+    } catch (err: any) {
+      const msg = String(err?.message ?? err);
+      const isPolicy =
+        msg.includes("Relayer not configured") ||
+        msg.startsWith("Payment-Required header has no") ||
+        msg.startsWith("Provide either") ||
+        msg.startsWith("SIWX extension missing") ||
+        msg.startsWith("No ed25519 chain") ||
+        msg.startsWith("Requested chainId");
+      app.log.warn({ err: msg }, "x402-siwx sign failed");
+      return reply.status(isPolicy ? 400 : 500).send({ code: "siwx_failed", error: msg });
+    }
   });
 }
