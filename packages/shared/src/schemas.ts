@@ -59,6 +59,25 @@ export const x402FacilitatorRequestSchema = z.object({
   idempotencyKey: optionalIdempotencyKey,
 });
 
+// SIWX (Sign-In-with-X) auth-only x402 routes. No payment is taken, no
+// on-chain settlement happens. The relayer signs the upstream's CAIP-122
+// challenge with its ed25519 keypair; the agent uses the returned
+// SIGN-IN-WITH-X header to authenticate to the upstream gateway.
+//
+// Either `paymentRequiredHeader` (the raw base64 value of the upstream's
+// `Payment-Required` response header) OR `siwxChallenge` (the already-decoded
+// extension info) must be provided. When both are sent, `siwxChallenge`
+// wins. `chainId` is the CAIP-2 chain the agent wants to assert against —
+// must match one of the upstream's `supportedChains[].chainId`. Defaults
+// to LobsterPay's configured cluster.
+export const x402SiwxRequestSchema = z.object({
+  paymentRequiredHeader: z.string().optional(),
+  siwxChallenge: z.unknown().optional(),
+  originalRequestUrl: z.string().url(),
+  chainId: z.string().optional(),
+  idempotencyKey: optionalIdempotencyKey,
+});
+
 // --- API key schemas ---
 
 export const createApiKeySchema = z.object({
@@ -131,6 +150,7 @@ export type PayRequestInput = z.infer<typeof payRequestSchema>;
 export type SwapRequestInput = z.infer<typeof swapRequestSchema>;
 export type X402RequestInput = z.infer<typeof x402RequestSchema>;
 export type X402FacilitatorRequestInput = z.infer<typeof x402FacilitatorRequestSchema>;
+export type X402SiwxRequestInput = z.infer<typeof x402SiwxRequestSchema>;
 export type CreateApiKeyInput = z.infer<typeof createApiKeySchema>;
 export type UpdatePolicyInput = z.infer<typeof updatePolicySchema>;
 export type DepositFeesInput = z.infer<typeof depositFeesSchema>;

@@ -16,6 +16,8 @@ const TYPE_LABELS: Record<string, string> = {
 	x402_facilitator: "X402 FACILITATOR",
 	x402_facilitator_confirmed: "X402 CONFIRMED",
 	x402_facilitator_expired: "X402 EXPIRED",
+	x402_siwx: "X402 SIWX",
+	x402_siwx_signed: "X402 SIWX SIGNED",
 	withdrawal: "WITHDRAW",
 	key_created: "KEY +",
 	key_revoked: "KEY −",
