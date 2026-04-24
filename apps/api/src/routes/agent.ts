@@ -180,6 +180,49 @@ export function agentRoutes(app: FastifyInstance, db: Db, config: Config) {
   const connection = new Connection(config.SOLANA_RPC_URL, "confirmed");
 
   // GET /v1/agent/vault
+  // GET /v1/agent/_diag/x402-facilitator
+  // Diagnostic-only: returns the most recent 10 x402_facilitator request
+  // rows for the calling vault, joined with their x402_payments
+  // settlement_json + payment_requirements_json + the latest related
+  // activity row's payload. Lets us inspect the actual stored DB shape
+  // when reconciler behavior is suspect, without needing direct SQL
+  // access to the prod Postgres. Scoped to the caller's vault via the
+  // existing API-key auth - no extra secret needed.
+  app.get(
+    "/v1/agent/_diag/x402-facilitator",
+    { preHandler: auth },
+    async (request) => {
+      const vaultId = (request as any).vaultId;
+      const rows = await db`
+        SELECT
+          r.id,
+          r.tx_status,
+          r.tx_signature,
+          r.created_at,
+          r.updated_at,
+          xp.payment_requirements_json,
+          xp.settlement_json,
+          (
+            SELECT json_agg(json_build_object(
+              'type', a.type,
+              'created_at', a.created_at,
+              'tx_signature', a.tx_signature,
+              'payload', a.payload_json
+            ) ORDER BY a.created_at)
+            FROM activities a
+            WHERE a.reference_request_id = r.id
+          ) AS activities
+        FROM requests r
+        LEFT JOIN x402_payments xp ON xp.request_id = r.id
+        WHERE r.vault_id = ${vaultId}
+          AND r.action_type = 'x402_facilitator'
+        ORDER BY r.created_at DESC
+        LIMIT 10
+      `;
+      return { items: rows };
+    },
+  );
+
   app.get("/v1/agent/vault", { preHandler: auth }, async (request) => {
     const vaultId = (request as any).vaultId;
     const apiKey = (request as any).apiKeyRecord;
