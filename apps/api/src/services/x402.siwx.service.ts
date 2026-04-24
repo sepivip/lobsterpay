@@ -11,8 +11,8 @@
  * `SIGN-IN-WITH-X` header. Agents never touch a wallet.
  *
  * No payment is taken; no on-chain settlement. We persist a request row
- * (action_type='x402_siwx', tx_status='signed') and an activity entry so
- * the dashboard reflects the signing event.
+ * (action_type='x402_siwx', tx_status='authorized') and an activity entry
+ * (`x402_siwx_authorized`) so the dashboard reflects the authorization.
  *
  * Canonical CAIP-122 / SIWS message format mirrors @x402/extensions/
  * sign-in-with-x's `formatSIWSMessage`. The message MUST use the cluster
@@ -207,21 +207,21 @@ export function createX402SiwxService(
 				VALUES (
 					${requestId}, ${params.vaultId}, ${params.apiKeyId}, 'x402_siwx',
 					${params.idempotencyKey}, ${JSON.stringify(requestJson)},
-					'approved', 'signed'
+					'approved', 'authorized'
 				)
 				ON CONFLICT (vault_id, idempotency_key) DO NOTHING
 			`;
 
 			await txService.logActivity(
 				params.vaultId,
-				"x402_siwx_signed",
+				"x402_siwx_authorized",
 				{
 					originalRequestUrl: params.originalRequestUrl,
 					domain: info.domain,
 					chainId: chain.chainId,
 					address,
 					nonce: info.nonce,
-					signedAt: new Date().toISOString(),
+					authorizedAt: new Date().toISOString(),
 				},
 				undefined,
 				requestId,
@@ -229,7 +229,7 @@ export function createX402SiwxService(
 
 			return {
 				requestId,
-				status: "signed" as const,
+				status: "authorized" as const,
 				signInWithXHeader,
 				address,
 				chainId: chain.chainId,

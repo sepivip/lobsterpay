@@ -433,6 +433,82 @@ server.tool(
 	},
 );
 
+// ── Tool: pay_x402_siwx ────────────────────────────────────────────────────
+
+server.tool(
+	"pay_x402_siwx",
+	"Authenticate to a SIWX-gated x402 endpoint (e.g. agon's Tokens API at /v1/x402/tokens/...). The upstream returns 402 with `accepts: []` and a Sign-In-with-X CAIP-122 challenge in `extensions['sign-in-with-x']` instead of a payment. LobsterPay signs the canonical SIWS message with the relayer ed25519 keypair and returns a base64 `signInWithXHeader` you put in `SIGN-IN-WITH-X` on the retry. No payment, no on-chain settlement. The SIWS signature is single-use and valid for ~300s.",
+	{
+		paymentRequiredHeader: z
+			.string()
+			.optional()
+			.describe(
+				"Raw base64 value of the upstream's `Payment-Required` response header — the easiest path: just forward what you got from the 402.",
+			),
+		siwxChallenge: z
+			.unknown()
+			.optional()
+			.describe(
+				"Already-decoded SIWX extension (`extensions['sign-in-with-x']` from the 402). Use this if you've already parsed the header.",
+			),
+		originalRequestUrl: z
+			.string()
+			.describe("The SIWX-gated URL that returned the 402"),
+		chainId: z
+			.string()
+			.optional()
+			.describe(
+				"CAIP-2 chainId to assert against. Must be in the upstream's `supportedChains[].chainId`. Defaults to the first ed25519 chain in the challenge.",
+			),
+		idempotencyKey: z.string().optional(),
+	},
+	async (params) => {
+		try {
+			const result = await api<any>(
+				"POST",
+				"/v1/agent/actions/x402-siwx",
+				{
+					paymentRequiredHeader: params.paymentRequiredHeader,
+					siwxChallenge: params.siwxChallenge,
+					originalRequestUrl: params.originalRequestUrl,
+					chainId: params.chainId,
+					idempotencyKey: params.idempotencyKey,
+				},
+			);
+			return {
+				content: [
+					{
+						type: "text" as const,
+						text: JSON.stringify(
+							{
+								status: result.status,
+								requestId: result.requestId,
+								signInWithXHeader: result.signInWithXHeader,
+								address: result.address,
+								chainId: result.chainId,
+								expirationTime: result.expirationTime,
+								error: result.error,
+							},
+							null,
+							2,
+						),
+					},
+				],
+			};
+		} catch (err: any) {
+			return {
+				content: [
+					{
+						type: "text" as const,
+						text: `x402 SIWX sign failed: ${err.message}`,
+					},
+				],
+				isError: true,
+			};
+		}
+	},
+);
+
 // ── Tool: list_activity ────────────────────────────────────────────────────
 
 server.tool(
