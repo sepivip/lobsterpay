@@ -223,6 +223,106 @@ export function agentRoutes(app: FastifyInstance, db: Db, config: Config) {
     },
   );
 
+  // POST /v1/agent/_diag/x402-facilitator/tick
+  // Manually runs the same reconciler logic against the most recent
+  // pending row for the calling vault and returns a step-by-step trace.
+  // Lets us see in prod exactly which branch the row hits without
+  // relying on Railway log access.
+  app.post(
+    "/v1/agent/_diag/x402-facilitator/tick",
+    { preHandler: auth },
+    async (request, reply) => {
+      const vaultId = (request as any).vaultId;
+      const trace: any[] = [];
+      const log = (step: string, data: any = {}) => trace.push({ step, ...data });
+
+      const relayer = txService.feePayer;
+      if (!relayer) {
+        log("abort_no_feepayer");
+        return { trace };
+      }
+      log("relayer", { pubkey: relayer.publicKey.toBase58() });
+
+      const cutoff = new Date(Date.now() - 5 * 60_000);
+      const rows = (await db`
+        SELECT r.id, r.vault_id, r.created_at,
+          xp.settlement_json,
+          xp.payment_requirements_json->>'recipient' AS recipient
+        FROM requests r
+        JOIN x402_payments xp ON xp.request_id = r.id
+        WHERE r.vault_id = ${vaultId}
+          AND r.action_type = 'x402_facilitator'
+          AND r.tx_status = 'awaiting_facilitator'
+          AND r.created_at > ${cutoff}
+        ORDER BY r.created_at DESC
+        LIMIT 1
+      `) as any[];
+      log("query", { rowCount: rows.length, cutoff: cutoff.toISOString() });
+      if (rows.length === 0) return { trace };
+
+      const row = rows[0];
+      log("row", { id: row.id, created_at: row.created_at, recipientType: typeof row.recipient, settlementType: typeof row.settlement_json });
+
+      const settlementRaw = row.settlement_json;
+      let settlement: any = {};
+      if (settlementRaw == null) settlement = {};
+      else if (typeof settlementRaw === "string") {
+        try { settlement = JSON.parse(settlementRaw); } catch (e: any) { log("parse_error", { msg: e.message }); }
+      } else settlement = settlementRaw;
+      log("parsed_settlement", { keys: Object.keys(settlement), tx1Signature: settlement.tx1Signature, agonAmount: settlement.agonAmount, asset: settlement.asset, lastValidBlockHeight: settlement.envelopeLastValidBlockHeight });
+
+      const tx1Sig = settlement.tx1Signature;
+      const agonAmount = settlement.agonAmount;
+      const asset = settlement.asset;
+      const lastValidBlockHeight = settlement.envelopeLastValidBlockHeight;
+      const facilitatorPayTo = row.recipient;
+
+      if (!tx1Sig || !agonAmount || !asset || !facilitatorPayTo || !lastValidBlockHeight) {
+        log("missing_metadata", { tx1Sig: !!tx1Sig, agonAmount: !!agonAmount, asset: !!asset, facilitatorPayTo: !!facilitatorPayTo, lastValidBlockHeight: !!lastValidBlockHeight });
+        return { trace };
+      }
+
+      const currentBlockHeight = await connection.getBlockHeight("confirmed");
+      log("block_height", { current: currentBlockHeight, lastValid: lastValidBlockHeight, expired: currentBlockHeight > lastValidBlockHeight });
+
+      const mintPubkey = new PublicKey(asset);
+      const facilitatorPubkey = new PublicKey(facilitatorPayTo);
+      const relayerAta = getAssociatedTokenAddressSync(mintPubkey, relayer.publicKey);
+      const facilitatorAta = getAssociatedTokenAddressSync(mintPubkey, facilitatorPubkey);
+      log("atas", { relayerAta: relayerAta.toBase58(), facilitatorAta: facilitatorAta.toBase58() });
+
+      const sigInfos = await connection.getSignaturesForAddress(relayerAta, { until: tx1Sig, limit: 25 }, "confirmed");
+      log("sig_scan", { count: sigInfos.length, signatures: sigInfos.map((s) => ({ sig: s.signature, err: s.err, slot: s.slot })) });
+
+      for (const info of sigInfos) {
+        if (info.err) { log("skip_err", { sig: info.signature }); continue; }
+        const tx = await connection.getParsedTransaction(info.signature, { commitment: "confirmed", maxSupportedTransactionVersion: 0 });
+        if (!tx || tx.meta?.err) { log("skip_no_tx", { sig: info.signature }); continue; }
+        const ixs = [
+          ...(tx.transaction.message.instructions ?? []),
+          ...(tx.meta?.innerInstructions?.flatMap((ii) => ii.instructions) ?? []),
+        ];
+        const inspected: any[] = [];
+        let matched = false;
+        for (const ix of ixs) {
+          if (!("parsed" in ix) || !ix.parsed?.type) continue;
+          if ((ix as any).program !== "spl-token") continue;
+          const typ = (ix as any).parsed.type;
+          if (typ !== "transferChecked" && typ !== "transfer") continue;
+          const i = (ix as any).parsed.info;
+          inspected.push({ type: typ, source: i?.source, destination: i?.destination, amount: i?.tokenAmount?.amount ?? i?.amount });
+          if (i?.source === relayerAta.toString() && i?.destination === facilitatorAta.toString()) {
+            const rawAmount = i?.tokenAmount?.amount ?? i?.amount;
+            try { if (rawAmount && BigInt(rawAmount) >= BigInt(agonAmount)) { matched = true; break; } } catch {}
+          }
+        }
+        log("inspect_tx", { sig: info.signature, ixCount: ixs.length, splIxs: inspected, matched });
+        if (matched) { log("MATCH", { sig: info.signature }); break; }
+      }
+      return { trace };
+    },
+  );
+
   app.get("/v1/agent/vault", { preHandler: auth }, async (request) => {
     const vaultId = (request as any).vaultId;
     const apiKey = (request as any).apiKeyRecord;
