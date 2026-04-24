@@ -60,3 +60,8 @@ claude-session.jsonl
 /skills/
 .continue/
 .windsurf/
+
+# Third-party reference source copied locally during integration research
+# (e.g. agon-gateway and coinbase/x402 repo snapshots). Don't vendor these
+# into our tree — they're other repos' code and must not be checked in.
+scripts/agon-refs/

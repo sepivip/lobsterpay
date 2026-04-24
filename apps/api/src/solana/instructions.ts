@@ -42,6 +42,12 @@ export const TREASURY_PUBKEY = new PublicKey(
 export const SERVICE_FEE_BPS = 150n;
 
 /**
+ * Basis-point denominator — matches the on-chain BPS_DENOMINATOR constant
+ * used by the program when computing `service_fee = floor(gross * SERVICE_FEE_BPS / BPS_DENOMINATOR)`.
+ */
+export const BPS_DENOMINATOR = 10_000n;
+
+/**
  * Minimum SOL balance (lamports) that the fee vault must hold before the
  * backend will submit a fee-payer-signed agent transaction.
  */

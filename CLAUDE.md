@@ -167,7 +167,7 @@ Remaining (non-blocking for hackathon):
 
 5. **Replace devnet treasury** with a fresh one you control → paste its pubkey into `programs/lobsterpay/src/constants.rs` → redeploy. Current treasury keypair is in `.env.deploy` only (not production).
 
-6. **Wire x402 onchain** — adapter exists, endpoint exists, but the actual tx isn't submitted (it's just recorded). Follow the same pattern as `execute_pay_exact`.
+6. **x402 — both modes working.** `POST /v1/agent/actions/x402` settles on-chain via `execute_pay_exact` (submit-mode, works with upstreams that verify by tx-signature lookup, like `/v1/demo/x402/*`). `POST /v1/agent/actions/x402-facilitator` returns a pre-signed unsubmitted v0 transferChecked for spec-conformant facilitator gateways (agonx402, Coinbase reference facilitator) — two-tx passthrough: vault → relayer via `execute_pay_exact` (1.5% to treasury), then relayer → facilitator partial-signed and handed back to the agent. Facilitator's fee-payer pubkey auto-extracted from `paymentRequirements.extra.feePayer`. No Anchor changes required. End-to-end devnet test against agonx402 working via regular-wallet flow; production integration pending a live call through the facilitator endpoint.
 
 7. **Polish for demo**:
    - Add a "copy vault address" button
