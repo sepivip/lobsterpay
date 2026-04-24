@@ -54,6 +54,22 @@ import type { createTxService } from "./tx.service.js";
 const RECONCILER_TICK_MS = 10_000;
 const RECONCILER_LOOKBACK_MIN = 5;
 
+// The `postgres` driver returns JSONB columns as raw text (no json transform
+// configured in db/client.ts). Mirrors parsePayload in routes/vaults.ts.
+function parseJsonb(raw: unknown): Record<string, any> {
+	if (raw == null) return {};
+	if (typeof raw === "string") {
+		try {
+			const parsed = JSON.parse(raw);
+			return parsed && typeof parsed === "object" ? parsed : {};
+		} catch {
+			return {};
+		}
+	}
+	if (typeof raw === "object") return raw as Record<string, any>;
+	return {};
+}
+
 interface PendingRow {
 	id: string;
 	vault_id: string;
@@ -146,7 +162,13 @@ export function startX402FacilitatorReconciler(
 	}
 
 	async function reconcileOne(row: PendingRow, currentBlockHeight: number) {
-		const settlement = row.settlement_json ?? {};
+		// The `postgres` driver returns JSONB columns as raw text, NOT parsed
+		// objects (no json transform configured in db/client.ts). Reading
+		// settlement.tx1Signature off a string silently returns undefined,
+		// which sent every row through the "missing metadata" skip branch
+		// and meant the reconciler never advanced any row to `confirmed`.
+		// Mirrors the parsePayload pattern in routes/vaults.ts.
+		const settlement = parseJsonb(row.settlement_json);
 		const tx1Sig = settlement.tx1Signature;
 		const agonAmount = settlement.agonAmount;
 		const asset = settlement.asset;
