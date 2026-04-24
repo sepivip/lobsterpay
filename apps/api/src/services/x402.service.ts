@@ -1024,7 +1024,15 @@ export function createX402Service(db: Db, config: Config) {
 
         // 8. Persist tx1 sig + settlement metadata. Request stays
         // `awaiting_facilitator` until the facilitator submits tx2.
-        await txService.updateRequestTx(req.id, tx1Sig, "awaiting_facilitator");
+        //
+        // ORDER MATTERS. The reconciler (x402.facilitator-reconciler.ts)
+        // polls for rows where tx_status='awaiting_facilitator' and reads
+        // x402_payments.settlement_json for the data it needs. If we flip
+        // tx_status BEFORE settlement_json is written, a tick of the
+        // reconciler can land in the gap and see a row with the "ready to
+        // reconcile" status but no metadata - old code did this and the
+        // reconciler marked those races `expired_unsubmitted` permanently.
+        // Writing settlement_json first closes the window.
         await db`
           UPDATE x402_payments
           SET settlement_json = ${JSON.stringify({
@@ -1044,6 +1052,7 @@ export function createX402Service(db: Db, config: Config) {
           })}
           WHERE request_id = ${req.id}
         `;
+        await txService.updateRequestTx(req.id, tx1Sig, "awaiting_facilitator");
         await txService.logActivity(params.vaultId, "x402_facilitator", {
           domain,
           agonAmount: agonAmount.toString(),
