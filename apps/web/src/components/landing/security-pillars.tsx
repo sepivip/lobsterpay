@@ -7,7 +7,7 @@ const PILLARS = [
 	},
 	{
 		title: "Agent can't sign",
-		body: "Agents never hold a keypair. They hold a scoped HTTP bearer token. Our relayer hot wallet signs txs, but only the authorized_agent set on your policy — and it cannot bypass any of your limits.",
+		body: "Agents never hold a keypair. They hold a scoped HTTP bearer token. Our relayer hot wallet signs txs, but only the authorized_agent set on your policy - and it cannot bypass any of your limits.",
 	},
 	{
 		title: "Revocable in one tap",
@@ -15,7 +15,7 @@ const PILLARS = [
 	},
 	{
 		title: "Full audit trail",
-		body: "Every action — approved, rejected, on-chain, failed — is logged with its Solana tx signature and reason. The activity feed links straight to explorer.solana.com for independent verification.",
+		body: "Every action - approved, rejected, on-chain, failed - is logged with its Solana tx signature and reason. The activity feed links straight to explorer.solana.com for independent verification.",
 	},
 ];
 
@@ -24,7 +24,7 @@ export function SecurityPillars() {
 		<Section
 			eyebrow="SECURITY"
 			title="Why your keys stay home"
-			blurb="The vault is a Solana program account, not a wallet file. It has rules written onto it, and the program refuses every transaction that violates them — even if the relayer or our API is compromised."
+			blurb="The vault is a Solana program account, not a wallet file. It has rules written onto it, and the program refuses every transaction that violates them - even if the relayer or our API is compromised."
 		>
 			<div className="security-grid">
 				{PILLARS.map((p) => (

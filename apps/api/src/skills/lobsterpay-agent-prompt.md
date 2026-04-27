@@ -1,6 +1,6 @@
 ---
 name: lobsterpay
-description: Permissioned payment layer for AI agents on Solana. Make payments, swaps, and x402 purchases through a policy-controlled vault — no private keys needed.
+description: Permissioned payment layer for AI agents on Solana. Make payments, swaps, and x402 purchases through a policy-controlled vault - no private keys needed.
 version: "{SKILL_VERSION}"
 metadata:
   openclaw:
@@ -16,7 +16,7 @@ metadata:
 
 <!-- Skill version {SKILL_VERSION} · updated {SKILL_UPDATED} · check {LOBSTERPAY_API_URL}/v1/skills/version for updates -->
 
-You have access to a LobsterPay vault — a permissioned payment system on Solana. You can make payments, swaps, and pay for 402-gated services within the limits set by the vault owner.
+You have access to a LobsterPay vault - a permissioned payment system on Solana. You can make payments, swaps, and pay for 402-gated services within the limits set by the vault owner.
 
 ## Authentication
 
@@ -124,11 +124,11 @@ If the 402 sends a cluster-specific value that doesn't match this deployment (e.
 
 ### Three x402 modes
 
-**Submit mode — `pay_x402` (POST /v1/agent/actions/x402).** LobsterPay settles the tx on-chain itself and returns a confirmed signature wrapped in `xPaymentHeader`. Works with upstreams that verify payment by on-chain tx-signature lookup (our `/v1/demo/x402/*` endpoints, many self-hosted paywalls).
+**Submit mode - `pay_x402` (POST /v1/agent/actions/x402).** LobsterPay settles the tx on-chain itself and returns a confirmed signature wrapped in `xPaymentHeader`. Works with upstreams that verify payment by on-chain tx-signature lookup (our `/v1/demo/x402/*` endpoints, many self-hosted paywalls).
 
-**Facilitator mode — `pay_x402_facilitator` (POST /v1/agent/actions/x402-facilitator).** For spec-conformant x402 facilitator gateways (agonx402, Coinbase reference facilitator). These gateways publish their fee-payer pubkey in the 402's `accepts[i].extra.feePayer` and expect a pre-signed **unsubmitted** v0 `transferChecked` in the `PAYMENT-SIGNATURE` header for them to co-sign and submit after upstream returns 200. Use this tool when the 402 includes `extra.feePayer`; LobsterPay handles the two-tx dance internally (vault → relayer via `execute_pay_exact`, then relayer → facilitator partial-signed and returned to you).
+**Facilitator mode - `pay_x402_facilitator` (POST /v1/agent/actions/x402-facilitator).** For spec-conformant x402 facilitator gateways (agonx402, Coinbase reference facilitator). These gateways publish their fee-payer pubkey in the 402's `accepts[i].extra.feePayer` and expect a pre-signed **unsubmitted** v0 `transferChecked` in the `PAYMENT-SIGNATURE` header for them to co-sign and submit after upstream returns 200. Use this tool when the 402 includes `extra.feePayer`; LobsterPay handles the two-tx dance internally (vault → relayer via `execute_pay_exact`, then relayer → facilitator partial-signed and returned to you).
 
-**SIWX (auth-only) mode — `pay_x402_siwx` (POST /v1/agent/actions/x402-siwx).** For wallet-gated routes that don't take payment — e.g. agon's Tokens API at `/v1/x402/tokens/...`. The 402 has `accepts: []` (no payment scheme) and a Sign-In-with-X CAIP-122 challenge in `extensions["sign-in-with-x"]`. LobsterPay signs the canonical SIWS message with the relayer ed25519 keypair and returns a base64 `signInWithXHeader` to put in `SIGN-IN-WITH-X` on the retry. No payment, no on-chain settlement; the signature is single-use and valid ~300s.
+**SIWX (auth-only) mode - `pay_x402_siwx` (POST /v1/agent/actions/x402-siwx).** For wallet-gated routes that don't take payment - e.g. agon's Tokens API at `/v1/x402/tokens/...`. The 402 has `accepts: []` (no payment scheme) and a Sign-In-with-X CAIP-122 challenge in `extensions["sign-in-with-x"]`. LobsterPay signs the canonical SIWS message with the relayer ed25519 keypair and returns a base64 `signInWithXHeader` to put in `SIGN-IN-WITH-X` on the retry. No payment, no on-chain settlement; the signature is single-use and valid ~300s.
 
 ### How to tell which mode to use
 
@@ -162,9 +162,9 @@ POST /v1/agent/actions/x402-facilitator
     "network": "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1",
     "amount": "605",
     "asset": "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU",
-    "payTo": "9418vqXsaVbwUEP5q8FGtRxEtzrDgDc2ECfHrWWthvPQ",
+    "payTo": "FACILITATOR_FEE_PAYER_PUBKEY",
     "maxTimeoutSeconds": 300,
-    "extra": { "feePayer": "9418vqXsaVbwUEP5q8FGtRxEtzrDgDc2ECfHrWWthvPQ" }
+    "extra": { "feePayer": "FACILITATOR_FEE_PAYER_PUBKEY" }
   },
   "originalRequestUrl": "https://gateway.agonx402.com/v1/x402/solana/devnet/helius/rpc/getAccountInfo"
 }
@@ -188,7 +188,7 @@ Same body as your original request. Gateway co-signs + submits tx2 only after th
 
 ### 6. SIWX (auth-only) routes (agon Tokens API et al.)
 
-**When to use.** Some upstreams gate access on a wallet signature instead of a payment — e.g. `https://gateway.agonx402.com/v1/x402/tokens/...`. Their 402 looks like:
+**When to use.** Some upstreams gate access on a wallet signature instead of a payment - e.g. `https://gateway.agonx402.com/v1/x402/tokens/...`. Their 402 looks like:
 
 ```json
 {
@@ -216,7 +216,7 @@ POST /v1/agent/actions/x402-siwx
 
 (`chainId` is optional - defaults to the first ed25519 chain in `supportedChains`. Pin it explicitly if the upstream supports both mainnet and devnet and you want to make sure you're hitting the right one.)
 
-You get back `{ status: "authorized", signInWithXHeader, address, chainId, expirationTime }`. The `address` is the relayer pubkey that signed the challenge — that's the wallet identity the upstream will see.
+You get back `{ status: "authorized", signInWithXHeader, address, chainId, expirationTime }`. The `address` is the relayer pubkey that signed the challenge - that's the wallet identity the upstream will see.
 
 **Step 2 - retry with the signed header:**
 
@@ -226,9 +226,9 @@ SIGN-IN-WITH-X: <signInWithXHeader>
 
 Same method + body as the original request. Upstream verifies the signature, returns 200 + the API response. **No PAYMENT-RESPONSE header** on SIWX flows (no settlement happened).
 
-**Single-use + 300s window.** Each `signInWithXHeader` is valid for ~300 seconds and gets one shot — replays are rejected. If you need another call, call `pay_x402_siwx` again to get a fresh signature.
+**Single-use + 300s window.** Each `signInWithXHeader` is valid for ~300 seconds and gets one shot - replays are rejected. If you need another call, call `pay_x402_siwx` again to get a fresh signature.
 
-**Reference implementation.** End-to-end script at `scripts/agon-via-lp-siwx.mjs` — verified live against agon Tokens API on 2026-04-24.
+**Reference implementation.** End-to-end script at `scripts/agon-via-lp-siwx.mjs` - verified live against agon Tokens API on 2026-04-24.
 
 ## Rules
 

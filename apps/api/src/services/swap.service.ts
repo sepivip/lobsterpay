@@ -144,7 +144,7 @@ export function createSwapService(db: Db, config: Config) {
         apiKeyId: params.apiKeyId,
       });
 
-      // 8. Build swap transaction — Jupiter builds the full tx with the vault as the user
+      // 8. Build swap transaction - Jupiter builds the full tx with the vault as the user
       const { serializedTransaction } = await adapter.buildSwapTransaction(quote, params.vaultPda);
 
       // 9. Persist request as approved

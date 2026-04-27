@@ -6,9 +6,9 @@ This guide walks you through deploying the LobsterPay monorepo (API + Web + Post
 
 Railway will host three services in a single project:
 
-1. **Postgres** — managed database plugin
-2. **API** — Fastify backend (`apps/api`)
-3. **Web** — Next.js 15 frontend (`apps/web`)
+1. **Postgres** - managed database plugin
+2. **API** - Fastify backend (`apps/api`)
+3. **Web** - Next.js 15 frontend (`apps/web`)
 
 Both the API and Web deploy from the same GitHub repo but as separate services. Each service has its own `railway.json` in its app directory, and the repo root contains a shared `nixpacks.toml`.
 
@@ -27,23 +27,23 @@ Both the API and Web deploy from the same GitHub repo but as separate services. 
 
 ---
 
-## Step 1 — Create the Railway project
+## Step 1 - Create the Railway project
 
 1. Go to [railway.com/new](https://railway.com/new) and pick **Deploy from GitHub repo**.
 2. Authorize Railway to access your GitHub account if you haven't already, then pick your LobsterPay repo.
-3. Railway will spin up a first service automatically. Delete it — we'll create all three services explicitly in the next steps.
+3. Railway will spin up a first service automatically. Delete it - we'll create all three services explicitly in the next steps.
 
 ---
 
-## Step 2 — Add Postgres
+## Step 2 - Add Postgres
 
 1. In your project dashboard, click **+ New** -> **Database** -> **Add PostgreSQL**.
 2. Wait for it to provision. The plugin exposes `DATABASE_URL`, `PGHOST`, `PGPORT`, `PGUSER`, `PGPASSWORD`, `PGDATABASE` automatically.
-3. Click on the Postgres service, open the **Variables** tab, and copy the value of `DATABASE_URL` — you'll reference it from the API service.
+3. Click on the Postgres service, open the **Variables** tab, and copy the value of `DATABASE_URL` - you'll reference it from the API service.
 
 ---
 
-## Step 3 — Deploy the API service
+## Step 3 - Deploy the API service
 
 1. Click **+ New** -> **GitHub Repo** -> select your LobsterPay repo.
 2. Name the service `lobsterpay-api`.
@@ -65,13 +65,13 @@ Both the API and Web deploy from the same GitHub repo but as separate services. 
    | `API_HOST` | `0.0.0.0` |
    | `REDIS_URL` | (optional) Redis connection string |
 
-   Note: `API_PORT` is set automatically by Railway via `$PORT`. Fastify binds to it through the `API_PORT` env var — if you want Railway's assigned port, set `API_PORT=${{PORT}}` in the variables.
+   Note: `API_PORT` is set automatically by Railway via `$PORT`. Fastify binds to it through the `API_PORT` env var - if you want Railway's assigned port, set `API_PORT=${{PORT}}` in the variables.
 
 5. Click **Deploy**. Railway runs:
    - **Build**: `corepack enable && pnpm install --frozen-lockfile && pnpm --filter @lobsterpay/shared build && pnpm --filter @lobsterpay/api build`
    - **Start**: `pnpm --filter @lobsterpay/api release && pnpm --filter @lobsterpay/api start`
 
-   The `release` script runs database migrations before the server starts. If migrations fail, the deploy fails — check logs and fix before retrying.
+   The `release` script runs database migrations before the server starts. If migrations fail, the deploy fails - check logs and fix before retrying.
 
 6. Once deployed, click **Settings** -> **Networking** -> **Generate Domain** to get a public URL (e.g. `lobsterpay-api.up.railway.app`). Test it:
    ```bash
@@ -81,7 +81,7 @@ Both the API and Web deploy from the same GitHub repo but as separate services. 
 
 ---
 
-## Step 4 — Deploy the Web service
+## Step 4 - Deploy the Web service
 
 1. Click **+ New** -> **GitHub Repo** -> select your LobsterPay repo again.
 2. Name it `lobsterpay-web`.
@@ -197,10 +197,10 @@ ALLOWED_ORIGIN=https://lobsterpay-web.up.railway.app,https://app.lobsterpay.xyz
 The API serves `src/skills/*.json` and `*.md` through `/v1/skills/download/:format`. During build, `node -e "fs.cpSync('src/skills', 'dist/skills', { recursive: true })"` copies those assets into `dist/`. If 404s happen, inspect the build logs and confirm the `cpSync` step ran.
 
 ### `FEE_PAYER_SECRET_KEY` crash on boot
-The env schema now marks it optional — the API boots with a warning if missing. If you still see a crash, you're probably on an older build; force a redeploy after pushing the schema change.
+The env schema now marks it optional - the API boots with a warning if missing. If you still see a crash, you're probably on an older build; force a redeploy after pushing the schema change.
 
 ### Environment variable not picked up by Next.js
-Next.js bakes `NEXT_PUBLIC_*` vars at **build** time. If you change one, trigger a redeploy — don't just restart.
+Next.js bakes `NEXT_PUBLIC_*` vars at **build** time. If you change one, trigger a redeploy - don't just restart.
 
 ---
 

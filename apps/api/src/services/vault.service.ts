@@ -138,7 +138,7 @@ export function createVaultService(db: Db, config: Config) {
       const maxPerTxAtomic = BigInt((row.max_per_tx_amount_atomic ?? 0).toString());
       const dailyLimitAtomic = BigInt((row.daily_limit_amount_atomic ?? 0).toString());
 
-      // Decoded allowedActions bitmask — 1 swap, 2 pay, 4 x402.
+      // Decoded allowedActions bitmask - 1 swap, 2 pay, 4 x402.
       const actions = Number(row.allowed_actions ?? 0);
 
       // USDC-denominated convenience values for the dashboard + policy page.

@@ -5,7 +5,7 @@ import { randomUUID } from "node:crypto";
 import { TREASURY_PUBKEY } from "../solana/instructions.js";
 
 // Demo paywall settings.
-// Price per call: 10_000 atomic = 0.01 USDC on devnet — cheap enough that a
+// Price per call: 10_000 atomic = 0.01 USDC on devnet - cheap enough that a
 // single vault deposit covers hundreds of test calls. Recipient is the
 // existing treasury pubkey so the demo doesn't require any new keys.
 const DEMO_PRICE_ATOMIC = "10000";
@@ -37,7 +37,7 @@ function markClaimed(sig: string) {
   claimedSignatures.add(sig);
 }
 
-// A small pool of paywalled "content" — picked at random so each successful
+// A small pool of paywalled "content" - picked at random so each successful
 // call feels different. Kept short + tasteful; this is a demo, not a product.
 const FORTUNES = [
   "Agents with limits ship faster than agents with passwords.",
@@ -223,7 +223,7 @@ async function verifyOnChainTransfer(
             return { ok: true };
           }
         } catch {
-          // amount not parseable — skip
+          // amount not parseable - skip
         }
       }
     }
@@ -340,7 +340,7 @@ export function demoRoutes(app: FastifyInstance, config: Config) {
   const connection = new Connection(config.SOLANA_RPC_URL, "confirmed");
   const publicApiUrl = (config.PUBLIC_API_URL ?? "").replace(/\/$/, "") || "";
 
-  // Index — human-readable doc for anyone curling the demo bundle.
+  // Index - human-readable doc for anyone curling the demo bundle.
   app.get("/v1/demo/x402", async () => ({
     resources: [
       { path: "/v1/demo/x402/fortune", description: "One paywalled fortune per payment." },

@@ -36,13 +36,13 @@ async function main() {
   demoRoutes(app, config);
 
   await app.listen({ port: config.API_PORT, host: config.API_HOST });
-  console.log(`LobsterPay API running on ${config.API_HOST}:${config.API_PORT}`);
+  app.log.info({ host: config.API_HOST, port: config.API_PORT }, "LobsterPay API listening");
 
   // Background reconciler that closes the loop on x402 facilitator-mode
   // requests: when the facilitator gateway submits tx2, this worker
   // detects it on-chain and flips the request row from
   // `awaiting_facilitator` to `confirmed`. Without it, those rows would
-  // stay pending forever (the facilitator never phones home). See BAT-508.
+  // stay pending forever (the facilitator never phones home).
   startX402FacilitatorReconciler(db, txService, app.log);
 }
 

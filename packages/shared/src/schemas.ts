@@ -13,7 +13,7 @@ const positiveAmountSchema = z.string().regex(/^\d+$/, "Must be a numeric string
 
 // --- Request schemas ---
 
-// idempotencyKey is OPTIONAL — agents don't have to generate / track one.
+// idempotencyKey is OPTIONAL - agents don't have to generate / track one.
 // When omitted, the backend generates a fresh UUID per request. Provide
 // one explicitly only if you need client-side retry safety (same key +
 // same body = same outcome, never double-spent).
@@ -45,9 +45,9 @@ export const x402RequestSchema = z.object({
 
 // Facilitator-mode x402 (agonx402, Coinbase reference facilitator, etc.).
 // The facilitator's fee-payer pubkey is advertised in
-// `paymentRequirements.extra.feePayer` and extracted server-side — no
+// `paymentRequirements.extra.feePayer` and extracted server-side - no
 // client-side field required. LobsterPay does two txs per call:
-//   1. execute_pay_exact(vault → relayer's USDC ATA, gross) — LobsterPay
+//   1. execute_pay_exact(vault → relayer's USDC ATA, gross) - LobsterPay
 //      submits. 1.5% of gross lands in the treasury, the rest in the
 //      relayer's ATA.
 //   2. v0 transferChecked(relayer → facilitator's payTo) with feePayer
@@ -67,7 +67,7 @@ export const x402FacilitatorRequestSchema = z.object({
 // Either `paymentRequiredHeader` (the raw base64 value of the upstream's
 // `Payment-Required` response header) OR `siwxChallenge` (the already-decoded
 // extension info) must be provided. When both are sent, `siwxChallenge`
-// wins. `chainId` is the CAIP-2 chain the agent wants to assert against —
+// wins. `chainId` is the CAIP-2 chain the agent wants to assert against -
 // must match one of the upstream's `supportedChains[].chainId`. Defaults
 // to LobsterPay's configured cluster.
 export const x402SiwxRequestSchema = z.object({
@@ -139,7 +139,7 @@ export const envSchema = z.object({
   LOG_LEVEL: z.string().default("info"),
   FEE_PAYER_SECRET_KEY: z.string().optional(),
   ALLOWED_ORIGIN: z.string().optional(),
-  // Public URL the API is reachable at from the internet — used to
+  // Public URL the API is reachable at from the internet - used to
   // substitute {LOBSTERPAY_API_URL} placeholders in downloaded skill
   // files (skill.json, agent-prompt.md, mcp-config.json, openapi.json).
   PUBLIC_API_URL: z.string().default("http://localhost:3001"),

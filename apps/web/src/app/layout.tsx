@@ -6,7 +6,7 @@ import "./globals.css";
 
 // TASA Orbiter (variable font, served by Google Fonts). Self-hosted so it
 // travels with the bundle and respects Next's font optimization. The same
-// .woff2 file covers all weights since it's a variable font — Google's
+// .woff2 file covers all weights since it's a variable font - Google's
 // CSS just duplicates the @font-face for each weight.
 // GeistMono stays for display, buttons, the ASCII logo, and any UI that
 // leans on fixed-width character rhythm.

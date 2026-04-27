@@ -5,14 +5,14 @@ export function Pricing() {
 		<Section
 			eyebrow="PRICING"
 			title="One fee, no subscription"
-			blurb="LobsterPay is free to install. We take a small fee on each successful payment — your vault covers its own network gas out of a SOL reserve you deposit once."
+			blurb="LobsterPay is free to install. We take a small fee on each successful payment - your vault covers its own network gas out of a SOL reserve you deposit once."
 		>
 			<div className="pricing-grid">
 				<div className="pricing-card">
 					<div className="label-mono pricing-eyebrow">SERVICE FEE</div>
 					<div className="pricing-big">1.5%</div>
 					<div className="pricing-sub">
-						Taken from each agent payment — split on-chain by the Anchor program:
+						Taken from each agent payment - split on-chain by the Anchor program:
 						98.5% → your destination, 1.5% → LobsterPay treasury.
 					</div>
 				</div>

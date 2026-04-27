@@ -15,7 +15,7 @@ import {
   createAssociatedTokenAccountIdempotentInstruction,
 } from "@solana/spl-token";
 
-// Known SPL mints — used to decorate balances with human-readable symbols.
+// Known SPL mints - used to decorate balances with human-readable symbols.
 const KNOWN_MINTS: Record<string, string> = {
   "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v": "USDC",
   "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU": "USDC",
@@ -71,7 +71,7 @@ function isStuckCreated(existing: { tx_status?: string | null; tx_signature?: st
  * in declaration order.
  */
 const PAY_ANCHOR_ERRORS: Record<number, string> = {
-  // Anchor framework errors (2000-4100 range) — the subset that can surface from our ix.
+  // Anchor framework errors (2000-4100 range) - the subset that can surface from our ix.
   // Source: https://github.com/coral-xyz/anchor/blob/master/lang/src/error.rs
   2000: "constraint_mut",
   2001: "constraint_has_one",
@@ -99,7 +99,7 @@ const PAY_ANCHOR_ERRORS: Record<number, string> = {
   3012: "account_not_initialized",
   3013: "account_owned_by_wrong_program",
   3014: "invalid_program_id",
-  // LobsterPay user errors (errors.rs — Anchor starts these at 6000).
+  // LobsterPay user errors (errors.rs - Anchor starts these at 6000).
   6000: "unauthorized",
   6001: "vault_paused",
   6002: "action_not_allowed",
@@ -273,7 +273,7 @@ export function agentRoutes(app: FastifyInstance, db: Db, config: Config) {
 
       const settlement = parseRaw(row.settlement_json);
       const requirements = parseRaw(row.payment_requirements_json);
-      // Stored requirements may itself be a JSONB string scalar — re-parse.
+      // Stored requirements may itself be a JSONB string scalar - re-parse.
       const requirementsObj = typeof requirements === "string" ? parseRaw(requirements) : requirements;
       log("parsed", {
         settlementKeys: Object.keys(settlement),
@@ -388,7 +388,7 @@ export function agentRoutes(app: FastifyInstance, db: Db, config: Config) {
     // giving us a per-request identifier for dedup + logging.
     const idempotencyKey = parsed.data.idempotencyKey ?? `auto-${randomUUID()}`;
 
-    // 1. Idempotency check — return the cached result unless the prior record
+    // 1. Idempotency check - return the cached result unless the prior record
     // is a "zombie" (approved + persisted but no tx signature after 90s),
     // in which case let the retry through instead of silently echoing a
     // stuck status.
@@ -551,7 +551,7 @@ export function agentRoutes(app: FastifyInstance, db: Db, config: Config) {
       // account already exists, so it's always safe to prepend.
       const preIxs = [];
       try {
-        // Treasury ATA — the treasury pubkey is fixed in program constants,
+        // Treasury ATA - the treasury pubkey is fixed in program constants,
         // its ATA for arbitrary mints may not exist on devnet yet.
         const treasuryAcctInfo = await txService.connection.getAccountInfo(treasuryTokenAcct);
         if (!treasuryAcctInfo) {
@@ -566,7 +566,7 @@ export function agentRoutes(app: FastifyInstance, db: Db, config: Config) {
             ),
           );
         }
-        // Destination ATA — only pre-create if we derived it from a wallet
+        // Destination ATA - only pre-create if we derived it from a wallet
         // owner. If the caller supplied a raw destinationTokenAccount, trust
         // them (might be a non-ATA token account).
         if (derivedDestOwner) {
@@ -611,7 +611,7 @@ export function agentRoutes(app: FastifyInstance, db: Db, config: Config) {
       const tx = await buildTransaction([...preIxs, payIx], txService.feePayer.publicKey, txService.connection);
       const signature = await txService.sendAndConfirm(tx, [txService.feePayer]);
 
-      // Update request with signature — usage was already reserved atomically
+      // Update request with signature - usage was already reserved atomically
       await txService.updateRequestTx(req.id, signature, "confirmed");
       await txService.logActivity(vaultId, "payment", {
         requestId: req.id, mint,
@@ -817,7 +817,7 @@ export function agentRoutes(app: FastifyInstance, db: Db, config: Config) {
 
   // POST /v1/agent/actions/x402-facilitator
   //
-  // Facilitator-mode x402 — for spec-conformant x402 SVM facilitator
+  // Facilitator-mode x402 - for spec-conformant x402 SVM facilitator
   // gateways (agonx402, Coinbase reference facilitator, etc.) that
   // expect a pre-signed unsubmitted v0 transferChecked tx in the
   // PAYMENT-SIGNATURE header. LobsterPay does two txs per call:

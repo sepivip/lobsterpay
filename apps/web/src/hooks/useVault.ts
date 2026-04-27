@@ -128,7 +128,7 @@ export function useVault(): VaultState {
           authorizedAgent = new PublicKey(relayer.pubkey);
         }
       } catch {
-        // non-fatal — vault still works, just without agent delegation
+        // non-fatal - vault still works, just without agent delegation
       }
 
       // 3. Build the onchain initialize_vault transaction

@@ -107,7 +107,7 @@ export function TerminalDemo() {
 				<span className="terminal-dot terminal-dot-red" />
 				<span className="terminal-dot terminal-dot-yellow" />
 				<span className="terminal-dot terminal-dot-green" />
-				<span className="terminal-title">agent@devnet — lobsterpay</span>
+				<span className="terminal-title">agent@devnet - lobsterpay</span>
 			</div>
 			<div ref={scrollRef} className="terminal-body">
 				{rendered.map((text, i) => {

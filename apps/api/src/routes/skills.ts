@@ -38,7 +38,7 @@ export function skillRoutes(app: FastifyInstance, config: Config) {
 			.split(UPDATED_PLACEHOLDER)
 			.join(manifest.updated);
 
-	// GET /v1/skills — list available skill formats + current version
+	// GET /v1/skills - list available skill formats + current version
 	app.get("/v1/skills", async () => ({
 		version: manifest.version,
 		updated: manifest.updated,
@@ -78,7 +78,7 @@ export function skillRoutes(app: FastifyInstance, config: Config) {
 		],
 	}));
 
-	// GET /v1/skills/version — lightweight version check endpoint.
+	// GET /v1/skills/version - lightweight version check endpoint.
 	// Agents can poll this cheaply to detect when they should re-download.
 	app.get("/v1/skills/version", async () => ({
 		version: manifest.version,
@@ -86,7 +86,7 @@ export function skillRoutes(app: FastifyInstance, config: Config) {
 		changelog: manifest.changelog,
 	}));
 
-	// GET /v1/skills/download/:format — download a specific skill file
+	// GET /v1/skills/download/:format - download a specific skill file
 	app.get("/v1/skills/download/:format", async (request, reply) => {
 		const { format } = request.params as { format: string };
 
@@ -309,7 +309,7 @@ function buildOpenApiSpec(apiUrl: string, version: string) {
 						operationId: "payX402Facilitator",
 						summary: "Pay a 402-gated endpoint via a spec-conformant x402 facilitator gateway (agonx402, Coinbase reference facilitator)",
 						description:
-							"Returns a partial-signed v0 transferChecked tx wrapped in the x402 PAYMENT-SIGNATURE envelope for the facilitator to co-sign and submit. Internally does two txs: vault → relayer (execute_pay_exact, 1.5% fee to treasury) then relayer → facilitator (partial-signed, returned to agent). Requires the 402's paymentRequirements.extra.feePayer to be set — that's the facilitator's published fee-payer pubkey.",
+							"Returns a partial-signed v0 transferChecked tx wrapped in the x402 PAYMENT-SIGNATURE envelope for the facilitator to co-sign and submit. Internally does two txs: vault → relayer (execute_pay_exact, 1.5% fee to treasury) then relayer → facilitator (partial-signed, returned to agent). Requires the 402's paymentRequirements.extra.feePayer to be set - that's the facilitator's published fee-payer pubkey.",
 						requestBody: {
 							required: true,
 							content: {
@@ -343,7 +343,7 @@ function buildOpenApiSpec(apiUrl: string, version: string) {
 												paymentId: { type: "string", nullable: true },
 												paymentSignatureHeader: {
 													type: "string",
-													description: "Base64 x402 v2 envelope — put this in PAYMENT-SIGNATURE on retry",
+													description: "Base64 x402 v2 envelope - put this in PAYMENT-SIGNATURE on retry",
 												},
 												partialTransactionBase64: { type: "string" },
 												tx1Signature: { type: "string" },
@@ -399,7 +399,7 @@ function buildOpenApiSpec(apiUrl: string, version: string) {
 						operationId: "payX402Siwx",
 						summary: "Authenticate to a SIWX-gated x402 endpoint by signing the upstream's CAIP-122 challenge with the relayer ed25519 keypair (no payment, no settlement)",
 						description:
-							"For upstream gateways that gate routes with a Sign-In-with-X (CAIP-122) wallet signature instead of an x402 payment — e.g. agon's Tokens API. Decodes the upstream's `Payment-Required` header (or accepts the already-decoded SIWX challenge), signs the canonical SIWS message with the LobsterPay relayer keypair, and returns a base64 `signInWithXHeader` ready to use as the `SIGN-IN-WITH-X` header on the retry.",
+							"For upstream gateways that gate routes with a Sign-In-with-X (CAIP-122) wallet signature instead of an x402 payment - e.g. agon's Tokens API. Decodes the upstream's `Payment-Required` header (or accepts the already-decoded SIWX challenge), signs the canonical SIWS message with the LobsterPay relayer keypair, and returns a base64 `signInWithXHeader` ready to use as the `SIGN-IN-WITH-X` header on the retry.",
 						requestBody: {
 							required: true,
 							content: {
@@ -439,7 +439,7 @@ function buildOpenApiSpec(apiUrl: string, version: string) {
 												status: { type: "string", enum: ["authorized"] },
 												signInWithXHeader: {
 													type: "string",
-													description: "Base64-encoded SIWX payload — put this in the `SIGN-IN-WITH-X` header on the retry.",
+													description: "Base64-encoded SIWX payload - put this in the `SIGN-IN-WITH-X` header on the retry.",
 												},
 												address: { type: "string", description: "Relayer pubkey that signed the challenge." },
 												chainId: { type: "string" },

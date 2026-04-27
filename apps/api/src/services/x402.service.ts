@@ -36,7 +36,7 @@ import {
   FEE_VAULT_MIN_BALANCE,
 } from "../solana/instructions.js";
 
-// Facilitator-mode x402 constants — must match what @x402/svm/exact
+// Facilitator-mode x402 constants - must match what @x402/svm/exact
 // requires on the verify side.
 //   https://github.com/coinbase/x402/blob/main/typescript/packages/mechanisms/svm/src/exact/facilitator/scheme.ts
 const MEMO_PROGRAM_ID = new PublicKey(
@@ -75,7 +75,7 @@ function computeGrossFromAgonAmount(agonAmount: bigint): bigint {
 
 /**
  * A zombie idempotency record: approved + persisted but no tx signature
- * after 90s. Same recovery semantics as the pay endpoint — let the retry
+ * after 90s. Same recovery semantics as the pay endpoint - let the retry
  * through instead of echoing a stuck "created" status forever.
  */
 const STUCK_CREATED_TTL_MS = 90_000;
@@ -149,7 +149,7 @@ export function createX402Service(db: Db, config: Config) {
     }) {
       const idempotencyKey = params.idempotencyKey ?? `auto-${randomUUID()}`;
 
-      // 1. Idempotency check — honour zombie recovery so a crashed prior
+      // 1. Idempotency check - honour zombie recovery so a crashed prior
       // submit doesn't permanently stick the record at "created".
       const existing = await txService.checkIdempotency(params.vaultId, idempotencyKey);
       if (existing && !isStuckCreated(existing)) {
@@ -311,7 +311,7 @@ export function createX402Service(db: Db, config: Config) {
             VALUES (${req.id}, ${requirements.paymentId}, ${domain}, ${JSON.stringify(requirements)})
           `;
         } catch {
-          // Unique-index collision — another request already claimed this
+          // Unique-index collision - another request already claimed this
           // paymentId. Roll back + return duplicate.
           if (reserved) await txService.releaseUsage(params.vaultId, params.apiKeyId, amount);
           await txService.updateRequestTx(req.id, "", "failed");
@@ -561,7 +561,7 @@ export function createX402Service(db: Db, config: Config) {
     },
 
     /**
-     * Facilitator-mode x402 — for spec-conformant x402 SVM gateways
+     * Facilitator-mode x402 - for spec-conformant x402 SVM gateways
      * (agonx402, Coinbase reference facilitator, etc.) that expect a
      * pre-signed unsubmitted v0 transferChecked tx in PAYMENT-SIGNATURE.
      *
@@ -574,13 +574,13 @@ export function createX402Service(db: Db, config: Config) {
      *   tx2 (facilitator-submitted): v0 tx with feePayer=facilitator and
      *        instruction order [setComputeUnitLimit, setComputeUnitPrice,
      *        transferChecked(relayer_ata → facilitator_payTo_ata, amount=
-     *        agonAmount), memo(random nonce)] — matches what @x402/svm/exact
+     *        agonAmount), memo(random nonce)] - matches what @x402/svm/exact
      *        verifier accepts. Relayer partial-signs as authority. Returned
      *        to the agent wrapped in the x402 v2 envelope
      *        { x402Version: 2, accepted: <requirements>, payload:
      *        { transaction: <base64> } } for PAYMENT-SIGNATURE.
      *
-     * The relayer's USDC ATA is a per-call passthrough — no shared pool
+     * The relayer's USDC ATA is a per-call passthrough - no shared pool
      * across users. Each call funds its own tx2 from the specific user's
      * vault via tx1.
      */
@@ -593,7 +593,7 @@ export function createX402Service(db: Db, config: Config) {
     }) {
       const idempotencyKey = params.idempotencyKey ?? `auto-${randomUUID()}`;
 
-      // 1. Idempotency short-circuit — zombie-recovery respected.
+      // 1. Idempotency short-circuit - zombie-recovery respected.
       const existing = await txService.checkIdempotency(params.vaultId, idempotencyKey);
       if (existing && !isStuckCreated(existing)) {
         return {
@@ -723,9 +723,9 @@ export function createX402Service(db: Db, config: Config) {
       // (what actually leaves the user's vault).
       //
       // Accounting semantics, matched to on-chain execute_pay_exact:
-      //   serviceFee = floor(gross * SERVICE_FEE_BPS / BPS_DENOMINATOR)  — routes to treasury
-      //   netToRelayer = gross - serviceFee                               — lands in relayer ATA
-      //   relayerDust = netToRelayer - agonAmount                         — leftover after tx2 pays facilitator
+      //   serviceFee = floor(gross * SERVICE_FEE_BPS / BPS_DENOMINATOR)  - routes to treasury
+      //   netToRelayer = gross - serviceFee                               - lands in relayer ATA
+      //   relayerDust = netToRelayer - agonAmount                         - leftover after tx2 pays facilitator
       // (relayerDust is 0 in the happy case; can be 1 atomic at fee-rounding edges.)
       const agonAmount = BigInt(requirements.amount);
       const grossAmount = computeGrossFromAgonAmount(agonAmount);
@@ -804,7 +804,7 @@ export function createX402Service(db: Db, config: Config) {
         `;
       }
 
-      // 7. Relayer must be configured — it's both authority on tx1 and
+      // 7. Relayer must be configured - it's both authority on tx1 and
       // source/authority on tx2.
       if (!txService.feePayer) {
         if (reserved) await txService.releaseUsage(params.vaultId, params.apiKeyId, grossAmount);
@@ -899,7 +899,7 @@ export function createX402Service(db: Db, config: Config) {
         const facilitatorPayToPubkey = new PublicKey(requirements.recipient);
         const facilitatorPayToAta = getAssociatedTokenAddressSync(mintPubkey, facilitatorPayToPubkey);
 
-        // Pre-create any missing ATAs as pre-ixs on tx1 — all paid by the
+        // Pre-create any missing ATAs as pre-ixs on tx1 - all paid by the
         // relayer (so the facilitator never pays rent).
         //
         // Cost note: each ATA rent is ~0.00203 SOL, paid from the relayer's
@@ -956,7 +956,7 @@ export function createX402Service(db: Db, config: Config) {
           tokenProgramId: TOKEN_PROGRAM_ID,
           params: { amount: grossAmount, requestHash },
         });
-        // Real mint decimals — transferChecked validates amount_decimals
+        // Real mint decimals - transferChecked validates amount_decimals
         // against on-chain mint. Hardcoding 6 would fail for any non-USDC
         // mint. Fetch once before tx1 so we can fail fast without spending
         // vault USDC on a tx we can't complete.
@@ -964,10 +964,10 @@ export function createX402Service(db: Db, config: Config) {
         const decimals = mintInfo.decimals;
 
         const tx1 = await buildTransaction([...preIxs, payIx], relayerPubkey, txService.connection);
-        // Past this point tx1Sig is authoritative — the settlement has
+        // Past this point tx1Sig is authoritative - the settlement has
         // landed on-chain. Error handler must preserve it (not clear).
         // Assign to both the outer `tx1Signature` (visible to catch) and a
-        // local `tx1Sig` const — the const's narrower `string` type avoids
+        // local `tx1Sig` const - the const's narrower `string` type avoids
         // the TS null-widening across subsequent awaits.
         const tx1Sig = await txService.sendAndConfirm(tx1, [txService.feePayer]);
         tx1Signature = tx1Sig;
@@ -1005,7 +1005,7 @@ export function createX402Service(db: Db, config: Config) {
 
         const partialTransactionBase64 = Buffer.from(vtx.serialize()).toString("base64");
 
-        // x402 v2 envelope for PAYMENT-SIGNATURE header — shape per
+        // x402 v2 envelope for PAYMENT-SIGNATURE header - shape per
         // @x402/core/types PaymentPayload: uses `accepted` with the FULL
         // original requirements object the facilitator advertised (must
         // deep-equal one entry of the route's `accepts` array, including
@@ -1019,7 +1019,7 @@ export function createX402Service(db: Db, config: Config) {
         };
         const paymentSignatureHeader = Buffer.from(JSON.stringify(envelope)).toString("base64");
 
-        // Conservative client-side hint — lastValidBlockHeight is authoritative.
+        // Conservative client-side hint - lastValidBlockHeight is authoritative.
         const expiresAt = new Date(Date.now() + 60_000).toISOString();
 
         // 8. Persist tx1 sig + settlement metadata. Request stays
@@ -1089,7 +1089,7 @@ export function createX402Service(db: Db, config: Config) {
         };
       } catch (err: any) {
         const isTimeout = /timeout|expired|not confirmed/i.test(err?.message ?? "");
-        // If tx1 already landed, funds have left the vault — we must
+        // If tx1 already landed, funds have left the vault - we must
         // preserve tx1Signature, keep the daily-limit reservation, and
         // surface a distinct "tx1 confirmed but tx2 build failed" status
         // instead of wiping the record. Otherwise (crash before tx1), it

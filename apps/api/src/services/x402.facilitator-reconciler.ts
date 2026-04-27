@@ -1,7 +1,7 @@
 /**
  * Background worker that reconciles x402 facilitator-mode requests.
  *
- * Why this exists (BAT-508):
+ * Why this exists:
  *
  * After POST /v1/agent/actions/x402-facilitator returns a partial-signed
  * v0 transferChecked tx (tx2) to the agent, LobsterPay never learns
@@ -56,7 +56,7 @@ const RECONCILER_LOOKBACK_MIN = 5;
 
 // The `postgres` driver returns JSONB columns as raw text (no json transform
 // configured in db/client.ts), and some legacy rows were inserted via
-// JSON.stringify(...) so they're stored as JSONB *string scalars* — meaning
+// JSON.stringify(...) so they're stored as JSONB *string scalars* - meaning
 // after one parse you get back a string, and need a second parse to get the
 // object. Handle both cases. Mirrors parsePayload in routes/vaults.ts.
 function parseJsonb(raw: unknown): Record<string, any> {
@@ -78,8 +78,8 @@ interface PendingRow {
 	id: string;
 	vault_id: string;
 	created_at: Date | string;
-	settlement_json: unknown; // raw — JSONB returned as text, parsed by parseJsonb
-	payment_requirements_json: unknown; // raw — same; recipient extracted in JS
+	settlement_json: unknown; // raw - JSONB returned as text, parsed by parseJsonb
+	payment_requirements_json: unknown; // raw - same; recipient extracted in JS
 }
 
 export function startX402FacilitatorReconciler(

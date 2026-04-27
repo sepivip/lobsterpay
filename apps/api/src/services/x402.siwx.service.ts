@@ -54,7 +54,7 @@ const PKCS8_ED25519_HEADER = Buffer.from(
 function ed25519PrivateKeyFromSecret(secretKey: Uint8Array) {
 	// Solana keypairs are 64 bytes: first 32 = ed25519 seed, last 32 = pubkey.
 	// Wrap the seed as a minimal PKCS8 ed25519 private key DER blob so we can
-	// hand it to Node's built-in crypto.sign — avoids pulling in tweetnacl.
+	// hand it to Node's built-in crypto.sign - avoids pulling in tweetnacl.
 	const seed = Buffer.from(secretKey.slice(0, 32));
 	const der = Buffer.concat([PKCS8_ED25519_HEADER, seed]);
 	return createPrivateKey({ key: der, format: "der", type: "pkcs8" });

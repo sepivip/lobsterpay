@@ -16,7 +16,7 @@ pub struct ExecutePayExactParams {
 
 #[derive(Accounts)]
 pub struct ExecutePayExact<'info> {
-    /// The authority — either the vault owner OR policy.authorized_agent.
+    /// The authority - either the vault owner OR policy.authorized_agent.
     /// Also typically the tx fee payer; gets reimbursed from fee_vault
     /// for actual network costs at the end of this instruction so the
     /// vault economically pays its own gas.
@@ -35,7 +35,7 @@ pub struct ExecutePayExact<'info> {
     )]
     pub policy: Box<Account<'info, Policy>>,
 
-    /// Fee vault — holds SOL used to reimburse the tx fee payer for
+    /// Fee vault - holds SOL used to reimburse the tx fee payer for
     /// network costs after each agent action. Must remain rent-exempt
     /// after reimbursement.
     #[account(
@@ -62,7 +62,7 @@ pub struct ExecutePayExact<'info> {
     )]
     pub destination_token_account: Box<InterfaceAccount<'info, TokenAccount>>,
 
-    /// LobsterPay treasury token account — must be owned by the hardcoded
+    /// LobsterPay treasury token account - must be owned by the hardcoded
     /// treasury pubkey and match the payment mint.
     #[account(
         mut,
@@ -106,7 +106,7 @@ pub fn handler(ctx: Context<ExecutePayExact>, params: ExecutePayExactParams) -> 
         LobsterPayError::DestinationNotAllowed
     );
 
-    // Guard: no duplicate account aliasing — vault can't pay itself
+    // Guard: no duplicate account aliasing - vault can't pay itself
     require!(
         ctx.accounts.vault_token_account.key() != ctx.accounts.destination_token_account.key(),
         LobsterPayError::DuplicateAccountAliasing
@@ -224,7 +224,7 @@ pub fn handler(ctx: Context<ExecutePayExact>, params: ExecutePayExactParams) -> 
     // FEE_REIMBURSEMENT_LAMPORTS from the fee_vault PDA, bounded so the
     // relayer can't drain the vault beyond actual tx cost. Uses direct
     // lamport manipulation (both accounts are program-writable under this
-    // instruction context) instead of a System::transfer CPI — cheaper
+    // instruction context) instead of a System::transfer CPI - cheaper
     // compute and doesn't require PDA seeds for a transfer from an
     // account the program owns.
     let fee_vault_info = ctx.accounts.fee_vault.to_account_info();
