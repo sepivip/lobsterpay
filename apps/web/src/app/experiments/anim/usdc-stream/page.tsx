@@ -16,7 +16,15 @@ const BOX_H = 7;
 const STREAM_CHARS = ["$", "$", ".", "·", "$", ".", " ", "$"];
 const PULSE_VALUE = 0.25; // USDC per pulse that reaches the destination
 
-function drawBox(grid: Grid, x: number, y: number, w: number, h: number, label: string, sub: string) {
+function drawBox(
+	grid: Grid,
+	x: number,
+	y: number,
+	w: number,
+	h: number,
+	label: string,
+	sub: string,
+) {
 	// corners + edges
 	grid.set(x, y, "+");
 	grid.set(x + w - 1, y, "+");
@@ -53,7 +61,7 @@ export default function UsdcStream() {
 					const boxTopY = centerY - Math.floor(BOX_H / 2);
 
 					drawBox(grid, leftX, boxTopY, BOX_W, BOX_H, "VAULT", "policy-gated");
-					drawBox(grid, rightX, boxTopY, BOX_W, BOX_H, "AGON", "usdc in");
+					drawBox(grid, rightX, boxTopY, BOX_W, BOX_H, "API", "paid endpoint");
 
 					// Pipeline between the boxes, on the middle row of the boxes.
 					const pipeY = centerY;

@@ -4,14 +4,57 @@ const ANIMS: Array<{ slug: string; title: string; blurb: string }> = [
 	{
 		slug: "lobster-walk",
 		title: "#1 · LOBSTER WALK",
-		blurb:
-			"ASCII lobster walking left-to-right, leaving a USDC trail. Loop-friendly, 10-12s cut for X.",
+		blurb: "Mascot walks left→right leaving a USDC trail.",
 	},
 	{
 		slug: "usdc-stream",
-		title: "#4 · USDC STREAM",
-		blurb:
-			"Vault → ATA pipeline with $ symbols flowing between ASCII endpoints. Counter ticks the transferred amount.",
+		title: "#2 · USDC STREAM",
+		blurb: "Vault → API pipeline with $ pulses + running counter.",
+	},
+	{
+		slug: "x402-handshake",
+		title: "#3 · x402 HANDSHAKE",
+		blurb: "Three-panel: GET → 402 + PAY → 200 OK.",
+	},
+	{
+		slug: "policy-gate",
+		title: "#4 · POLICY GATE",
+		blurb: "Requests stream in; gate allows or deflects each.",
+	},
+	{
+		slug: "boot-sequence",
+		title: "#5 · BOOT SEQUENCE",
+		blurb: "Terminal logs scroll, then wordmark reveals.",
+	},
+	{
+		slug: "budget-ticker",
+		title: "#6 · BUDGET TICKER",
+		blurb: "Big USDC counter ticks down as agents spend.",
+	},
+	{
+		slug: "multi-agent",
+		title: "#7 · MULTI-AGENT",
+		blurb: "Many agents · one vault · one policy.",
+	},
+	{
+		slug: "fee-flow",
+		title: "#8 · FEE FLOW",
+		blurb: "Payment splits 98.5% merchant / 1.5% treasury.",
+	},
+	{
+		slug: "siwx-sign",
+		title: "#9 · SIWX SIGN",
+		blurb: "Challenge → signature materializes → AUTHORIZED.",
+	},
+	{
+		slug: "terminal-demo",
+		title: "#10 · TERMINAL DEMO",
+		blurb: "Fake terminal types a curl, streams the response.",
+	},
+	{
+		slug: "rejected",
+		title: "BONUS · REJECTED",
+		blurb: "Request hits the cap, DENIED stamp, reason shown.",
 	},
 ];
 
