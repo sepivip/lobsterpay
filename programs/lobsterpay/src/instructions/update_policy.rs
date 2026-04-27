@@ -114,7 +114,7 @@ pub fn handler(ctx: Context<UpdatePolicy>, params: UpdatePolicyParams) -> Result
     Ok(())
 }
 
-/// O(n^2) duplicate check — acceptable for small allowlists (max 8 entries).
+/// O(n^2) duplicate check - acceptable for small allowlists (max 8 entries).
 fn has_duplicates(list: &[Pubkey]) -> bool {
     for i in 0..list.len() {
         for j in (i + 1)..list.len() {

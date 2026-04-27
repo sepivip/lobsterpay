@@ -1,4 +1,4 @@
-# LobsterPay — Project Memory
+# LobsterPay - Project Memory
 
 > Persistent context for Claude Code sessions. Read this first.
 >
@@ -6,7 +6,7 @@
 
 ## What LobsterPay is
 
-A permissioned payment layer for AI agents on Solana. Owners create program-controlled vaults, fund them with SOL and SPL tokens, and issue API keys that let agents spend within pre-approved limits. The owner's private keys never leave their wallet — agents get scoped HTTP access, not signing authority.
+A permissioned payment layer for AI agents on Solana. Owners create program-controlled vaults, fund them with SOL and SPL tokens, and issue API keys that let agents spend within pre-approved limits. The owner's private keys never leave their wallet - agents get scoped HTTP access, not signing authority.
 
 Built for the **Solana Colosseum hackathon**.
 
@@ -51,12 +51,12 @@ Every agent payment:
 4. Program splits SPL transfer: 98.5% → destination, 1.5% → treasury
 5. Program transfers `FEE_REIMBURSEMENT_LAMPORTS` (10,000) from user's FeeVault → relayer
 
-**Net: relayer earns ~5,000 lamports profit per agent tx.** Self-sustaining and bounded — the 10k reimbursement cap is hardcoded in the program, relayer cannot drain user funds.
+**Net: relayer earns ~5,000 lamports profit per agent tx.** Self-sustaining and bounded - the 10k reimbursement cap is hardcoded in the program, relayer cannot drain user funds.
 
 ## Tech stack
 
 - **Monorepo**: pnpm workspaces + turbo + biome
-- **Anchor**: 0.31.1 (required — 0.30.1 is incompatible with Rust 1.92)
+- **Anchor**: 0.31.1 (required - 0.30.1 is incompatible with Rust 1.92)
 - **Backend**: Fastify 5, `postgres` driver (no ORM), Zod
 - **Frontend**: Next.js 15 App Router, Tailwind v4, Solana wallet adapter, Geist font
 - **Rust**: 1.92.0, Solana CLI 3.1.13, Cargo lock version 4
@@ -95,19 +95,19 @@ tests/
 ## Anchor program surface
 
 **Owner-signed instructions:**
-- `initialize_vault` — creates Vault + Policy PDAs. Takes optional `authorized_agent` pubkey at init (usually set to relayer hot wallet)
-- `update_policy` — updates limits, allowlists, paused state
-- `update_authorized_agent` — change who can act as agent
-- `withdraw_owner` — owner pulls SPL tokens back
-- `emergency_pause` — blocks all agent actions
-- `initialize_fee_vault` — creates SOL reserve for agent tx fees
-- `deposit_fees` — owner funds FeeVault with native SOL
-- `withdraw_fees` — owner reclaims unused SOL (preserves rent-exempt minimum)
-- `ensure_vault_token_account` — creates ATA for vault PDA (can be called by anyone, e.g. relayer)
+- `initialize_vault` - creates Vault + Policy PDAs. Takes optional `authorized_agent` pubkey at init (usually set to relayer hot wallet)
+- `update_policy` - updates limits, allowlists, paused state
+- `update_authorized_agent` - change who can act as agent
+- `withdraw_owner` - owner pulls SPL tokens back
+- `emergency_pause` - blocks all agent actions
+- `initialize_fee_vault` - creates SOL reserve for agent tx fees
+- `deposit_fees` - owner funds FeeVault with native SOL
+- `withdraw_fees` - owner reclaims unused SOL (preserves rent-exempt minimum)
+- `ensure_vault_token_account` - creates ATA for vault PDA (can be called by anyone, e.g. relayer)
 
 **Relayer/owner-signed (authorized_agent check):**
-- `execute_pay_exact` — 98.5% → destination, 1.5% → treasury, 10k lamports reimbursement from FeeVault
-- `execute_swap_exact_in` — stub (returns UnsupportedFeature); Jupiter swap adapter exists in backend but onchain stub not finished
+- `execute_pay_exact` - 98.5% → destination, 1.5% → treasury, 10k lamports reimbursement from FeeVault
+- `execute_swap_exact_in` - stub (returns UnsupportedFeature); Jupiter swap adapter exists in backend but onchain stub not finished
 
 ## Security audit status
 
@@ -126,7 +126,7 @@ Passed thorough audit (3 parallel review agents) + Solana-specific rubric from `
 - ✅ Compute budget instruction in backend tx builder
 
 Remaining (non-blocking for hackathon):
-- ⚠️ No `close` constraint on accounts — owner can't reclaim rent. Not a vuln.
+- ⚠️ No `close` constraint on accounts - owner can't reclaim rent. Not a vuln.
 - ⚠️ No fuzz tests (Trident)
 - ⚠️ No account-closing instructions for vault lifecycle
 
@@ -157,128 +157,35 @@ Remaining (non-blocking for hackathon):
   auto-extracted from `paymentRequirements.extra.feePayer`. No Anchor
   changes required. Regression script: `node scripts/agon-via-lp-facilitator.mjs`.
 
-## What's left
+## Roadmap
 
-### 🔴 Critical to ship (enable agent payments)
-
-1. **Generate relayer hot wallet + set `FEE_PAYER_SECRET_KEY` in Railway**
-   - Currently `/v1/config/relayer` returns `{ configured: false }`
-   - Without this, agents **cannot** pay/swap via API key
-   - See bottom of this doc for the exact commands
-
-2. **Fund relayer with ~0.1 SOL on devnet** to bootstrap (gets reimbursed after)
-
-3. **Test end-to-end agent flow**: create API key → hit `/v1/agent/actions/pay` from curl/SDK → verify onchain tx → verify relayer got reimbursed
-
-### 🟡 Nice to have before hackathon submission
-
-4. **Finish swap onchain** — the Jupiter swap adapter in the backend is complete but the `execute_swap_exact_in` instruction is a stub. Either:
-   - Finish the onchain instruction (Jupiter CPI), OR
-   - Document swap as Phase-2, demo only pay + x402
-
-5. **Replace devnet treasury** with a fresh one you control → paste its pubkey into `programs/lobsterpay/src/constants.rs` → redeploy. Current treasury keypair is in `.env.deploy` only (not production).
-
-6. **Polish for demo**:
-   - Add a "copy vault address" button
-   - Show treasury tx history somewhere
-   - Record a demo video
-
-### 🟢 Post-hackathon
-
-8. **Audit + mainnet deploy** — formal audit recommended before mainnet
-9. **Session keys (v2)** — cryptographically scoped signing keys instead of API keys
-10. **Multi-vault per owner** (currently 1 vault per wallet)
-11. **Bridging / multi-chain**
-12. **Fuzz tests (Trident)** before TVL grows
+- Finish `execute_swap_exact_in` Jupiter CPI (currently a stub returning `UnsupportedFeature`).
+- Replace devnet treasury with the production keypair before mainnet.
+- Formal audit before mainnet deploy.
+- Session keys v2 (cryptographically scoped signing keys instead of API keys).
+- Multi-vault per owner.
+- Fuzz tests (Trident) before TVL grows.
 
 ## Critical gotchas (do not repeat)
 
 1. **`API_PORT` on Railway must be literal `8080`**, not `${{PORT}}`. Template syntax doesn't work for the built-in PORT var.
-2. **`usb`/`node-hid` native compile** breaks Railway Nixpacks — `pnpm.neverBuiltDependencies` in root package.json skips them.
-3. **Anchor 0.30.1 is incompatible** with modern Rust. Use 0.31.1. Solana 1.x on Windows can't build it — use macOS/Linux/WSL.
-4. **`Cargo.lock` version 4** is correct — don't downgrade.
-5. **A DB vault row exists ≠ onchain vault exists.** If Create Vault fails mid-flow (user dismisses wallet popup), you get split-brain. Frontend hides the button on any DB row — clean the DB if this happens.
+2. **`usb`/`node-hid` native compile** breaks Railway Nixpacks - `pnpm.neverBuiltDependencies` in root package.json skips them.
+3. **Anchor 0.30.1 is incompatible** with modern Rust. Use 0.31.1. Solana 1.x on Windows can't build it - use macOS/Linux/WSL.
+4. **`Cargo.lock` version 4** is correct - don't downgrade.
+5. **A DB vault row exists ≠ onchain vault exists.** If Create Vault fails mid-flow (user dismisses wallet popup), you get split-brain. Frontend hides the button on any DB row - clean the DB if this happens.
 6. **"Wallet simulation failed" = program doesn't exist at that address.** Verify with `solana program show <id>` before debugging frontend.
 7. **Phantom must be on Devnet** (Settings → Developer Settings → Network = Devnet).
 8. **`verifyVaultOwnership`** was querying a non-existent column. Fixed. If you see Postgres error `42703`, check other queries for the same bug.
 9. **Devnet faucet is rate-limited.** Use https://faucet.solana.com/ web UI if CLI airdrop fails.
 10. **Railway auto-redeploys on push.** Frontend rebuild is slow (~2-3 min) because `NEXT_PUBLIC_*` gets baked into the client bundle at build time.
 
-## Deploy secrets (reference only — never commit)
+## Operations
 
-`.env.deploy` (gitignored, in password manager):
-- `PROGRAM_KEYPAIR` — base58 of program id keypair (deterministic address)
-- `PROGRAM_ID` — `A184DBQaCM6qWETbEDJUtr25bSuuTH72sTTixsyoZbtS`
-- `DEPLOYER_KEYPAIR` — base58 of the upgrade authority keypair
-- `DEPLOYER_ADDRESS` — `2ALtGZpteopcZgKCcW6eHcSiwvLGkoqrnEGidsJe5Lq3`
-
-To decode + deploy:
-```bash
-source .env.deploy
-python3 -c "
-import base58, json
-with open('target/deploy/lobsterpay-keypair.json', 'w') as f:
-    json.dump(list(base58.b58decode('$PROGRAM_KEYPAIR')), f)
-with open('/tmp/lobsterpay-deployer.json', 'w') as f:
-    json.dump(list(base58.b58decode('$DEPLOYER_KEYPAIR')), f)
-"
-anchor build
-anchor deploy --provider.cluster devnet --provider.wallet /tmp/lobsterpay-deployer.json
-rm /tmp/lobsterpay-deployer.json
-```
-
-## Railway env vars (reference)
-
-**API service** (`@lobsterpay/api`):
-- `DATABASE_URL` = `${{Postgres.DATABASE_URL}}`
-- `SOLANA_RPC_URL` = `https://api.devnet.solana.com`
-- `SOLANA_CLUSTER` = `devnet`
-- `LOBSTERPAY_PROGRAM_ID` = `A184DBQaCM6qWETbEDJUtr25bSuuTH72sTTixsyoZbtS`
-- `PUBLIC_API_URL` = `https://api.lobsterpay.xyz`
-- `API_PORT` = `8080`  ← literal number, not `${{PORT}}`
-- `API_HOST` = `0.0.0.0`
-- `LOG_LEVEL` = `info`
-- `FEE_PAYER_SECRET_KEY` = **NOT SET YET** ← critical gap
-- `ALLOWED_ORIGIN` = `https://lobsterpay.xyz`
-
-**Web service** (`@lobsterpay/web`):
-- `NEXT_PUBLIC_API_URL` = `https://api.lobsterpay.xyz`
-- `NEXT_PUBLIC_SOLANA_RPC_URL` = `https://api.devnet.solana.com`
-- `NEXT_PUBLIC_SOLANA_CLUSTER` = `devnet`
-- `NEXT_PUBLIC_LOBSTERPAY_PROGRAM_ID` = `A184DBQaCM6qWETbEDJUtr25bSuuTH72sTTixsyoZbtS`
-
-## How to generate the relayer hot wallet (next step)
-
-```bash
-export PATH="$HOME/.avm/bin:$HOME/.local/share/solana/install/active_release/bin:$PATH"
-
-# 1. Generate fresh keypair
-solana-keygen new --no-bip39-passphrase --force -s -o /tmp/lp-relayer.json
-
-# 2. Get pubkey
-solana-keygen pubkey /tmp/lp-relayer.json
-
-# 3. Encode as base58 for FEE_PAYER_SECRET_KEY env var
-python3 -c "import base58, json; print(base58.b58encode(bytes(json.load(open('/tmp/lp-relayer.json')))).decode())"
-
-# 4. Fund with bootstrap SOL on devnet
-solana airdrop 1 $(solana-keygen pubkey /tmp/lp-relayer.json) --url devnet
-# If rate-limited, use https://faucet.solana.com/
-
-# 5. Paste base58 into Railway → API service → Variables → FEE_PAYER_SECRET_KEY
-
-# 6. Clean up
-rm /tmp/lp-relayer.json
-
-# 7. Verify
-curl https://api.lobsterpay.xyz/v1/config/relayer
-# Should return { configured: true, pubkey: "..." }
-```
+Self-hosting walkthrough lives in [DEPLOY.md](./DEPLOY.md). Required env vars are documented in [.env.example](./.env.example) (API + Web) and [.env.deploy.example](./.env.deploy.example) (Anchor deploy). Production secrets must NOT be committed.
 
 ## Related project files
 
-- **[apps/web/DESIGN.md](./apps/web/DESIGN.md)** — **source of truth for all frontend styling**. Read this BEFORE any CSS, button, spacing, typography, or color change. Contains exact specs for buttons (12px 24px padding, 14px GeistMono, 1.4px letter-spacing, 0 radius), colors (monochrome #1f2228 + #fff palette), spacing scale, elevation philosophy ("no shadows, ever"), and do's/don'ts.
-- [HANDOFF.md](./HANDOFF.md) — deploy session notes (can be deleted once Phase 4 smoke test passes on mainnet)
-- [DEPLOY.md](./DEPLOY.md) — Railway deploy walkthrough
-- [README.md](./README.md) — public overview
-- [.env.deploy.example](./.env.deploy.example) — template for deploy secrets
+- **[apps/web/DESIGN.md](./apps/web/DESIGN.md)** - source of truth for all frontend styling. Read this BEFORE any CSS, button, spacing, typography, or color change. Contains exact specs for buttons, colors (monochrome palette), spacing scale, elevation philosophy ("no shadows, ever"), and do's/don'ts.
+- [DEPLOY.md](./DEPLOY.md) - Railway / self-hosting walkthrough.
+- [README.md](./README.md) - public overview.
+- [.env.example](./.env.example), [.env.deploy.example](./.env.deploy.example) - env var templates.

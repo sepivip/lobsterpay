@@ -170,7 +170,7 @@ server.tool(
 
 server.tool(
 	"get_swap_quote",
-	"Get a swap quote from the DEX aggregator. Returns expected output amount, price impact, and route. Does not execute — use execute_swap to proceed.",
+	"Get a swap quote from the DEX aggregator. Returns expected output amount, price impact, and route. Does not execute - use execute_swap to proceed.",
 	{
 		fromMint: z.string().describe("Input token mint address"),
 		toMint: z.string().describe("Output token mint address"),
@@ -443,7 +443,7 @@ server.tool(
 			.string()
 			.optional()
 			.describe(
-				"Raw base64 value of the upstream's `Payment-Required` response header — the easiest path: just forward what you got from the 402.",
+				"Raw base64 value of the upstream's `Payment-Required` response header - the easiest path: just forward what you got from the 402.",
 			),
 		siwxChallenge: z
 			.unknown()

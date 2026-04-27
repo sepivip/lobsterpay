@@ -6,7 +6,7 @@ import { Section } from "./section";
 const ITEMS = [
 	{
 		q: "Is LobsterPay on mainnet yet?",
-		a: "No — currently on Solana devnet for the Colosseum hackathon. The program is audited (B+ grade, all Critical and Important findings fixed) and ready for mainnet deploy post-hackathon. The exact same instructions and limits behave identically on mainnet; you'd just fund with real USDC.",
+		a: "No - currently on Solana devnet for the Colosseum hackathon. The program is audited (B+ grade, all Critical and Important findings fixed) and ready for mainnet deploy post-hackathon. The exact same instructions and limits behave identically on mainnet; you'd just fund with real USDC.",
 	},
 	{
 		q: "What's x402?",
@@ -14,7 +14,7 @@ const ITEMS = [
 	},
 	{
 		q: "How do I revoke a key mid-task?",
-		a: "Dashboard → Keys → click the key → Revoke. Takes effect the instant the DB update lands — any in-flight agent request hitting that key after revoke returns 401. For a vault-wide kill-switch, Emergency Pause on the Policy page blocks all agent actions on-chain until you unpause.",
+		a: "Dashboard → Keys → click the key → Revoke. Takes effect the instant the DB update lands - any in-flight agent request hitting that key after revoke returns 401. For a vault-wide kill-switch, Emergency Pause on the Policy page blocks all agent actions on-chain until you unpause.",
 	},
 	{
 		q: "What stops a compromised relayer from draining vaults?",
@@ -26,11 +26,11 @@ const ITEMS = [
 	},
 	{
 		q: "What happens if I lose my wallet?",
-		a: "Exactly what you'd expect for a self-custodial product — same as losing the keys to any Solana wallet. There's no backdoor. But every vault's funds stay on-chain at a deterministic PDA derived from the owner wallet, so you can recover access by restoring the wallet from its seed phrase.",
+		a: "Exactly what you'd expect for a self-custodial product - same as losing the keys to any Solana wallet. There's no backdoor. But every vault's funds stay on-chain at a deterministic PDA derived from the owner wallet, so you can recover access by restoring the wallet from its seed phrase.",
 	},
 	{
 		q: "Why Solana instead of Ethereum / L2s?",
-		a: "Speed and cost. Agent payments are small and frequent — a research agent might make 50 tx/day. On Solana devnet that's ~$0 in gas; on an L2 it's still non-trivial. Sub-second confirmation also matters when an agent is waiting on a paywall.",
+		a: "Speed and cost. Agent payments are small and frequent - a research agent might make 50 tx/day. On Solana devnet that's ~$0 in gas; on an L2 it's still non-trivial. Sub-second confirmation also matters when an agent is waiting on a paywall.",
 	},
 	{
 		q: "Can I run my own relayer?",

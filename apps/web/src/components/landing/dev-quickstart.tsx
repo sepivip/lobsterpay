@@ -32,7 +32,7 @@ export function DevQuickstart() {
 			id="quickstart"
 			eyebrow="DEVELOPER QUICKSTART"
 			title="Four lines to a paying agent"
-			blurb="Any HTTP client works. The SDK is optional — just hit the REST endpoints with a Bearer key. If your agent speaks MCP, drop our config in and it picks up 6 tools instantly."
+			blurb="Any HTTP client works. The SDK is optional - just hit the REST endpoints with a Bearer key. If your agent speaks MCP, drop our config in and it picks up 6 tools instantly."
 		>
 			<div className="quickstart-grid">
 				<CodeBlock label="CURL · REST" code={CURL} />

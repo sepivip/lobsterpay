@@ -106,7 +106,7 @@ export default function PolicyPage() {
 	// undefined = don't change).
 	const [onChainLoaded, setOnChainLoaded] = useState(false);
 
-	// USDC has 6 decimals — 1 USDC = 1_000_000 atomic units. All user-facing
+	// USDC has 6 decimals - 1 USDC = 1_000_000 atomic units. All user-facing
 	// spending-limit inputs are in USDC; convert to/from atomic at the
 	// save/load boundary so users never see "atomic units" in the UI.
 	const USDC_DECIMALS = 6;
@@ -127,7 +127,7 @@ export default function PolicyPage() {
 		return BigInt(whole) * 10n ** BigInt(USDC_DECIMALS) + BigInt(fracPadded || "0");
 	};
 
-	// Read everything from on-chain Policy account — source of truth. Populates
+	// Read everything from on-chain Policy account - source of truth. Populates
 	// both the scalar limits (converted atomic→USDC, bps→%) and the allowlists.
 	// DB cache for scalars is secondary; we skip the old vault.policy useEffect
 	// entirely since it was reading fields the API never returned anyway
@@ -170,7 +170,7 @@ export default function PolicyPage() {
 			return;
 		}
 		setSaving(true);
-		const toastId = toast.loading("Saving policy — please approve the transaction...");
+		const toastId = toast.loading("Saving policy - please approve the transaction...");
 		try {
 			const mintsArr = allowedMints.split("\n").map((s) => s.trim()).filter(Boolean);
 			const destsArr = allowedDestinations.split("\n").map((s) => s.trim()).filter(Boolean);
@@ -183,7 +183,7 @@ export default function PolicyPage() {
 			const [policyPda] = derivePolicyPda(vaultPda);
 
 			// Allowlist sends: if we've loaded on-chain state, always send the
-			// textarea's current contents (Some([...]), even when empty — so users
+			// textarea's current contents (Some([...]), even when empty - so users
 			// can revoke). If we never loaded, fall back to the old "undefined = no
 			// change" semantics so we don't accidentally nuke an allowlist we
 			// never read.
@@ -198,7 +198,7 @@ export default function PolicyPage() {
 					? destsArr.map((d) => new PublicKey(d))
 					: undefined;
 
-			// Build and sign onchain transaction — convert user-facing units
+			// Build and sign onchain transaction - convert user-facing units
 			// (USDC for amounts, % for slippage) to on-chain units (atomic
 			// for amounts, bps for slippage). maxPerTx/dailyLimit=0 means
 			// "no limit" on-chain; only send if the user typed something.
@@ -231,7 +231,7 @@ export default function PolicyPage() {
 			const trimmedAgent = authorizedAgent.trim();
 			let agentUpdated = false;
 			if (trimmedAgent && trimmedAgent !== currentAgent) {
-				toast.loading("Updating authorized agent — please approve...", {
+				toast.loading("Updating authorized agent - please approve...", {
 					id: toastId,
 				});
 				let agentPubkey: PublicKey;
@@ -301,7 +301,7 @@ export default function PolicyPage() {
 		if (!vault?.id || !publicKey || !sendTransaction) return;
 		setPausing(true);
 		const action = vault.paused ? "Unpausing" : "Pausing";
-		const toastId = toast.loading(`${action} vault — please approve the transaction...`);
+		const toastId = toast.loading(`${action} vault - please approve the transaction...`);
 		try {
 			const [vaultPda] = deriveVaultPda(publicKey);
 			const [policyPda] = derivePolicyPda(vaultPda);
@@ -460,7 +460,7 @@ export default function PolicyPage() {
 											onChange={setMaxSlippage}
 										/>
 										<div className="text-sm text-tertiary" style={{ marginTop: -4, lineHeight: 1.5 }}>
-											Leave a field empty to disable that limit (no cap). Values shown are live from on-chain — edit and save to update.
+											Leave a field empty to disable that limit (no cap). Values shown are live from on-chain - edit and save to update.
 										</div>
 									</div>
 								</div>
@@ -476,7 +476,7 @@ export default function PolicyPage() {
 									<div className="flex flex-col gap-4">
 										<div>
 											<label className="form-label">
-												Allowed Mints (one per line, max 8 — empty = allow all)
+												Allowed Mints (one per line, max 8 - empty = allow all)
 											</label>
 											<textarea
 												className="input"
@@ -492,7 +492,7 @@ export default function PolicyPage() {
 										</div>
 										<div>
 											<label className="form-label">
-												Allowed Destinations (one per line, max 8 — empty = allow all)
+												Allowed Destinations (one per line, max 8 - empty = allow all)
 											</label>
 											<textarea
 												className="input"

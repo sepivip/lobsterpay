@@ -1,6 +1,6 @@
 import { Section } from "./section";
 
-// Names only — avoiding third-party logo assets for licensing cleanliness.
+// Names only - avoiding third-party logo assets for licensing cleanliness.
 // Order by agent popularity in the Solana/AI dev crowd.
 const AGENTS = [
 	"Claude Code",

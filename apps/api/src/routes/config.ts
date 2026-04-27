@@ -7,7 +7,7 @@ type TxService = ReturnType<typeof createTxService>;
 /**
  * Public service-config endpoints.
  *
- * The only field exposed today is the LobsterPay relayer pubkey — the
+ * The only field exposed today is the LobsterPay relayer pubkey - the
  * service-wide hot wallet that signs and submits agent transactions.
  * Frontend reads this to pre-configure new vaults with
  * `authorized_agent = relayer_pubkey`, so users never see or manage a

@@ -71,7 +71,7 @@ function SkillCard({
 			URL.revokeObjectURL(url);
 			toast.success(`Downloaded ${filename}`);
 		} catch {
-			toast.error("Download failed — is the API running?");
+			toast.error("Download failed - is the API running?");
 		}
 	};
 
@@ -126,7 +126,7 @@ export default function IntegratePage() {
 				<p className="animate-in animate-delay-1 text-md text-tertiary mb-6" style={{ lineHeight: 1.6, maxWidth: 640 }}>
 					Give your agent a skill file and an API key. It will know how to
 					check balances, make payments, swap tokens, and pay 402-gated
-					endpoints — all within the limits you set in your vault policy.
+					endpoints - all within the limits you set in your vault policy.
 				</p>
 
 				{/* Quick start */}

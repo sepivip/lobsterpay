@@ -454,7 +454,7 @@ describe("lobsterpay", () => {
         destinationOwner.publicKey
       );
 
-      // Create treasury ATA for this mint — treasury is a keypair owner
+      // Create treasury ATA for this mint - treasury is a keypair owner
       treasuryTokenAccount = await createAccount(
         provider.connection,
         (owner as any).payer,

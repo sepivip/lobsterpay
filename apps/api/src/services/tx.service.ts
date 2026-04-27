@@ -24,7 +24,7 @@ export function createTxService(db: Db, config: Config) {
 
   const programId = new PublicKey(config.LOBSTERPAY_PROGRAM_ID);
 
-  // Fee payer keypair — loaded from env
+  // Fee payer keypair - loaded from env
   let feePayer: Keypair | null = null;
   if (config.FEE_PAYER_SECRET_KEY) {
     try {
@@ -120,7 +120,7 @@ export function createTxService(db: Db, config: Config) {
       `;
       if (rows.length > 0) return rows[0];
 
-      // Conflict — return existing row
+      // Conflict - return existing row
       const [existing] = await db`SELECT * FROM requests WHERE vault_id = ${params.vaultId} AND idempotency_key = ${params.idempotencyKey}`;
       return existing;
     },

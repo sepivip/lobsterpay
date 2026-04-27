@@ -120,7 +120,7 @@ export default function DashboardPage() {
 
 	const handleCreateVault = async () => {
 		setCreating(true);
-		const toastId = toast.loading("Creating vault — please approve the transaction in your wallet...");
+		const toastId = toast.loading("Creating vault - please approve the transaction in your wallet...");
 		try {
 			const signature = await createVault();
 			toast.success(
@@ -140,7 +140,7 @@ export default function DashboardPage() {
 		if (!publicKey || !sendTransaction) return;
 		setInitializingFeeVault(true);
 		const toastId = toast.loading(
-			"Initializing fee vault — please approve the transaction..."
+			"Initializing fee vault - please approve the transaction..."
 		);
 		try {
 			const { transaction } = await buildInitializeFeeVaultTx(

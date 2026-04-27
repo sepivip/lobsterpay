@@ -113,7 +113,7 @@ impl Policy {
     }
 }
 
-/// FeeVault — a program-controlled PDA holding native SOL to fund
+/// FeeVault - a program-controlled PDA holding native SOL to fund
 /// network fees for agent actions. Funded by the owner via deposit_fees.
 #[account]
 pub struct FeeVault {

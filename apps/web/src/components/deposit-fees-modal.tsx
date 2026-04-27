@@ -41,7 +41,7 @@ export function DepositFeesModal({
 
     setDepositing(true);
     const toastId = toast.loading(
-      `Depositing ${sol} SOL — please approve the transaction...`
+      `Depositing ${sol} SOL - please approve the transaction...`
     );
     try {
       const lamports = solToLamports(sol);

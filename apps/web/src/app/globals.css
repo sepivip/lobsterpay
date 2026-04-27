@@ -286,7 +286,7 @@ body {
   box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.5);
 }
 
-/* Native <input type="date"> picker indicator (BAT-507).
+/* Native <input type="date"> picker indicator.
    color-scheme: dark tells the browser this control lives on a dark
    surface so it renders the calendar popup + picker indicator with
    light foreground colors. The filter override is a belt-and-suspenders
@@ -760,7 +760,7 @@ body {
   width: 100%;
   /* When applied to an element that also has `.card`, the card's 5%-white
      background reads as semi-transparent over the modal's dim overlay,
-     making the dialog effectively invisible (BAT-505). Force a solid
+     making the dialog effectively invisible. Force a solid
      near-black surface and the stronger 22%-white border so the modal
      stands clearly off the dimmed page. Per DESIGN.md "no shadows ever",
      the depth cue is the contrast between this opaque background and
@@ -1486,7 +1486,7 @@ a.text-accent { text-decoration: underline; text-underline-offset: 3px; }
      the typing animation fills the script - which keeps shoving the
      "How it works" / use cases / quickstart sections below it down
      the page, so a reader scrolling has to chase a moving target
-     (BAT-506). Using `height` (not just `max-height`) reserves the
+     the page. Using `height` (not just `max-height`) reserves the
      full final size from the first paint; existing overflow-y: auto
      still kicks in if content overflows. */
   height: 420px;

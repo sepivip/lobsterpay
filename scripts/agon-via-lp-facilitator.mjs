@@ -26,7 +26,7 @@
 
 import fs from "node:fs";
 
-// ── env loading (no parser dep — single-line .env values only) ─────────
+// ── env loading (no parser dep - single-line .env values only) ─────────
 const env = Object.fromEntries(
 	fs
 		.readFileSync(".env", "utf8")

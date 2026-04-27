@@ -539,7 +539,7 @@ export function vaultRoutes(app: FastifyInstance, db: Db, config: Config) {
     // Map snake_case Postgres rows -> camelCase for the frontend. Without
     // this, fields like `created_at` and `last_used_at` go through as-is
     // and the dashboard reads `key.createdAt` / `key.lastUsedAt` -> undefined,
-    // which shows as a dash / "Never" forever (BAT-504).
+    // which shows as a dash / "Never" forever.
     const items = keys.map((row: any) => ({
       id: row.id,
       vaultId: row.vault_id,

@@ -2,7 +2,7 @@
 
 **Give agents limits, not seed phrases.**
 
-LobsterPay is a permissioned payment layer for AI agents on Solana. Users create program-controlled vaults, fund them with tokens, and issue API keys with granular spending limits. Agents call a simple HTTP API — the backend enforces limits and executes approved onchain transactions. Private keys never leave the owner's wallet.
+LobsterPay is a permissioned payment layer for AI agents on Solana. Users create program-controlled vaults, fund them with tokens, and issue API keys with granular spending limits. Agents call a simple HTTP API - the backend enforces limits and executes approved onchain transactions. Private keys never leave the owner's wallet.
 
 Built for the [Solana Colosseum Hackathon](https://www.colosseum.org/).
 
@@ -26,12 +26,12 @@ Token accounts
 
 | Package | Description |
 |---------|-------------|
-| `programs/lobsterpay` | Anchor program — vault, policy, pay, swap, withdraw |
-| `apps/api` | Fastify backend — auth, limits, tx builder, adapters |
-| `apps/web` | Next.js dashboard — vault management, keys, policy, activity |
+| `programs/lobsterpay` | Anchor program - vault, policy, pay, swap, withdraw |
+| `apps/api` | Fastify backend - auth, limits, tx builder, adapters |
+| `apps/web` | Next.js dashboard - vault management, keys, policy, activity |
 | `packages/shared` | Zod schemas, types, constants, errors |
 | `packages/sdk` | TypeScript SDK for agents |
-| `packages/mcp-server` | MCP server — plug LobsterPay into any AI agent |
+| `packages/mcp-server` | MCP server - plug LobsterPay into any AI agent |
 
 ## Quick Start
 
@@ -204,16 +204,16 @@ Program ID: `A184DBQaCM6qWETbEDJUtr25bSuuTH72sTTixsyoZbtS`
 | `update_policy` | Owner updates policy (limits, allowlists, pause) |
 | `ensure_vault_token_account` | Create token account for vault PDA |
 | `execute_pay_exact` | Guarded token transfer from vault |
-| `execute_swap_exact_in` | Guarded swap (Phase 3 — Jupiter) |
+| `execute_swap_exact_in` | Guarded swap (Phase 3 - Jupiter) |
 | `withdraw_owner` | Owner withdraws from vault |
 | `emergency_pause` | Owner pauses all agent actions |
 
 ### Account Layout
 
-**Vault** (82 bytes) — Seeds: `["vault", owner]`
+**Vault** (82 bytes) - Seeds: `["vault", owner]`
 - owner, policy pubkey, bump, created_at, version
 
-**Policy** (760 bytes) — Seeds: `["policy", vault]`
+**Policy** (760 bytes) - Seeds: `["policy", vault]`
 - Limits: max_per_tx, daily_limit, daily_spent, max_slippage
 - Allowlists: mints (8), destinations (8), external programs (4)
 - Flags: paused, allowed_actions bitmask
@@ -234,10 +234,10 @@ Program ID: `A184DBQaCM6qWETbEDJUtr25bSuuTH72sTTixsyoZbtS`
 - Vault funds controlled only by the Anchor program PDA
 - API keys stored as SHA-256 hashes only
 - Per-tx and daily limits enforced both offchain (backend) and onchain (program)
-- All token transfers use `transfer_checked` — never arbitrary instructions
+- All token transfers use `transfer_checked` - never arbitrary instructions
 - Idempotency keys prevent double-spending
 - Emergency pause immediately blocks all agent actions
-- No arbitrary CPI — only allowlisted program IDs
+- No arbitrary CPI - only allowlisted program IDs
 
 ## Tech Stack
 

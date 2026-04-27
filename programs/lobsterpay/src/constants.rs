@@ -32,7 +32,7 @@ pub const FEE_VAULT_MIN_BALANCE: u64 = 1_500_000; // 0.0015 SOL
 /// relayer can never drain a user's fee vault beyond actual cost.
 pub const FEE_REIMBURSEMENT_LAMPORTS: u64 = 10_000; // 0.00001 SOL per agent tx
 
-/// LobsterPay treasury address — all service fees accrue here.
+/// LobsterPay treasury address - all service fees accrue here.
 /// NOTE: Replace with production treasury pubkey before mainnet deploy.
 /// Current value is a devnet keypair for testing.
 pub const LOBSTERPAY_TREASURY: &str = "DvcQMhZmhZZQ1CX6FhGkyAiPr3YtNbBuLDP3QpuBRTHp";

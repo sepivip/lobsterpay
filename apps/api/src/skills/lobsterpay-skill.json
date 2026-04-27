@@ -3,7 +3,7 @@
   "version": "{SKILL_VERSION}",
   "updated": "{SKILL_UPDATED}",
   "name": "LobsterPay",
-  "description": "Permissioned payment layer for AI agents on Solana. Make payments, swaps, and x402 purchases through a policy-controlled vault — no private keys needed.",
+  "description": "Permissioned payment layer for AI agents on Solana. Make payments, swaps, and x402 purchases through a policy-controlled vault - no private keys needed.",
   "auth": {
     "type": "bearer",
     "header": "Authorization",
@@ -32,7 +32,7 @@
     },
     {
       "name": "make_payment",
-      "description": "Send tokens from the vault to an approved destination. The vault owner sets which destinations, mints, and amounts are allowed. All payments are idempotent — safe to retry with the same idempotencyKey.",
+      "description": "Send tokens from the vault to an approved destination. The vault owner sets which destinations, mints, and amounts are allowed. All payments are idempotent - safe to retry with the same idempotencyKey.",
       "method": "POST",
       "path": "/v1/agent/actions/pay",
       "parameters": [
@@ -58,7 +58,7 @@
           "name": "idempotencyKey",
           "type": "string",
           "required": false,
-          "description": "Optional. Provide a unique string (e.g. 'invoice-123') only if you want to make retries safe — sending the same key with the same body won't double-charge. If omitted, the server generates a fresh identifier per request. Most agents don't need to set this."
+          "description": "Optional. Provide a unique string (e.g. 'invoice-123') only if you want to make retries safe - sending the same key with the same body won't double-charge. If omitted, the server generates a fresh identifier per request. Most agents don't need to set this."
         },
         {
           "name": "memo",
@@ -76,7 +76,7 @@
     },
     {
       "name": "get_swap_quote",
-      "description": "Get a quote for swapping one token for another through a DEX aggregator. Returns expected output, price impact, and route. Does NOT execute — call execute_swap to proceed.",
+      "description": "Get a quote for swapping one token for another through a DEX aggregator. Returns expected output, price impact, and route. Does NOT execute - call execute_swap to proceed.",
       "method": "POST",
       "path": "/v1/agent/quotes/swap",
       "parameters": [
@@ -201,8 +201,8 @@
       ],
       "compatibility": {
         "works_with": "Upstream paywalled APIs that verify by looking up the Solana tx signature on-chain (amount + recipient + mint against getTransaction). Our own /v1/demo/x402/fortune and /v1/demo/x402/joke are reference implementations.",
-        "for_facilitator_gateways": "If the 402 came from a spec-conformant x402 facilitator gateway (agonx402, Coinbase reference facilitator) and contains `extra.feePayer` — use `pay_x402_facilitator` instead of `pay_x402`. Facilitator gateways verify a pre-signed unsubmitted v0 transferChecked tx from the payer's ATA, which `pay_x402_facilitator` produces via a two-tx passthrough: vault → relayer's USDC ATA via execute_pay_exact, then relayer → facilitator's payTo via transferChecked in a v0 tx returned to the agent for the retry.",
-        "for_siwx_routes": "If the 402's `accepts` array is empty AND it carries a Sign-In-with-X CAIP-122 challenge in `extensions['sign-in-with-x']` (e.g. agon's Tokens API, /v1/x402/tokens/...) — use `pay_x402_siwx` instead. These routes don't take payment; they gate access on a wallet signature."
+        "for_facilitator_gateways": "If the 402 came from a spec-conformant x402 facilitator gateway (agonx402, Coinbase reference facilitator) and contains `extra.feePayer` - use `pay_x402_facilitator` instead of `pay_x402`. Facilitator gateways verify a pre-signed unsubmitted v0 transferChecked tx from the payer's ATA, which `pay_x402_facilitator` produces via a two-tx passthrough: vault → relayer's USDC ATA via execute_pay_exact, then relayer → facilitator's payTo via transferChecked in a v0 tx returned to the agent for the retry.",
+        "for_siwx_routes": "If the 402's `accepts` array is empty AND it carries a Sign-In-with-X CAIP-122 challenge in `extensions['sign-in-with-x']` (e.g. agon's Tokens API, /v1/x402/tokens/...) - use `pay_x402_siwx` instead. These routes don't take payment; they gate access on a wallet signature."
       }
     },
     {
@@ -215,7 +215,7 @@
           "name": "paymentRequirements",
           "type": "object",
           "required": true,
-          "description": "Payment requirements from the facilitator's 402 response. MUST include `extra.feePayer` (base58 Solana pubkey — the facilitator publishes this; same pubkey is usually also `payTo`). Standard fields: scheme ('exact'), network (CAIP-2 chain id), asset (mint), amount (atomic), payTo. Forward the facilitator's accepts[0] object intact."
+          "description": "Payment requirements from the facilitator's 402 response. MUST include `extra.feePayer` (base58 Solana pubkey - the facilitator publishes this; same pubkey is usually also `payTo`). Standard fields: scheme ('exact'), network (CAIP-2 chain id), asset (mint), amount (atomic), payTo. Forward the facilitator's accepts[0] object intact."
         },
         {
           "name": "originalRequestUrl",
@@ -227,7 +227,7 @@
           "name": "idempotencyKey",
           "type": "string",
           "required": false,
-          "description": "Optional. Server generates one if omitted. Note: because each partial tx is tied to a specific blockhash (~60-90s window), retrying with the SAME idempotencyKey after expiry returns the stale request row, not a new tx — call with a fresh idempotencyKey instead."
+          "description": "Optional. Server generates one if omitted. Note: because each partial tx is tied to a specific blockhash (~60-90s window), retrying with the SAME idempotencyKey after expiry returns the stale request row, not a new tx - call with a fresh idempotencyKey instead."
         }
       ],
       "response": {
@@ -238,10 +238,10 @@
         "partialTransactionBase64": "Raw base64 of the v0 tx (inside `paymentSignatureHeader.payload.transaction`). Exposed for debugging.",
         "tx1Signature": "Solana signature of the on-chain settlement tx (vault → relayer). Useful for auditing.",
         "feePayer": "Echo of the facilitator's fee-payer pubkey we set in tx2.",
-        "authority": "LobsterPay relayer pubkey — the signer that partial-signed tx2 as transferChecked authority.",
+        "authority": "LobsterPay relayer pubkey - the signer that partial-signed tx2 as transferChecked authority.",
         "blockhash": "recentBlockhash baked into tx2. Facilitator must submit before it expires.",
         "lastValidBlockHeight": "Authoritative submit deadline. After this slot, tx2 is permanently invalid.",
-        "expiresAt": "Conservative ISO timestamp (~60s) — client-facing hint.",
+        "expiresAt": "Conservative ISO timestamp (~60s) - client-facing hint.",
         "grossAmount": "Atomic amount pulled from your vault (agonAmount + 1.5% service fee).",
         "agonAmount": "Atomic amount the facilitator actually receives.",
         "serviceFee": "1.5% service fee in atomic units, routed to the LobsterPay treasury.",
@@ -268,7 +268,7 @@
     },
     {
       "name": "pay_x402_siwx",
-      "description": "Authenticate to a SIWX-gated x402 endpoint (no payment, no on-chain settlement). Some upstreams — e.g. agon's Tokens API at /v1/x402/tokens/... — return 402 with `accepts: []` and a Sign-In-with-X CAIP-122 challenge in `extensions['sign-in-with-x']` instead of an x402 payment scheme. LobsterPay signs the canonical SIWS message with the relayer ed25519 keypair and returns a base64 `signInWithXHeader` you put in the `SIGN-IN-WITH-X` header on the retry. The signature is single-use and valid for ~300s. Use `pay_x402` or `pay_x402_facilitator` for upstreams that take payment instead.",
+      "description": "Authenticate to a SIWX-gated x402 endpoint (no payment, no on-chain settlement). Some upstreams - e.g. agon's Tokens API at /v1/x402/tokens/... - return 402 with `accepts: []` and a Sign-In-with-X CAIP-122 challenge in `extensions['sign-in-with-x']` instead of an x402 payment scheme. LobsterPay signs the canonical SIWS message with the relayer ed25519 keypair and returns a base64 `signInWithXHeader` you put in the `SIGN-IN-WITH-X` header on the retry. The signature is single-use and valid for ~300s. Use `pay_x402` or `pay_x402_facilitator` for upstreams that take payment instead.",
       "method": "POST",
       "path": "/v1/agent/actions/x402-siwx",
       "parameters": [
@@ -276,7 +276,7 @@
           "name": "paymentRequiredHeader",
           "type": "string",
           "required": false,
-          "description": "Raw base64 value of the upstream's `Payment-Required` response header — easiest path: just forward the header you got. Either this or `siwxChallenge` is required."
+          "description": "Raw base64 value of the upstream's `Payment-Required` response header - easiest path: just forward the header you got. Either this or `siwxChallenge` is required."
         },
         {
           "name": "siwxChallenge",
@@ -300,13 +300,13 @@
           "name": "idempotencyKey",
           "type": "string",
           "required": false,
-          "description": "Optional. Server generates one if omitted. Each SIWS signature is single-use anyway — retrying produces a fresh signature."
+          "description": "Optional. Server generates one if omitted. Each SIWS signature is single-use anyway - retrying produces a fresh signature."
         }
       ],
       "response": {
         "requestId": "Internal request tracking ID",
         "status": "authorized",
-        "signInWithXHeader": "Base64-encoded SIWX payload — put this in the `SIGN-IN-WITH-X` header of your retry against originalRequestUrl, with the SAME method + body. Verified working against agonx402's Tokens API.",
+        "signInWithXHeader": "Base64-encoded SIWX payload - put this in the `SIGN-IN-WITH-X` header of your retry against originalRequestUrl, with the SAME method + body. Verified working against agonx402's Tokens API.",
         "address": "LobsterPay relayer pubkey that signed the challenge.",
         "chainId": "CAIP-2 chain id the signature is bound to.",
         "expirationTime": "ISO timestamp of the signature's expiry (typically ~300s after issue)."
@@ -336,9 +336,9 @@
   "usage_notes": [
     "Always call check_vault first to understand your permissions and remaining budget",
     "All amounts are in atomic units (smallest denomination). USDC has 6 decimals: 1 USDC = 1000000",
-    "idempotencyKey is optional — omit it and the server auto-generates one. Only set it when you specifically want to retry the same action safely.",
+    "idempotencyKey is optional - omit it and the server auto-generates one. Only set it when you specifically want to retry the same action safely.",
     "Payments are only allowed to destinations on the vault's allowlist",
-    "If a payment is rejected, check the error — it will tell you if it's a limit, allowlist, or pause issue",
+    "If a payment is rejected, check the error - it will tell you if it's a limit, allowlist, or pause issue",
     "The vault owner can revoke your API key at any time. Handle 401 errors gracefully."
   ]
 }

@@ -2,7 +2,7 @@
  * Manual Anchor instruction builders for the LobsterPay program.
  *
  * Uses raw @solana/web3.js TransactionInstruction construction with
- * discriminators and borsh-style serialization — no @coral-xyz/anchor dependency.
+ * discriminators and borsh-style serialization - no @coral-xyz/anchor dependency.
  */
 
 import {
@@ -28,7 +28,7 @@ export const LOBSTERPAY_PROGRAM_ID = new PublicKey(
 );
 
 /**
- * LobsterPay treasury pubkey — hardcoded in the Anchor program.
+ * LobsterPay treasury pubkey - hardcoded in the Anchor program.
  * The 1.5% service fee is sent to the ATA owned by this pubkey for the
  * payment mint.
  */
@@ -37,12 +37,12 @@ export const TREASURY_PUBKEY = new PublicKey(
 );
 
 /**
- * Service fee in basis points (1.5%) — matches the on-chain constant.
+ * Service fee in basis points (1.5%) - matches the on-chain constant.
  */
 export const SERVICE_FEE_BPS = 150n;
 
 /**
- * Basis-point denominator — matches the on-chain BPS_DENOMINATOR constant
+ * Basis-point denominator - matches the on-chain BPS_DENOMINATOR constant
  * used by the program when computing `service_fee = floor(gross * SERVICE_FEE_BPS / BPS_DENOMINATOR)`.
  */
 export const BPS_DENOMINATOR = 10_000n;
@@ -331,7 +331,7 @@ export function buildEnsureVaultTokenAccountIx(args: {
 }): TransactionInstruction {
   const programId = args.programId ?? LOBSTERPAY_PROGRAM_ID;
 
-  // No args — discriminator only
+  // No args - discriminator only
   const data = Buffer.alloc(8);
   DISC_ENSURE_VAULT_TOKEN_ACCOUNT.copy(data, 0);
 
@@ -382,12 +382,12 @@ export function buildExecutePayExactIx(args: {
 
   return new TransactionInstruction({
     keys: [
-      // authority is marked #[account(mut)] in the program — it receives
+      // authority is marked #[account(mut)] in the program - it receives
       // reimbursement lamports from fee_vault, so must be writable.
       { pubkey: args.authority, isSigner: true, isWritable: true },
       { pubkey: args.vault, isSigner: false, isWritable: false },
       { pubkey: args.policy, isSigner: false, isWritable: true },
-      // fee_vault is #[account(mut)] — lamports are debited to reimburse
+      // fee_vault is #[account(mut)] - lamports are debited to reimburse
       // the authority. Must be writable.
       { pubkey: args.feeVault, isSigner: false, isWritable: true },
       { pubkey: args.mint, isSigner: false, isWritable: false },
@@ -415,7 +415,7 @@ export function buildInitializeFeeVaultIx(args: {
 }): TransactionInstruction {
   const programId = args.programId ?? LOBSTERPAY_PROGRAM_ID;
 
-  // No args — discriminator only
+  // No args - discriminator only
   const data = Buffer.alloc(8);
   DISC_INITIALIZE_FEE_VAULT.copy(data, 0);
 
@@ -531,7 +531,7 @@ export function buildEmergencyPauseIx(args: {
 }): TransactionInstruction {
   const programId = args.programId ?? LOBSTERPAY_PROGRAM_ID;
 
-  // No args — discriminator only
+  // No args - discriminator only
   const data = Buffer.alloc(8);
   DISC_EMERGENCY_PAUSE.copy(data, 0);
 

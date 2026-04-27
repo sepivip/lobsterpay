@@ -32,6 +32,6 @@ pub fn handler(
     _ctx: Context<ExecuteSwapExactIn>,
     _params: ExecuteSwapExactInParams,
 ) -> Result<()> {
-    // Phase 3 stub — swap functionality not yet implemented
+    // Phase 3 stub - swap functionality not yet implemented
     Err(LobsterPayError::UnsupportedFeature.into())
 }

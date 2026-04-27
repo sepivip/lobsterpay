@@ -19,7 +19,7 @@ export function Nav() {
 	return (
 		<nav className="nav">
 			<div className="nav-inner">
-				{/* Logo always goes to the marketing home — industry standard. */}
+				{/* Logo always goes to the marketing home - industry standard. */}
 				<Link href="/" className="nav-logo" aria-label="LobsterPay home">
 					<Image
 						src="/logo-wordmark.svg"
