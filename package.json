@@ -12,9 +12,11 @@
     "db:migrate": "pnpm --filter @lobsterpay/api db:migrate",
     "test": "turbo run test",
     "test:anchor": "anchor test",
-    "test:integration": "node --env-file=.env.integration node_modules/mocha/bin/mocha.js --config .mocharc.integration.cjs"
+    "test:integration": "node --env-file=.env.integration node_modules/mocha/bin/mocha.js --config .mocharc.integration.cjs",
+    "test:agent": "node --env-file=.env.integration --import=tsx test-agent/buy-fortune.ts"
   },
   "devDependencies": {
+    "@anthropic-ai/sdk": "^0.91.1",
     "@biomejs/biome": "^1.9.4",
     "@coral-xyz/anchor": "^0.30.1",
     "@solana/spl-token": "^0.4.14",
@@ -26,7 +28,8 @@
     "ts-mocha": "^11.1.0",
     "tsx": "^4.19.2",
     "turbo": "^2.3.3",
-    "typescript": "^5.7.2"
+    "typescript": "^5.7.2",
+    "zod": "^3.24.1"
   },
   "pnpm": {
     "neverBuiltDependencies": ["usb", "node-hid"]
