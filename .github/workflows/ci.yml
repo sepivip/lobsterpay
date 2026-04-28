@@ -18,7 +18,7 @@ jobs:
     name: node (lint + build)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       # pnpm version is read from the `packageManager` field in
       # package.json (currently pnpm@9.15.4). Specifying `version` here
       # too triggers ERR_PNPM_BAD_PM_VERSION.
@@ -41,7 +41,7 @@ jobs:
     name: anchor (build + test)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: 1.92.0
