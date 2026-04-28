@@ -2,12 +2,21 @@ import type { FastifyInstance } from "fastify";
 import type { Config } from "../config.js";
 import { Connection, PublicKey } from "@solana/web3.js";
 import { randomUUID } from "node:crypto";
-import { TREASURY_PUBKEY } from "../solana/instructions.js";
 
 // Demo paywall settings.
 // Price per call: 10_000 atomic = 0.01 USDC on devnet - cheap enough that a
-// single vault deposit covers hundreds of test calls. Recipient is the
-// existing treasury pubkey so the demo doesn't require any new keys.
+// single vault deposit covers hundreds of test calls.
+//
+// Recipient: a deterministic PDA derived from the LobsterPay program with
+// seed ["demo_merchant"]. We need the demo recipient to be DISTINCT from
+// the protocol treasury, otherwise execute_pay_exact's two transfers
+// (98.5% to recipient, 1.5% fee to treasury) target the same ATA and the
+// on-chain DuplicateAccountAliasing check rejects with error 0x1786.
+//
+// A PDA also has the property that no one holds the private key, which
+// matches "demo merchant" semantics - the funds accumulate at this
+// address as a public sink and demonstrate the flow without needing a
+// separate keypair to manage.
 const DEMO_PRICE_ATOMIC = "10000";
 // devnet USDC mint (the same one the dashboard + activity feed surface)
 const DEMO_MINT = "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU";
@@ -70,16 +79,16 @@ function pick<T>(arr: T[]): T {
  * and older clients that use the flat shape still work. Our adapter
  * already accepts these as aliases.
  */
-function buildRequirement(resource: string, paymentId: string, publicApiUrl: string) {
+function buildRequirement(resource: string, paymentId: string, publicApiUrl: string, demoMerchant: PublicKey) {
   return {
     scheme: "exact" as const,
     network: CAIP2_SOLANA_DEVNET,
     maxAmountRequired: DEMO_PRICE_ATOMIC,
     // Back-compat alias; identical to maxAmountRequired.
     amount: DEMO_PRICE_ATOMIC,
-    payTo: TREASURY_PUBKEY.toString(),
+    payTo: demoMerchant.toString(),
     // Back-compat alias; identical to payTo.
-    recipient: TREASURY_PUBKEY.toString(),
+    recipient: demoMerchant.toString(),
     asset: {
       address: DEMO_MINT,
       symbol: DEMO_MINT_SYMBOL,
@@ -244,6 +253,7 @@ async function handlePaywall(opts: {
   connection: Connection;
   publicApiUrl: string;
   resource: string;
+  demoMerchant: PublicKey;
   respond: () => unknown;
 }) {
   // Accept both v2 (PAYMENT-SIGNATURE) and legacy (X-PAYMENT) header
@@ -254,7 +264,7 @@ async function handlePaywall(opts: {
 
   if (!paymentHeader) {
     const paymentId = randomUUID();
-    const requirement = buildRequirement(opts.resource, paymentId, opts.publicApiUrl);
+    const requirement = buildRequirement(opts.resource, paymentId, opts.publicApiUrl, opts.demoMerchant);
     // v2 body shape: top-level envelope with `accepts` array. Extra
     // `paymentRequirements` alias + `instructions` array are non-spec
     // additions that help humans + legacy clients; strict v2 parsers
@@ -294,7 +304,7 @@ async function handlePaywall(opts: {
   const verdict = await verifyOnChainTransfer(
     opts.connection,
     claimed,
-    TREASURY_PUBKEY.toString(),
+    opts.demoMerchant.toString(),
     DEMO_MINT,
     BigInt(DEMO_PRICE_ATOMIC),
   );
@@ -340,6 +350,16 @@ export function demoRoutes(app: FastifyInstance, config: Config) {
   const connection = new Connection(config.SOLANA_RPC_URL, "confirmed");
   const publicApiUrl = (config.PUBLIC_API_URL ?? "").replace(/\/$/, "") || "";
 
+  // Derive the demo merchant pubkey once at startup. Seed
+  // ["demo_merchant"] off the LobsterPay program id; deterministic per
+  // deployment, distinct from the protocol treasury, and not controlled
+  // by anyone (PDAs have no private key).
+  const programId = new PublicKey(config.LOBSTERPAY_PROGRAM_ID);
+  const [demoMerchant] = PublicKey.findProgramAddressSync(
+    [Buffer.from("demo_merchant")],
+    programId,
+  );
+
   // Index - human-readable doc for anyone curling the demo bundle.
   app.get("/v1/demo/x402", async () => ({
     resources: [
@@ -351,18 +371,19 @@ export function demoRoutes(app: FastifyInstance, config: Config) {
       mint: DEMO_MINT,
       humanReadable: "0.01 USDC (devnet)",
     },
-    recipient: TREASURY_PUBKEY.toString(),
+    recipient: demoMerchant.toString(),
     notes: [
       "Each resource returns 402 on first call with paymentRequirements.",
       "Settle via POST /v1/agent/actions/x402, then retry with the X-PAYMENT header.",
       "Each Solana tx signature can unlock content exactly once (anti-replay).",
+      "Recipient is a PDA derived from the LobsterPay program; distinct from the 1.5% treasury so the on-chain DuplicateAccountAliasing check passes.",
     ],
   }));
 
   // Paywalled fortune
   app.get("/v1/demo/x402/fortune", async (request, reply) =>
     handlePaywall({
-      request, reply, connection, publicApiUrl,
+      request, reply, connection, publicApiUrl, demoMerchant,
       resource: "/v1/demo/x402/fortune",
       respond: () => ({ fortune: pick(FORTUNES) }),
     }),
@@ -371,7 +392,7 @@ export function demoRoutes(app: FastifyInstance, config: Config) {
   // Paywalled joke
   app.get("/v1/demo/x402/joke", async (request, reply) =>
     handlePaywall({
-      request, reply, connection, publicApiUrl,
+      request, reply, connection, publicApiUrl, demoMerchant,
       resource: "/v1/demo/x402/joke",
       respond: () => ({ joke: pick(JOKES) }),
     }),
