@@ -79,6 +79,11 @@ jobs:
           node-version: 20
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - name: Generate test keypair
+        # `anchor test` requires a wallet at ~/.config/solana/id.json to
+        # sign tx in the local validator. CI runners have no keypair by
+        # default - generate a throwaway one (no passphrase, no bip39).
+        run: solana-keygen new --no-bip39-passphrase --silent --force --outfile "$HOME/.config/solana/id.json"
       - name: Anchor build
         run: anchor build
       - name: Anchor test
