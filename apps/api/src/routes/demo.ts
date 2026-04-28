@@ -2,6 +2,7 @@ import type { FastifyInstance } from "fastify";
 import type { Config } from "../config.js";
 import { Connection, PublicKey } from "@solana/web3.js";
 import { randomUUID } from "node:crypto";
+import { BPS_DENOMINATOR, SERVICE_FEE_BPS } from "../solana/instructions.js";
 
 // Demo paywall settings.
 // Price per call: 10_000 atomic = 0.01 USDC on devnet - cheap enough that a
@@ -202,10 +203,20 @@ async function verifyOnChainTransfer(
     return { ok: false, reason: `Tx failed on-chain: ${JSON.stringify(tx.meta.err).slice(0, 120)}` };
   }
 
-  // Walk the parsed instructions for any SPL transfer_checked to the
-  // expected recipient's ATA with >= expectedMinAmount. The agent may
-  // transfer more than required (ours always transfers the exact gross
-  // and splits inside the program), so >= is the right comparison.
+  // Walk the parsed instructions for any SPL transfer to the
+  // expected recipient's ATA. LobsterPay's execute_pay_exact splits
+  // gross into (gross - fee) to recipient and `fee` to treasury, so
+  // the recipient ATA receives the NET portion - not the full gross
+  // the agent paid. Compute the expected net by applying the protocol
+  // fee schedule (SERVICE_FEE_BPS / BPS_DENOMINATOR; matches the
+  // on-chain split exactly so the demo never drifts from the program).
+  // Round the protocol fee UP - the on-chain math floors the fee, so
+  // the net the recipient receives is gross minus floored fee, which
+  // is at least gross * (1 - fee_bps / 10_000). Using >= keeps the
+  // check tolerant of ceiling/floor rounding either way.
+  const protocolFee = (expectedMinAmount * SERVICE_FEE_BPS) / BPS_DENOMINATOR;
+  const expectedNet = expectedMinAmount - protocolFee;
+
   const expectedRecipientAta = (await import("@solana/spl-token")).getAssociatedTokenAddressSync(
     new PublicKey(expectedAssetMint),
     new PublicKey(expectedRecipient),
@@ -228,7 +239,7 @@ async function verifyOnChainTransfer(
         if (!dest || !raw) continue;
         if (dest !== expectedRecipientAta) continue;
         try {
-          if (BigInt(raw) >= expectedMinAmount) {
+          if (BigInt(raw) >= expectedNet) {
             return { ok: true };
           }
         } catch {
@@ -239,7 +250,7 @@ async function verifyOnChainTransfer(
   }
   return {
     ok: false,
-    reason: `No SPL transfer found of >= ${expectedMinAmount.toString()} to ${expectedRecipientAta}`,
+    reason: `No SPL transfer found of >= ${expectedNet.toString()} (gross ${expectedMinAmount.toString()} minus ${protocolFee.toString()} protocol fee) to ${expectedRecipientAta}`,
   };
 }
 
