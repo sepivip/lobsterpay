@@ -34,9 +34,40 @@ This is the credit-card model for AI agents: a card with a limit, allowlists, an
 
 ## Try it
 
-> Live on Solana **devnet** at **[lobsterpay.xyz](https://lobsterpay.xyz)**. Connect a Phantom wallet (set to Devnet), create a vault, mint an API key, and try a payment in under two minutes.
->
-> Prefer code? Skip to [Quick Start](#quick-start) or the [SDK example](#example-sdk-usage).
+Live on Solana **devnet** at **[lobsterpay.xyz](https://lobsterpay.xyz)** (UI flow). Or skip the UI - the next 30 seconds proves the whole payment loop with two `curl` calls.
+
+### 30-second proof (curl)
+
+You'll need a `lp_live_...` API key issued from a vault. Connect a wallet at lobsterpay.xyz, create a vault, fund it with a few cents of devnet USDC, and mint a key.
+
+```bash
+export LP_KEY="lp_live_..."
+export LP="https://api.lobsterpay.xyz"
+
+# 1. Hit the demo paywall - returns 402 + payment requirements
+PR=$(curl -sD - $LP/v1/demo/x402/fortune | tr -d '\r' \
+  | awk '/^payment-required: /{sub(/^payment-required: /,""); print}')
+
+# 2. Settle via your vault. Real on-chain transfer; 1.5% goes to the
+#    LobsterPay treasury, the rest goes to the demo merchant PDA.
+RESP=$(curl -sX POST $LP/v1/agent/actions/x402 \
+  -H "Authorization: Bearer $LP_KEY" \
+  -H "Content-Type: application/json" \
+  -d "{\"paymentRequirements\":$(jq '.accepts[0]' <<<"$PR"),\"originalRequestUrl\":\"$LP/v1/demo/x402/fortune\",\"idempotencyKey\":\"demo-$(date +%s)\"}")
+SIG=$(jq -r .txSignature <<<"$RESP")
+HEADER=$(jq -r .xPaymentHeader <<<"$RESP")
+echo "Settled on chain: https://solscan.io/tx/$SIG?cluster=devnet"
+
+# 3. Retry the paywall with the payment header - returns 200 + the content
+curl -s $LP/v1/demo/x402/fortune \
+  -H "PAYMENT-SIGNATURE: $HEADER" -H "X-PAYMENT: $HEADER" | jq .
+```
+
+Expected output: a JSON body with a `fortune` plus a paste-able `txSignature` you can verify on Solscan. Vault balance drops by the demo price; treasury balance ticks up by 1.5% of it.
+
+### `pnpm test:integration`
+
+Same flow plus pay/idempotency/over-limit/swap/x402-facilitator/auth tests, all hitting the live devnet API. Run from a clone, drop a `.env.integration` next to `.env.integration.example`, and you get a tx-signature digest at the end suitable for verification on Solscan. See [`test-integration/README.md`](./test-integration/README.md).
 
 Built for the [Solana Colosseum Hackathon](https://www.colosseum.org/).
 
