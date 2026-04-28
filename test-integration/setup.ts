@@ -19,7 +19,9 @@ export interface TestConfig {
 /** Read & validate test config from process.env. Throws with a clear
  *  message listing every missing variable. */
 export function loadConfig(): TestConfig {
-	const apiKey = process.env.LOBSTERPAY_API_KEY ?? "";
+	// Accept both LOBSTERPAY_API_KEY (canonical) and LOBSTERPAY_API
+	// (used by some pre-existing regression scripts in this repo).
+	const apiKey = process.env.LOBSTERPAY_API_KEY ?? process.env.LOBSTERPAY_API ?? "";
 	const apiUrl = process.env.LOBSTERPAY_API_URL ?? DEFAULT_API_URL;
 	const rpcUrl = process.env.SOLANA_RPC_URL ?? DEFAULT_DEVNET_RPC;
 	const testDestOwner = process.env.TEST_DEST_OWNER ?? "";
