@@ -48,6 +48,12 @@ coverage/
 !apps/web/public/*.png
 !apps/web/public/*.jpg
 
+# Marketing assets at the repo root (social preview, hero PNGs) are also
+# intentional. Without these whitelist lines, the broad *.png / *.jpg
+# rules silently drop them on `git add`.
+!public/marketing/**/*.png
+!public/marketing/**/*.jpg
+
 # Claude Code session transcripts (may contain pasted secrets)
 claude-session.jsonl
 *.session.jsonl
