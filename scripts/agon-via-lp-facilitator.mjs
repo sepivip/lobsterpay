@@ -47,8 +47,10 @@ if (!LP_KEY) {
 // Adjust these to test against a different agon route.
 const AGON_URL =
 	"https://gateway.agonx402.com/v1/x402/solana/devnet/helius/rpc/getAccountInfo";
+// Arbitrary pubkey for the upstream getAccountInfo call. System Program
+// is a safe, well-known public account that always exists on every cluster.
 const RPC_BODY = {
-	params: ["EVfTBY7prqCDMU3LYHAe1LBDpHfjughceYmicBLB8atF"],
+	params: ["11111111111111111111111111111111"],
 };
 
 const hr = (t) => console.log(`\n=== ${t} ===`);
