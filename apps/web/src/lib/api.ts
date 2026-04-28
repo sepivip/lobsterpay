@@ -18,7 +18,14 @@ let _cachedAuth: {
 } | null = null;
 
 // Coalesce concurrent owner-auth requests into a single Phantom popup.
-let _inflightSign: Promise<{ signature: string; timestamp: string }> | null = null;
+// The promise carries the address it was started for so we can detect a
+// wallet swap that happened mid-sign and reject the stale result.
+let _inflightSign:
+	| {
+			address: string;
+			promise: Promise<{ address: string; signature: string; timestamp: string }>;
+	  }
+	| null = null;
 
 /** Set the connected wallet's address and signMessage function. */
 export function setWallet(address: string | null, signMessage: SignMessageFn | null) {
@@ -27,33 +34,37 @@ export function setWallet(address: string | null, signMessage: SignMessageFn | n
 	_signMessage = signMessage;
 	if (changed) {
 		_cachedAuth = null;
+		// An in-flight signature against the previous wallet is now meaningless.
+		// Drop the reference so a new sign request fires for the new wallet.
+		_inflightSign = null;
 	}
 }
 
-/** Backwards-compat shim — providers.tsx calls this with just the address. */
+/** Backwards-compat shim for callers that only have the wallet address. */
 export function setWalletAddress(address: string | null) {
 	setWallet(address, _signMessage);
 }
 
-async function signOwnerAuth(): Promise<{ signature: string; timestamp: string }> {
-	if (!_walletAddress) throw new Error("Wallet not connected");
-	if (!_signMessage) {
-		throw new Error("Connected wallet does not expose signMessage");
-	}
-
+async function signOwnerAuth(
+	address: string,
+	signMessage: SignMessageFn,
+): Promise<{ address: string; signature: string; timestamp: string }> {
 	const timestamp = Date.now().toString();
-	const message = `LobsterPay-auth:${_walletAddress}:${timestamp}`;
+	const message = `LobsterPay-auth:${address}:${timestamp}`;
 	const messageBytes = new TextEncoder().encode(message);
-	const signatureBytes = await _signMessage(messageBytes);
+	const signatureBytes = await signMessage(messageBytes);
 	const signature = bs58.encode(signatureBytes);
-	return { signature, timestamp };
+	return { address, signature, timestamp };
 }
 
 async function getOwnerAuthHeaders(): Promise<Record<string, string>> {
-	if (!_walletAddress) throw new Error("Wallet not connected");
+	const address = _walletAddress;
+	const signMessage = _signMessage;
+	if (!address) throw new Error("Wallet not connected");
+	if (!signMessage) throw new Error("Connected wallet does not expose signMessage");
 
 	const cached = _cachedAuth;
-	if (cached && cached.walletAddress === _walletAddress && Date.now() < cached.expiresAt) {
+	if (cached && cached.walletAddress === address && Date.now() < cached.expiresAt) {
 		return {
 			"X-Wallet-Address": cached.walletAddress,
 			"X-Wallet-Signature": cached.signature,
@@ -61,24 +72,36 @@ async function getOwnerAuthHeaders(): Promise<Record<string, string>> {
 		};
 	}
 
-	if (!_inflightSign) {
-		_inflightSign = signOwnerAuth().finally(() => {
-			_inflightSign = null;
+	// Coalesce, but only reuse an in-flight promise if it was started for
+	// the SAME address as the current wallet. If the user swapped wallets
+	// while a popup was open, the old promise's signature is invalid for
+	// the new address and we must start a fresh one.
+	if (!_inflightSign || _inflightSign.address !== address) {
+		const promise = signOwnerAuth(address, signMessage).finally(() => {
+			if (_inflightSign?.address === address) _inflightSign = null;
 		});
+		_inflightSign = { address, promise };
 	}
-	const { signature, timestamp } = await _inflightSign;
+	const result = await _inflightSign.promise;
+
+	// Re-check that the wallet hasn't changed since we awaited. If it has,
+	// the signature we just got is for the wrong address - throw rather
+	// than poison the cache. The caller will retry under the new wallet.
+	if (result.address !== _walletAddress) {
+		throw new Error("Wallet changed during signature; please retry");
+	}
 
 	_cachedAuth = {
-		walletAddress: _walletAddress,
-		signature,
-		timestamp,
+		walletAddress: result.address,
+		signature: result.signature,
+		timestamp: result.timestamp,
 		expiresAt: Date.now() + OWNER_AUTH_TTL_MS,
 	};
 
 	return {
-		"X-Wallet-Address": _walletAddress,
-		"X-Wallet-Signature": signature,
-		"X-Wallet-Timestamp": timestamp,
+		"X-Wallet-Address": result.address,
+		"X-Wallet-Signature": result.signature,
+		"X-Wallet-Timestamp": result.timestamp,
 	};
 }
 

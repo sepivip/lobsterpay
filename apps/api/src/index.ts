@@ -20,6 +20,12 @@ async function main() {
     logger: {
       level: config.LOG_LEVEL,
     },
+    // Railway / Cloudflare put the API behind an edge proxy, so the
+    // socket-level remote address is the proxy's internal IP. trustProxy
+    // makes Fastify use X-Forwarded-For to surface the real client IP via
+    // request.ip, which is what @fastify/rate-limit keys off by default.
+    // Without this, every request would share one rate-limit bucket.
+    trustProxy: true,
   });
 
   await app.register(cors, {

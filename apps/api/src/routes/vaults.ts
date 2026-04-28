@@ -275,7 +275,7 @@ function transformActivity(
 // more than 60s in the future for clock skew). The frontend caches the
 // signed headers for ~10 min so users only see one Phantom popup per
 // session of dashboard activity.
-function ownerAuth(_db: Db) {
+function ownerAuth() {
   return async (request: FastifyRequest, reply: FastifyReply) => {
     const walletAddress = request.headers["x-wallet-address"] as string | undefined;
     const walletSignature = request.headers["x-wallet-signature"] as string | undefined;
@@ -287,15 +287,17 @@ function ownerAuth(_db: Db) {
       const message =
         code === "missing_headers"
           ? "X-Wallet-Address, X-Wallet-Signature, and X-Wallet-Timestamp headers required"
-          : code === "stale_timestamp"
-            ? "Signature timestamp is older than 10 minutes; please re-sign"
-            : code === "future_timestamp"
-              ? "Signature timestamp is too far in the future; check your clock"
-              : code === "invalid_signature"
-                ? "Wallet signature did not verify against the claimed address"
-                : code === "invalid_address"
-                  ? "X-Wallet-Address is not a valid Solana pubkey"
-                  : "Invalid auth headers";
+          : code === "invalid_timestamp"
+            ? "X-Wallet-Timestamp must be a Unix timestamp in milliseconds"
+            : code === "stale_timestamp"
+              ? "Signature timestamp is older than 10 minutes; please re-sign"
+              : code === "future_timestamp"
+                ? "Signature timestamp is too far in the future; check your clock"
+                : code === "invalid_signature"
+                  ? "Wallet signature did not verify against the claimed address"
+                  : code === "invalid_address"
+                    ? "X-Wallet-Address is not a valid Solana pubkey"
+                    : "Invalid auth headers";
       return reply.status(401).send({ code, message });
     }
 
@@ -318,7 +320,7 @@ export function vaultRoutes(app: FastifyInstance, db: Db, config: Config) {
   const vaultService = createVaultService(db, config);
   const apiKeyService = createApiKeyService(db);
   const txService = createTxService(db, config);
-  const ownerMiddleware = ownerAuth(db);
+  const ownerMiddleware = ownerAuth();
 
   async function loadVaultForOwner(vaultId: string) {
     const rows = await db`SELECT * FROM vaults WHERE id = ${vaultId}`;
