@@ -114,7 +114,19 @@ export function parsePaymentRequirements(
 		);
 	}
 
-	const asset = (data.asset || data.mint || data.token) as string | undefined;
+	// `asset` shape varies between x402 versions. Pre-v2 + LobsterPay's
+	// own legacy alias send a bare mint string. The v2 spec wraps it as
+	// `{ address, symbol, decimals }`. Accept either; carry forward only
+	// the mint pubkey - everything downstream (tx builder, on-chain
+	// program, activity log) works in atomic units of the mint, so the
+	// extra symbol/decimals are noise here.
+	const rawAsset = data.asset ?? data.mint ?? data.token;
+	const asset =
+		typeof rawAsset === "string"
+			? rawAsset
+			: rawAsset && typeof rawAsset === "object" && typeof (rawAsset as { address?: unknown }).address === "string"
+				? (rawAsset as { address: string }).address
+				: undefined;
 	if (!asset) throw new Error("Missing asset/mint in payment requirements");
 
 	const amount = (data.amount || data.amountAtomic) as string | number | undefined;
