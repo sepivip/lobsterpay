@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Live demo
+    url: https://lobsterpay.xyz
+    about: Try LobsterPay before filing an issue.
+  - name: Security report
+    url: https://github.com/sepivip/lobsterpay/security/advisories/new
+    about: Privately disclose a vulnerability (do not open a public issue).

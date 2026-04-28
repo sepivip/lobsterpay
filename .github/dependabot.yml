@@ -1,0 +1,33 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      next:
+        patterns:
+          - next
+          - "@next/*"
+          - react
+          - react-dom
+      solana:
+        patterns:
+          - "@solana/*"
+          - "@coral-xyz/*"
+      fastify:
+        patterns:
+          - fastify
+          - "@fastify/*"
+
+  - package-ecosystem: cargo
+    directory: /programs/lobsterpay
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 3
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
