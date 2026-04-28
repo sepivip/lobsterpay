@@ -23,7 +23,7 @@ jobs:
       # package.json (currently pnpm@9.15.4). Specifying `version` here
       # too triggers ERR_PNPM_BAD_PM_VERSION.
       - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: 20
           cache: pnpm
@@ -74,7 +74,7 @@ jobs:
       # package.json (currently pnpm@9.15.4). Specifying `version` here
       # too triggers ERR_PNPM_BAD_PM_VERSION.
       - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: 20
           cache: pnpm
