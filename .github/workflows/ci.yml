@@ -9,6 +9,10 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  SOLANA_CLI_VERSION: "3.1.13"
+  ANCHOR_VERSION: "0.31.1"
+
 jobs:
   node:
     name: node (lint + build)
@@ -24,9 +28,11 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - name: Biome
-        run: pnpm exec biome ci . || true
-        # `|| true` until the existing repo-wide lint backlog is paid down;
-        # remove once `pnpm lint` is clean.
+        # Non-blocking until the existing repo-wide lint backlog is paid
+        # down. Use continue-on-error so failures are visible in the UI
+        # rather than silently swallowed by `|| true`.
+        continue-on-error: true
+        run: pnpm exec biome ci .
       - name: TypeScript build (workspace)
         run: pnpm -r build
 
@@ -40,19 +46,29 @@ jobs:
           toolchain: 1.92.0
           components: rustfmt, clippy
       - name: Cache cargo
+        # Cache ~/.cargo/bin too so the anchor-cli install survives
+        # across CI runs (re-installing it via cargo install --git is
+        # slow and flaky on a cold cache).
         uses: actions/cache@v4
         with:
           path: |
+            ~/.cargo/bin
             ~/.cargo/registry
             ~/.cargo/git
             target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-      - name: Install Solana CLI
+          key: ${{ runner.os }}-cargo-anchor-${{ env.ANCHOR_VERSION }}-${{ hashFiles('**/Cargo.lock') }}
+      - name: Install Solana CLI ${{ env.SOLANA_CLI_VERSION }}
         run: |
-          sh -c "$(curl -sSfL https://release.anza.xyz/v1.18.26/install)"
+          sh -c "$(curl -sSfL https://release.anza.xyz/v${{ env.SOLANA_CLI_VERSION }}/install)"
           echo "$HOME/.local/share/solana/install/active_release/bin" >> "$GITHUB_PATH"
-      - name: Install Anchor 0.31.1
-        run: cargo install --git https://github.com/coral-xyz/anchor --tag v0.31.1 anchor-cli --locked
+      - name: Install Anchor ${{ env.ANCHOR_VERSION }} (skip if cached)
+        run: |
+          if ! command -v anchor >/dev/null 2>&1; then
+            cargo install --git https://github.com/coral-xyz/anchor \
+              --tag "v${{ env.ANCHOR_VERSION }}" anchor-cli --locked
+          else
+            echo "anchor already installed: $(anchor --version)"
+          fi
       - uses: pnpm/action-setup@v4
         with:
           version: 9

@@ -22,7 +22,10 @@ updates:
           - "@fastify/*"
 
   - package-ecosystem: cargo
-    directory: /programs/lobsterpay
+    # Cargo workspace's Cargo.lock lives at the repo root, not under
+    # programs/lobsterpay - dependabot needs the directory pointing at
+    # the lockfile or it silently does nothing.
+    directory: /
     schedule:
       interval: weekly
     open-pull-requests-limit: 3
