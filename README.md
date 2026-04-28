@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/sepivip/lobsterpay/main/public/marketing/anim/lobster-walk.gif" alt="LobsterPay" width="640" />
+  <img src="./public/marketing/anim/lobster-walk.gif" alt="LobsterPay" width="640" />
 </p>
 
 <h1 align="center">LobsterPay</h1>
