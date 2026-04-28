@@ -2,7 +2,7 @@
 
 > Persistent context for Claude Code sessions. Read this first.
 >
-> Last updated: 2026-04-24
+> Last updated: 2026-04-28
 
 ## What LobsterPay is
 
@@ -145,17 +145,31 @@ Remaining (non-blocking for hackathon):
 - ✅ End-to-end smoke test passed: wallet connect → create vault → init fee vault → deposit SOL → manage keys → set policy
 - ✅ 1.5% service fee + fee reimbursement economics wired onchain
 - ✅ Skill versioning system with `/v1/skills/version` polling endpoint
-- ✅ **x402 - both modes confirmed end-to-end on devnet (2026-04-24).**
+- ✅ **x402 - all three modes (submit + facilitator + SIWX) confirmed end-to-end on devnet (2026-04-28).**
   Submit-mode (`POST /v1/agent/actions/x402`) works with upstreams that
-  verify by on-chain tx-signature lookup (our `/v1/demo/x402/*`).
+  verify by on-chain tx-signature lookup (our `/v1/demo/x402/*` paywall).
   Facilitator-mode (`POST /v1/agent/actions/x402-facilitator`) works
   with spec-conformant x402 facilitator gateways (verified live against
-  agonx402 - tx1 [`5N61j…XH3`](https://solscan.io/tx/5N61jrzQRRmmuvMnWSYrg3MVoDwihPC9RGLTQjMHQ5jHPwZtcCLn3fDcWweAtZTmoSiV6vUgfqwVvqdnvFZvYXH3?cluster=devnet) settled vault→relayer, tx2 [`2vanr…EaX`](https://solscan.io/tx/2vanrbeyh76VDkrvHJneE5J1K3CiQosxJauaumYoexpVp8v8YSPHFwmQoyThiBSfeQgu15MU4HypyYx9E67GFEaX?cluster=devnet) submitted by agon). Two-tx passthrough: vault → relayer
-  via `execute_pay_exact` (1.5% to treasury), then a partial-signed v0
-  `transferChecked` from relayer → facilitator's `payTo` returned to
-  the agent for the gateway to co-sign + submit. Facilitator fee-payer
-  auto-extracted from `paymentRequirements.extra.feePayer`. No Anchor
-  changes required. Regression script: `node scripts/agon-via-lp-facilitator.mjs`.
+  agonx402). Two-tx passthrough: vault → relayer via `execute_pay_exact`
+  (1.5% to treasury), then a partial-signed v0 `transferChecked` from
+  relayer → facilitator's `payTo` returned to the agent for the
+  gateway to co-sign + submit. Facilitator fee-payer auto-extracted
+  from `paymentRequirements.extra.feePayer`.
+- ✅ **Live integration suite at `test-integration/` - 15 passing, 3
+  intentional skips on the live API.** Covers vault read, pay (happy
+  path + idempotency replay + over-limit + rejected-dest), swap quote
+  + execute (asserts the on-chain stub), x402 submit + facilitator +
+  SIWX, auth negative paths. Run via `pnpm test:integration` with a
+  `.env.integration` file alongside the existing repo creds; produces
+  a tx-signature digest at the end suitable for screenshots / video.
+  Skips: external Jupiter quote upstream (transient 502s), external
+  SIWX gateway, agent-side activity feed (owner-only by design).
+- ✅ **Bug-chain closed via integration testing (PRs #52, #53, #54, #55).**
+  Submit-mode against the in-house demo paywall was broken end-to-end.
+  Four real production bugs surfaced and fixed: v2 `asset` object not
+  unwrapped in parser; demo recipient = treasury (DuplicateAccountAliasing);
+  `getAssociatedTokenAddressSync` rejected off-curve PDA owners +
+  empty error wrapping; demo verifier ignored the 1.5% protocol fee.
 
 ## Roadmap
 
