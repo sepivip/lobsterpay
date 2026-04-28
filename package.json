@@ -11,7 +11,8 @@
     "format": "biome format --write .",
     "db:migrate": "pnpm --filter @lobsterpay/api db:migrate",
     "test": "turbo run test",
-    "test:anchor": "anchor test"
+    "test:anchor": "anchor test",
+    "test:integration": "node --env-file=.env.integration node_modules/mocha/bin/mocha.js --config .mocharc.integration.cjs"
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",
@@ -23,6 +24,7 @@
     "chai": "^6.2.2",
     "mocha": "^11.7.5",
     "ts-mocha": "^11.1.0",
+    "tsx": "^4.19.2",
     "turbo": "^2.3.3",
     "typescript": "^5.7.2"
   },
