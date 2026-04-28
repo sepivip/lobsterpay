@@ -14,8 +14,10 @@ describe("tx digest", () => {
 		const labelWidth = Math.max(...txDigest.map((e) => e.label.length));
 		for (const e of txDigest) {
 			console.log(`${e.label.padEnd(labelWidth + 2)}${e.signature}`);
+			console.log(
+				`${" ".repeat(labelWidth + 2)}https://solscan.io/tx/${e.signature}?cluster=devnet`,
+			);
 		}
 		console.log("=================");
-		console.log("Solscan devnet: https://solscan.io/tx/<sig>?cluster=devnet");
 	});
 });
