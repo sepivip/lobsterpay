@@ -15,7 +15,9 @@
 
 import Anthropic from "@anthropic-ai/sdk";
 import { betaZodTool } from "@anthropic-ai/sdk/helpers/beta/zod";
-import { z } from "zod";
+// betaZodTool expects Zod v4 schemas. zod 3.25+ ships a `zod/v4` subpath
+// that exposes v4 alongside the legacy v3 default export.
+import { z } from "zod/v4";
 
 const LOBSTERPAY_API_URL = (
 	process.env.LOBSTERPAY_API_URL ?? "https://api.lobsterpay.xyz"
