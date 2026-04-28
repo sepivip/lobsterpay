@@ -18,7 +18,7 @@
   "devDependencies": {
     "@anthropic-ai/sdk": "^0.91.1",
     "@biomejs/biome": "^1.9.4",
-    "@coral-xyz/anchor": "^0.30.1",
+    "@coral-xyz/anchor": "^0.32.1",
     "@solana/spl-token": "^0.4.14",
     "@solana/web3.js": "^1.98.0",
     "@types/chai": "^5.2.3",
