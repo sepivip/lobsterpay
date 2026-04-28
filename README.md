@@ -1,10 +1,54 @@
-# LobsterPay
+<h1 align="center">LobsterPay</h1>
 
-**Give agents limits, not seed phrases.**
+<p align="center">
+  <strong>Give agents limits, not seed phrases.</strong><br/>
+  A permissioned payment layer for AI agents on Solana.
+</p>
 
-LobsterPay is a permissioned payment layer for AI agents on Solana. Users create program-controlled vaults, fund them with tokens, and issue API keys with granular spending limits. Agents call a simple HTTP API - the backend enforces limits and executes approved onchain transactions. Private keys never leave the owner's wallet.
+<p align="center">
+  <a href="https://lobsterpay.xyz"><img src="https://img.shields.io/badge/demo-lobsterpay.xyz-ff5a36?style=flat-square" alt="Live demo" /></a>
+  <a href="https://github.com/sepivip/lobsterpay/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/sepivip/lobsterpay/ci.yml?branch=main&style=flat-square&label=ci" alt="CI" /></a>
+  <a href="./LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="MIT" /></a>
+  <img src="https://img.shields.io/badge/anchor-0.31.1-9945ff?style=flat-square" alt="Anchor 0.31.1" />
+  <img src="https://img.shields.io/badge/network-devnet-14f195?style=flat-square" alt="Solana devnet" />
+  <img src="https://img.shields.io/badge/node-20%2B-3c873a?style=flat-square" alt="Node 20+" />
+</p>
+
+---
+
+## Why
+
+AI agents need to spend money. The options today are bad:
+
+- **Hand the agent a seed phrase.** It now has root access to your wallet forever. One prompt-injection or leaky log line drains everything.
+- **Wrap every transaction in human approval.** You just killed the autonomy that made the agent useful.
+- **Pre-fund a fresh wallet per agent.** Now you are a treasury manager.
+
+LobsterPay gives the agent an **API key** scoped to a **program-controlled vault**. You set per-tx and daily limits, mint and destination allowlists, and an emergency pause. The agent gets HTTP, not signing authority. Limits are enforced both off-chain (backend) and on-chain (Anchor program guards).
+
+This is the credit-card model for AI agents: a card with a limit, allowlists, and fraud monitoring, instead of unbounded trust.
+
+## Try it
+
+> Live on Solana **devnet** at **[lobsterpay.xyz](https://lobsterpay.xyz)**. Connect a Phantom wallet (set to Devnet), create a vault, mint an API key, and try a payment in under two minutes.
+>
+> Prefer code? Skip to [Quick Start](#quick-start) or the [SDK example](#example-sdk-usage).
 
 Built for the [Solana Colosseum Hackathon](https://www.colosseum.org/).
+
+## Animations
+
+Short product walkthroughs. GitHub renders these inline when clicked.
+
+| | |
+|---|---|
+| [Boot sequence](./public/marketing/anim/boot-sequence.mp4) | [Policy gate](./public/marketing/anim/policy-gate.mp4) |
+| [USDC stream](./public/marketing/anim/usdc-stream.mp4) | [Rejected payment](./public/marketing/anim/rejected.mp4) |
+| [x402 handshake](./public/marketing/anim/x402-handshake.mp4) | [Multi-agent](./public/marketing/anim/multi-agent.mp4) |
+| [Fee flow](./public/marketing/anim/fee-flow.mp4) | [Budget ticker](./public/marketing/anim/budget-ticker.mp4) |
+| [SIWX sign](./public/marketing/anim/siwx-sign.mp4) | [Terminal demo](./public/marketing/anim/terminal-demo.mp4) |
+
+Live preview pages at [`/experiments/anim`](https://lobsterpay.xyz/experiments/anim).
 
 ## Architecture
 
@@ -247,6 +291,10 @@ Program ID: `A184DBQaCM6qWETbEDJUtr25bSuuTH72sTTixsyoZbtS`
 - **Swap:** Jupiter v6 API
 - **Types:** Zod schemas, strict TypeScript throughout
 
+## Contributing
+
+PRs welcome. See [CONTRIBUTING.md](./CONTRIBUTING.md) for the workflow, and [SECURITY.md](./SECURITY.md) for vulnerability reports (do not open public issues for security).
+
 ## License
 
-MIT
+MIT - see [LICENSE](./LICENSE).
