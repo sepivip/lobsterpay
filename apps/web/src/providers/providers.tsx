@@ -1,22 +1,26 @@
 "use client";
 
-import { useMemo, useEffect } from "react";
+import { setWallet } from "@/lib/api";
 import { ConnectionProvider, WalletProvider, useWallet } from "@solana/wallet-adapter-react";
 import { WalletModalProvider } from "@solana/wallet-adapter-react-ui";
 import { PhantomWalletAdapter, SolflareWalletAdapter } from "@solana/wallet-adapter-wallets";
+import { useEffect, useMemo } from "react";
 import { Toaster } from "react-hot-toast";
-import { setWalletAddress } from "@/lib/api";
 // NOTE: wallet-adapter-react-ui/styles.css is imported from globals.css so
 // our overrides in that file naturally cascade after the library defaults.
 
 const RPC_URL = process.env.NEXT_PUBLIC_SOLANA_RPC_URL || "https://api.devnet.solana.com";
 
-/** Syncs the connected wallet address to the API client for X-Wallet-Address header */
+/**
+ * Syncs the connected wallet address + signMessage handler to the API
+ * client. The API client uses signMessage to obtain the X-Wallet-Signature
+ * header on owner-authenticated endpoints.
+ */
 function WalletSync({ children }: { children: React.ReactNode }) {
-	const { publicKey } = useWallet();
+	const { publicKey, signMessage } = useWallet();
 	useEffect(() => {
-		setWalletAddress(publicKey?.toString() ?? null);
-	}, [publicKey]);
+		setWallet(publicKey?.toString() ?? null, signMessage ?? null);
+	}, [publicKey, signMessage]);
 	return <>{children}</>;
 }
 

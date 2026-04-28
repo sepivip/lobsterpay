@@ -1,5 +1,6 @@
 import Fastify from "fastify";
 import cors from "@fastify/cors";
+import rateLimit from "@fastify/rate-limit";
 import { loadConfig } from "./config.js";
 import { createDb } from "./db/client.js";
 import { createTxService } from "./services/tx.service.js";
@@ -19,14 +20,32 @@ async function main() {
     logger: {
       level: config.LOG_LEVEL,
     },
+    // Railway / Cloudflare put the API behind an edge proxy, so the
+    // socket-level remote address is the proxy's internal IP. trustProxy
+    // makes Fastify use X-Forwarded-For to surface the real client IP via
+    // request.ip, which is what @fastify/rate-limit keys off by default.
+    // Without this, every request would share one rate-limit bucket.
+    trustProxy: true,
   });
 
   await app.register(cors, {
     origin: config.ALLOWED_ORIGIN ? config.ALLOWED_ORIGIN.split(",") : true,
   });
 
-  // Health check
-  app.get("/health", async () => ({ status: "ok" }));
+  // Global rate limit. Applies to every route unless an opt-out is set
+  // per-route via { config: { rateLimit: false } }. Authenticated agent
+  // endpoints (Bearer API key) are still bounded by this IP-level cap as
+  // a coarse abuse guard; per-key budgeting lives in the on-chain policy.
+  await app.register(rateLimit, {
+    global: true,
+    max: 120,
+    timeWindow: "1 minute",
+    cache: 10_000,
+    skipOnError: true,
+  });
+
+  // Health check (skip rate limit so monitoring probes never get throttled).
+  app.get("/health", { config: { rateLimit: false } }, async () => ({ status: "ok" }));
 
   // Register routes
   vaultRoutes(app, db, config);
