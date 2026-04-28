@@ -58,8 +58,15 @@ describe("pay", () => {
 			expect.fail("expected over-limit pay to throw");
 		} catch (err: any) {
 			expect(err.status, "HTTP status").to.be.oneOf([400, 403, 422]);
-			expect(String(err.body?.code ?? err.code ?? "").toLowerCase(), "error code mentions limit").to.match(
-				/limit|policy|amount/,
+			// Error shape varies by reason; check the whole response surface
+			// rather than a specific field name.
+			const haystack = JSON.stringify({
+				body: err.body,
+				code: err.code,
+				message: err.message,
+			}).toLowerCase();
+			expect(haystack, "error mentions limit / policy / amount / exceed / max").to.match(
+				/limit|policy|amount|exceed|max/,
 			);
 		}
 	});

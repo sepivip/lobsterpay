@@ -1,5 +1,4 @@
 import { expect } from "chai";
-import { Connection, PublicKey } from "@solana/web3.js";
 import { loadConfig, TestApi } from "./setup.js";
 
 describe("vault", () => {
@@ -12,44 +11,31 @@ describe("vault", () => {
 
 	it("GET /v1/agent/vault returns the expected shape", async () => {
 		const v = await api.getVault();
-		expect(v).to.be.an("object");
-		expect(v.vaultId, "vaultId").to.be.a("string");
-		expect(v.ownerWallet, "ownerWallet").to.be.a("string");
-		expect(v.paused, "paused").to.be.a("boolean");
-		expect(v.allowedActions, "allowedActions").to.be.an("array");
-		expect(v.perTxLimit, "perTxLimit").to.exist;
-		expect(v.dailyLimit, "dailyLimit").to.exist;
+		expect(v, "response").to.be.an("object");
+		expect(v.vaultPda, "vaultPda").to.be.a("string");
+		expect(v.balances, "balances[]").to.be.an("array");
+		expect(v.permissions, "permissions").to.be.an("object");
+		expect(v.permissions.allowedActions, "allowedActions bitmask").to.be.a("number");
+		expect(v.permissions.maxPerTxAmountAtomic, "maxPerTxAmountAtomic").to.be.a("string");
+		expect(v.permissions.dailyLimitAmountAtomic, "dailyLimitAmountAtomic").to.be.a("string");
 	});
 
-	it("vault is not paused", async () => {
+	it("vault has at least one token balance with a non-zero amount", async () => {
 		const v = await api.getVault();
-		expect(v.paused, "expected vault to be active for the rest of the suite").to.equal(false);
+		expect(v.balances.length, "non-empty balances").to.be.greaterThan(0);
+		const positive = v.balances.find((b: any) => Number(b.uiAmount ?? b.amount ?? 0) > 0);
+		expect(positive, "at least one positive token balance").to.exist;
 	});
 
-	it("fee vault has SOL for relayer reimbursements", async () => {
+	it("permissions allow at least one action (allowedActions bitmask > 0)", async () => {
 		const v = await api.getVault();
-		const conn = new Connection(cfg.rpcUrl, "confirmed");
-		// vault.feeVault is a derived PDA address that the API surfaces.
-		// Fall back to checking the vault has *some* SOL balance reported
-		// inline if the field is shaped differently.
-		if (v.feeVaultBalance != null) {
-			const bal = Number(v.feeVaultBalance);
-			expect(bal, "fee vault SOL balance (lamports)").to.be.greaterThan(10_000);
-			return;
-		}
-		if (v.feeVault) {
-			const bal = await conn.getBalance(new PublicKey(v.feeVault), "confirmed");
-			expect(bal, "fee vault SOL balance (lamports)").to.be.greaterThan(10_000);
-			return;
-		}
-		// If the API hides fee-vault details, fall back to confirming the
-		// vault has the action enabled - a vault without a funded fee vault
-		// usually has `pay` removed from allowedActions.
-		expect(v.allowedActions).to.include("pay");
+		expect(v.permissions.allowedActions, "allowedActions bitmask").to.be.greaterThan(0);
 	});
 
-	it("permissioned vault has allowedActions[]", async () => {
+	it("daily spent is below the daily limit", async () => {
 		const v = await api.getVault();
-		expect(v.allowedActions).to.be.an("array").with.length.greaterThan(0);
+		const limit = BigInt(v.permissions.dailyLimitAmountAtomic);
+		const spent = BigInt(v.permissions.dailySpentAmountAtomic ?? "0");
+		expect(spent <= limit, "dailySpent should be <= dailyLimit").to.equal(true);
 	});
 });

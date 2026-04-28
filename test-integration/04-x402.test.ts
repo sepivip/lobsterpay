@@ -14,14 +14,28 @@ describe("x402", () => {
 	 *  signature-verifying 402 - this exercises pure submit-mode end to
 	 *  end without depending on any external gateway. */
 	it("submit mode: settles a payment to lobsterpay's own demo paywall and the upstream returns 200", async () => {
-		const demoUrl = `${cfg.apiUrl}/v1/demo/x402/article-1`;
+		const demoUrl = `${cfg.apiUrl}/v1/demo/x402/fortune`;
 		const r1 = await fetch(demoUrl);
 		expect(r1.status, "first call to demo paywall returns 402").to.equal(402);
-		const headerB64 = r1.headers.get("payment-required");
+		const headerVal = r1.headers.get("payment-required");
 		const inlineBody = await r1.text();
-		const decoded = headerB64
-			? JSON.parse(Buffer.from(headerB64, "base64").toString("utf8"))
-			: JSON.parse(inlineBody);
+		// LobsterPay's demo paywall sends the payment-required header as
+		// raw JSON; agonx402-style gateways base64-encode it. Try parsing
+		// raw first, fall back to base64-decode, and finally to the body.
+		const decoded = (() => {
+			if (headerVal) {
+				try {
+					return JSON.parse(headerVal);
+				} catch {
+					try {
+						return JSON.parse(Buffer.from(headerVal, "base64").toString("utf8"));
+					} catch {
+						/* fall through to body */
+					}
+				}
+			}
+			return JSON.parse(inlineBody);
+		})();
 		const requirements = decoded.accepts?.[0] ?? decoded.paymentRequirements ?? decoded;
 
 		const settle = await api.executeX402({
