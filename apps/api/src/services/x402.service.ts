@@ -119,6 +119,29 @@ function adapterClusterFromConfig(c: Config["SOLANA_CLUSTER"]): SolanaCluster | 
  * Returns null if the mint is OK to use, otherwise an error string
  * suitable for surfacing to the caller.
  */
+/**
+ * Render anything thrown in a settle path into a non-empty string. Some
+ * exceptions in this code path (notably TokenOwnerOffCurveError from
+ * spl-token) carry their detail in `name` rather than `message`, and
+ * naively reading `.message` produced empty trailing strings like
+ * "x402 settlement failed: " on the agent response.
+ */
+function formatThrowable(err: unknown): string {
+  if (!err) return "unknown error";
+  if (typeof err === "string") return err.slice(0, 200);
+  const e = err as { message?: unknown; name?: unknown };
+  const message = typeof e.message === "string" && e.message.trim() ? e.message : "";
+  const name = typeof e.name === "string" && e.name.trim() && e.name !== "Error" ? e.name : "";
+  if (message && name) return `${name}: ${message}`.slice(0, 200);
+  if (message) return message.slice(0, 200);
+  if (name) return name.slice(0, 200);
+  try {
+    return String(err).slice(0, 200) || "unknown error";
+  } catch {
+    return "unknown error";
+  }
+}
+
 async function checkClassicSplMint(
   connection: Connection,
   mintPubkey: PublicKey,
@@ -399,9 +422,15 @@ export function createX402Service(db: Db, config: Config) {
           };
         }
 
-        // Destination ATA from the 402's recipient wallet
+        // Destination ATA from the 402's recipient wallet. Pass
+        // `allowOwnerOffCurve = true` because the recipient may legally
+        // be a PDA (e.g. our own /v1/demo/x402/* paywall uses a
+        // ["demo_merchant"] PDA, and other paywalls may route to escrow
+        // PDAs). Without this flag spl-token throws TokenOwnerOffCurveError
+        // before the tx ever leaves the box, which used to surface as a
+        // baffling empty-string "x402 settlement failed: " response.
         const recipientPubkey = new PublicKey(requirements.recipient);
-        const destTokenAcct = getAssociatedTokenAddressSync(mintPubkey, recipientPubkey);
+        const destTokenAcct = getAssociatedTokenAddressSync(mintPubkey, recipientPubkey, true);
 
         // Treasury ATA for the 1.5% service fee
         const treasuryTokenAcct = getTreasuryTokenAccount(mintPubkey, TOKEN_PROGRAM_ID);
@@ -555,7 +584,7 @@ export function createX402Service(db: Db, config: Config) {
           paymentId: requirements.paymentId || null,
           error: isTimeout
             ? "Transaction confirmation timed out; status uncertain"
-            : `x402 settlement failed: ${String(err?.message ?? err).slice(0, 200)}`,
+            : `x402 settlement failed: ${formatThrowable(err)}`,
         };
       }
     },
